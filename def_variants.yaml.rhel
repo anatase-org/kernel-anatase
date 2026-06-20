@@ -330,6 +330,7 @@ rules:
   - drivers/usb/gadget/function/usb_f_midi2.*: modules
   - drivers/usb/image/.*: modules
   - drivers/usb/misc/trancevibrator.*: modules-extra
+  - drivers/usb/misc/usbio.ko: modules-core
   - drivers/usb/misc/.*: modules
   - drivers/usb/serial/.*: modules
   - drivers/usb/typec/mux/nb7vpq904m.*: modules
@@ -370,6 +371,7 @@ rules:
   - fs/bcachefs/.*: modules-core
   - fs/befs/befs.*: modules-extra
   - fs/binfmt_misc.ko: modules-core
+  - fs/btrfs/.*: modules-internal
   - fs/cachefiles/.*: modules-core
   - fs/ceph/.*: modules-core
   - fs/coda/coda.*: modules-extra

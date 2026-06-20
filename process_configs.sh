@@ -384,7 +384,8 @@ function commit_new_configs()
 
 	# Commit the new configuration files to git
 	git add "$SCRIPT_DIR/pending-$FLAVOR"
-	git commit -m "[redhat] AUTOMATIC: New $FLAVOR configs"
+	# DO NOT CHANGE THIS MESSAGE! gen_config_patches.sh looks for this commit message.
+	git commit -m "[redhat] AUTOMATIC: New configs"
 }
 
 # Process a single configuration file

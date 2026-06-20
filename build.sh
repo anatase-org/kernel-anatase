@@ -162,7 +162,7 @@ rpmbuild \
   --define '_srcrpmdir %{_topdir}/SRPMS' \
   --define '_sourcedir %(pwd)/' \
   --define '_specdir  %(pwd)/' \
-  --with bazzite --with ubsb --with nvidia --with zfs \
+  --with anatase --with ubsb --with nvidia --with zfs \
   -ba kernel.spec &
 
 trap 'pkill --signal=SIGKILL -P $$; exit 130' INT
