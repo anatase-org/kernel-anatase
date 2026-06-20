@@ -1,11 +1,11 @@
-name: Build Bazzite Kernel
+name: Build Anatase Kernel
 
 on:
   push:
     branches:
-      - bazzite-*
+      - anatase-*
     tags:
-      - "*-ba*"
+      - "*-an*"
       - "*-rc*"
 
 permissions:
@@ -25,40 +25,12 @@ jobs:
       fail-fast: false
       matrix:
         arch: ["x86_64"] # "aarch64", 
-        fedora_version: [43]
+        fedora_version: [44]
     runs-on: ${{ matrix.arch == 'aarch64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-      
-      # - name: Setup ccache
-      #   id: ccache
-      #   run: |
-      #     TARFILE_RELEASE=$(sed -n 's/^%define[[:space:]]\+tarfile_release[[:space:]]\+//p' kernel.spec)
-      #     echo "ccache_key=ccache-${{ matrix.arch }}-${TARFILE_RELEASE}-${{ github.sha }}" >> $GITHUB_OUTPUT
-      #     CCACHE_USE=${{ (startsWith(github.ref, 'refs/heads/bazzite-') || startsWith(github.ref, 'refs/tags/') ) && '1' || '0' }}
-      #     CCACHE_WRITE=${{ startsWith(github.ref, 'refs/heads/bazzite-') && '1' || '0' }}
-      #     if [ "${{ startsWith(github.ref, 'refs/heads/bazzite-') }}" == "false" ]; then
-      #       CCACHE_READONLY="true"
-      #     else
-      #       CCACHE_READONLY=""
-      #     fi
-      #     echo "ccache_use=$CCACHE_USE" >> $GITHUB_OUTPUT
-      #     echo "ccache_write=$CCACHE_WRITE" >> $GITHUB_OUTPUT
-      #     echo "ccache_readonly=$CCACHE_READONLY" >> $GITHUB_OUTPUT
-
-      # - name: Restore ccache
-      #   if: ${{ steps.ccache.outputs.ccache_use == '1' }}
-      #   id: restore
-      #   uses: actions/cache/restore@v4
-      #   with:
-      #     path: |
-      #       ccache
-      #     key: ${{ steps.ccache.outputs.ccache_key }}
-      #     restore-keys: |
-      #       ccache-${{ matrix.arch }}-${TARFILE_RELEASE}
-      #       ccache-${{ matrix.arch }}
 
       - name: Create Build Environment
         run: |
@@ -67,22 +39,6 @@ jobs:
             --build-arg UID=$(id -u) --build-arg GID=$(id -g) \
             --build-arg FEDORA_VERSION=${FEDORA_VERSION:-41}
           sudo podman image prune -f
-
-      - name: Load Universal Blue Keys
-        if: (github.ref_type == 'tag' && (contains(github.ref_name, '-ba') || contains(github.ref_name, '-rc')))
-        env:
-          UBLUE_MOKKEY_LEGACY: ${{ secrets.UBLUE_MOKKEY_LEGACY }}
-          UBLUE_MOKKEY_KERNEL: ${{ secrets.UBLUE_MOKKEY_KERNEL }}
-        run: |
-          mkdir -p certs
-          if [ -n "$UBLUE_MOKKEY_LEGACY" ] && [ -n "$UBLUE_MOKKEY_KERNEL" ]; then
-            echo "${UBLUE_MOKKEY_LEGACY}" > certs/ubmok101.priv
-            cp ubmok101.cer certs/ubmok101.der
-            echo "${UBLUE_MOKKEY_KERNEL}" > certs/ubmok102.priv
-            cp ubmok102.cer certs/ubmok102.der
-          else
-            echo "One or more keys are missing, setup will create temporary keys"
-          fi
 
       - name: Maximize build space
         run: |
@@ -100,27 +56,13 @@ jobs:
 
       - name: Compile Kernel
         run: |
-          # Use ccache if:
-          # We have a cache hit and ccache is enabled for use
-          # OR we are writing to ccache (bazzite- branch)
-          CCACHE_USE=0 #{{ ((steps.ccache.outputs.ccache_use == '1' && steps.restore.outputs.cache-matched-key != '') || steps.ccache.outputs.ccache_write == '1') && '1' || '0' }}
           sudo podman run --rm -v $(pwd):/workspace -e UID=$UID -e GID=$GID \
               -e ARCH=${{ matrix.arch }} -e FEDORA_VERSION=${{ matrix.fedora_version }} \
-              --env CCACHE_USE="$CCACHE_USE" \
               fedora_builder bash ./build.sh \
               | grep -v ".o: warning: objtool:"
-              # --env CCACHE_READONLY={{ steps.ccache.outputs.ccache_readonly }} \
 
           # We are signed, remove certs
           rm -rf ./certs
-
-      # - name: Backup ccache
-      #   if: ${{ steps.ccache.outputs.ccache_write == '1' }}
-      #   uses: actions/cache/save@v4
-      #   with:
-      #     path: |
-      #       ccache
-      #     key: ${{ steps.ccache.outputs.ccache_key }}
 
       - name: Separate debuginfo into different folder
         run: |

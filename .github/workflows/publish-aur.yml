@@ -12,7 +12,7 @@ on:
         description: 'Fedora version'
         type: string
         required: true
-        default: '42'
+        default: '44'
   workflow_call:
     inputs:
       relver:
@@ -24,7 +24,7 @@ on:
         description: 'Fedora version'
         type: string
         required: true
-        default: '42'
+        default: '44'
 
 permissions:
   contents: read
@@ -41,9 +41,9 @@ jobs:
       - name: Build PKGBUILD
         run: |
           if [[ -n "${{ inputs.relver }}" ]]; then
-            release="$(curl "https://api.github.com/repos/bazzite-org/kernel-bazzite/releases/tags/${{ inputs.relver }}" )"
+            release="$(curl "https://api.github.com/repos/anatase-org/kernel-anatase/releases/tags/${{ inputs.relver }}" )"
           else
-            release="$(curl "https://api.github.com/repos/bazzite-org/kernel-bazzite/releases/latest" )"
+            release="$(curl "https://api.github.com/repos/anatase-org/kernel-anatase/releases/latest" )"
           fi
           fedver=$(echo -E "$release" | jq -r '.assets[].name' | grep -E 'kernel-.*.rpm' | grep "fc${{ inputs.fedora_version }}.x86_64" | head -1 | sed "s/kernel-//g" | sed "s/.rpm//g" )
           relver=$(echo -E $release | jq -r '.tag_name')
@@ -62,7 +62,7 @@ jobs:
       - name: Publish AUR package
         uses: KSXGitHub/github-actions-deploy-aur@v4.1.1
         with:
-          pkgname: linux-bazzite-bin
+          pkgname: linux-anatase-bin
           pkgbuild: ./pkg/PKGBUILD
           commit_username: ${{ secrets.AUR_USERNAME }}
           commit_email: ${{ secrets.AUR_EMAIL }}
