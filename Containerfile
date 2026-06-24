@@ -36,7 +36,9 @@ RUN find /artifacts/RPMS -type f \( -name '*debuginfo*.rpm' -o -name '*debugsour
 
 FROM scratch
 
-COPY --from=build /artifacts/RPMS /rpms
+ARG ARCH
+
+COPY --from=build /artifacts/RPMS/$ARCH /rpms
 COPY --from=build /artifacts/SRPMS /srpms
 
 ENTRYPOINT [ "env" ]
