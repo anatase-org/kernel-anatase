@@ -1027,7 +1027,7 @@ Source5: nvidia-kmod-%{_build_arch}-%{nvidia_version}-%{nvidia_version_rel}.tar.
 Source6: nvidia-kmod-%{_build_arch}-%{nvidia_version_lts}.tar.xz
 %endif
 
-%define zfs_version zfs-2.4.3
+%define zfs_version 2.4.3
 %if %{with_zfs}
 Source7: zfs-%{zfs_version}.tar.gz
 %endif
@@ -2230,14 +2230,9 @@ ApplyOptionalPatch patch-3-akmods.patch
 
 ApplyOptionalPatch linux-kernel-test.patch
 
-# Copy broadcom blob
-mkdir -p drivers/custom/broadcom-wl/lib
-cp -a %{SOURCE4} drivers/custom/broadcom-wl/lib/wlc_hybrid.o_shipped
-
 %if %{with_nvidia}
 tar -xzf %{SOURCE5}
-mv open-gpu-kernel-modules-%{nvidia_version}-%{nvidia_version_rel} \
-  drivers/custom/nvidia
+mv open-gpu-kernel-modules-* drivers/custom/nvidia
 mkdir -p drivers/custom/nvidia-lts
 tar -xJf %{SOURCE6} -C drivers/custom/nvidia-lts
 %endif # with_nvidia
@@ -4604,7 +4599,6 @@ fi\
 /usr/lib/modprobe.d/20-akmods.conf
 /usr/lib/udev/rules.d/70-razer.rules
 /usr/lib/udev/razer_mount
-/usr/lib/udev/rules.d/70-vhba.rules
 /usr/lib/modprobe.d/xone.conf
 /usr/bin/v4l2loopback-ctl
 /usr/lib/udev/rules.d/10-t150.rules
@@ -4953,7 +4947,7 @@ fi\
 #
 #
 %changelog
-* Sat Jun 20 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.0.12-an00]
+* Wed Jun 24 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.0.12-an00]
 - Revert "Input: xpad - use new BTN_GRIP* buttons" (Antheas Kapenekakis)
 - Revert "Input: xpad - change buttons the D-Pad gets mapped as to BTN_DPAD_*" (Antheas Kapenekakis)
 - platform/x86: asus-wmi: Don't reset charge threshold on boot (Antheas Kapenekakis)

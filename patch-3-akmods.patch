@@ -70057,6 +70057,13 @@ index 000000000000..b98caf5fa614
 +MODULE_DESCRIPTION("xone GIP PDP Jaguar driver");
 +MODULE_VERSION("#VERSION#");
 +MODULE_LICENSE("GPL");
+diff --git a/drivers/custom/xone/install/modprobe.conf b/drivers/custom/xone/install/modprobe.conf
+new file mode 100644
+index 000000000000..11da85aced6c
+--- /dev/null
++++ b/drivers/custom/xone/install/modprobe.conf
+@@ -0,0 +1 @@
++blacklist mt76x2u
 diff --git a/drivers/custom/xone/transport/dongle.c b/drivers/custom/xone/transport/dongle.c
 new file mode 100644
 index 000000000000..fb5494b2ba34
