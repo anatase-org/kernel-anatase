@@ -4954,8 +4954,6 @@ fi\
 #
 %changelog
 * Sat Jun 20 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.0.12-an00]
-- Revert "drm/amd/display: Use mpc.preblend flag to indicate preblend" (Antheas Kapenekakis)
-- Revert "drm/amd/display: Clear DPP 3DLUT Cap" (Antheas Kapenekakis)
 - Revert "Input: xpad - use new BTN_GRIP* buttons" (Antheas Kapenekakis)
 - Revert "Input: xpad - change buttons the D-Pad gets mapped as to BTN_DPAD_*" (Antheas Kapenekakis)
 - platform/x86: asus-wmi: Don't reset charge threshold on boot (Antheas Kapenekakis)
@@ -4969,7 +4967,6 @@ fi\
 - drm/amd/display: enable private color API universally (Antheas Kapenekakis)
 - drm/amdgpu: tweak min and max clocks of cyan_skillfish (Antheas Kapenekakis)
 - drm: panel-backlight-quirks: Add Steam Decks (Antheas Kapenekakis)
-- drm/amdgpu/vpe: increase VPE_IDLE_TIMEOUT to fix hang on Strix Halo (Antheas Kapenekakis)
 - ACPI: EC: Set ec_no_wakeup for MSI Claw A8 (Antheas Kapenekakis)
 - HID: hid-steam: keep evdev connected while steam is active (Antheas Kapenekakis)
 - watchdog: reduce error message level to maintain plymouth (Antheas Kapenekakis)
