@@ -30,7 +30,7 @@ ARG ARCH
 RUN --mount=type=secret,id=PE_SIGNING_TOKEN \
     --mount=type=secret,id=PE_SIGNING_CERT \
     --mount=type=secret,id=PE_SIGNING_PIN_VALUE \
-    /workspace/build.sh
+    /workspace/compile.sh
 
 RUN find /artifacts/RPMS -type f \( -name '*debuginfo*.rpm' -o -name '*debugsource*.rpm' \) -delete
 
