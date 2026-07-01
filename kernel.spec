@@ -4947,7 +4947,7 @@ fi\
 #
 #
 %changelog
-* Thu Jun 25 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.0.12-an00]
+* Wed Jul 01 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.0.12-an00]
 - x86/CPU/AMD: Lower RDSEED Warning level (Antheas Kapenekakis)
 - Revert "Input: xpad - use new BTN_GRIP* buttons" (Antheas Kapenekakis)
 - Revert "Input: xpad - change buttons the D-Pad gets mapped as to BTN_DPAD_*" (Antheas Kapenekakis)
