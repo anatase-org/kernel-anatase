@@ -17,7 +17,6 @@ GCP_KMS_KEY=${GCP_KMS_KEY:-}
 GCP_KMS_CERT=${GCP_KMS_CERT:-}
 PUSH_IMAGE=${PUSH_IMAGE:-0}
 IMAGE_REF=${IMAGE_REF:-ghcr.io/anatase-org/kernel:f${FEDORA_VERSION}-${ARCH}}
-EXTRA_IMAGE_REF=${EXTRA_IMAGE_REF:-}
 BUILDER_IMAGE=${BUILDER_IMAGE:-ghcr.io/anatase-org/sb-builder:f${FEDORA_VERSION}-${ARCH}}
 
 die() {
@@ -68,6 +67,10 @@ printf 'NVIDIA_RELEASE_LTS is %s\n' "${NVIDIA_RELEASE_LTS}"
 printf 'ZFS_RELEASE is %s\n' "${ZFS_RELEASE}"
 
 command -v podman >/dev/null 2>&1 || die "podman is required"
+
+IMAGE_REPOSITORY="${IMAGE_REF%:*}"
+KERNEL_IMAGE_REF="${IMAGE_REPOSITORY}:f${FEDORA_VERSION}-${ARCH}-${TARFILE_RELEASE}"
+printf 'Tagging kernel version image %s\n' "${KERNEL_IMAGE_REF}"
 
 mkdir -p ./cache
 
@@ -143,9 +146,7 @@ podman build \
     -t "${IMAGE_REF}" \
     .
 
-if [ -n "${EXTRA_IMAGE_REF}" ]; then
-    podman tag "${IMAGE_REF}" "${EXTRA_IMAGE_REF}"
-fi
+podman tag "${IMAGE_REF}" "${KERNEL_IMAGE_REF}"
 
 if [ "${PUSH_IMAGE}" = 1 ]; then
     digest_file=$(mktemp)
@@ -154,10 +155,8 @@ if [ "${PUSH_IMAGE}" = 1 ]; then
     printf 'Pushing kernel artifact image %s\n' "${IMAGE_REF}"
     podman push --digestfile "${digest_file}" "${IMAGE_REF}"
 
-    if [ -n "${EXTRA_IMAGE_REF}" ]; then
-        printf 'Pushing kernel artifact image %s\n' "${EXTRA_IMAGE_REF}"
-        podman push "${EXTRA_IMAGE_REF}"
-    fi
+    printf 'Pushing kernel artifact image %s\n' "${KERNEL_IMAGE_REF}"
+    podman push "${KERNEL_IMAGE_REF}"
 
     digest=$(cat "${digest_file}")
     printf 'digest=%s\n' "${digest}"
