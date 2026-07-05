@@ -78,9 +78,9 @@ jobs:
           PUSH_IMAGE: "1"
         run: ./build.sh
 
-      - name: Generate OCI attestation
-        uses: actions/attest-build-provenance@v3
-        with:
-          subject-digest: ${{ steps.build.outputs.digest }}
-          subject-name: ghcr.io/anatase-org/kernel
-          push-to-registry: true
+      # - name: Generate OCI attestation
+      #   uses: actions/attest-build-provenance@v3
+      #   with:
+      #     subject-digest: ${{ steps.build.outputs.digest }}
+      #     subject-name: ghcr.io/anatase-org/kernel
+      #     push-to-registry: true
