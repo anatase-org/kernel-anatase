@@ -22,13 +22,13 @@ concurrency:
 jobs:
   build:
     name: Build ${{ matrix.arch }} on Fedora ${{ matrix.fedora_version }}
-    environment: ${{ (github.ref_type == 'tag' && (contains(github.ref_name, '-ba') || contains(github.ref_name, '-rc'))) && 'prod' || 'dev' }}
+    environment: "prod"
     strategy:
       fail-fast: false
       matrix:
         arch: ["x86_64"]
         fedora_version: [44]
-    runs-on: ${{ matrix.arch == 'aarch64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
+    runs-on: ${{ matrix.arch == 'aarch64' && 'ubuntu-26.04-arm' || 'ubuntu-26.04' }}
 
     steps:
       - name: Checkout
