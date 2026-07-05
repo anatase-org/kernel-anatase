@@ -1,6 +1,7 @@
-name: Build Anatase Kernel
+name: Build Anatase Kernel Container
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - anatase-*
@@ -9,8 +10,8 @@ on:
       - "*-rc*"
 
 permissions:
+  contents: read
   id-token: write
-  contents: write
   attestations: write
   packages: write
 
@@ -19,33 +20,34 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build_kernel:
+  build:
+    name: Build ${{ matrix.arch }} on Fedora ${{ matrix.fedora_version }}
     environment: ${{ (github.ref_type == 'tag' && (contains(github.ref_name, '-ba') || contains(github.ref_name, '-rc'))) && 'prod' || 'dev' }}
     strategy:
       fail-fast: false
       matrix:
-        arch: ["x86_64"] # "aarch64", 
+        arch: ["x86_64"]
         fedora_version: [44]
     runs-on: ${{ matrix.arch == 'aarch64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
 
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Create Build Environment
-        run: |
-          FEDORA_VERSION="${{ matrix.fedora_version }}"
-          sudo podman build . --tag 'fedora_builder' \
-            --build-arg UID=$(id -u) --build-arg GID=$(id -g) \
-            --build-arg FEDORA_VERSION=${FEDORA_VERSION:-41}
-          sudo podman image prune -f
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+          create_credentials_file: true
+          token_format: access_token
+          access_token_lifetime: 10800s
 
       - name: Maximize build space
         run: |
           df -h
-          #  remove swapfile (3gb)
           sudo swapoff -a; sudo rm -f /swapfile
-          # Remove toolchains, browsers
           shopt -s nullglob
           printf '%s\0' /opt/PyPy /opt/az /opt/node/ /opt/pipx /opt/go /opt/Ruby \
               /usr/lib/llvm-* /usr/local/julia* /usr/local/lib/android /usr/share/dotnet \
@@ -54,135 +56,31 @@ jobs:
               | sudo xargs -0 -n1 -P4 rm -rf
           df -h
 
-      - name: Compile Kernel
+      - name: Login to GHCR
         run: |
-          sudo podman run --rm -v $(pwd):/workspace -e UID=$UID -e GID=$GID \
-              -e ARCH=${{ matrix.arch }} -e FEDORA_VERSION=${{ matrix.fedora_version }} \
-              fedora_builder bash ./build.sh \
-              | grep -v ".o: warning: objtool:"
+          printf '%s' "${{ secrets.GITHUB_TOKEN }}" | podman login ghcr.io \
+            --username "${{ github.actor }}" \
+            --password-stdin
 
-          # We are signed, remove certs
-          rm -rf ./certs
-
-      - name: Separate debuginfo into different folder
-        run: |
-          mkdir -p ./build/DRPMS/
-          mv ./build/RPMS/${{ matrix.arch }}/kernel-debuginfo-*.rpm ./build/DRPMS/
-
-      - name: Upload Kernel to action
-        uses: actions/upload-artifact@v4
-        with:
-          name: kernel-f${{ matrix.fedora_version}}-${{ matrix.arch }}
-          path: |
-            ./build/RPMS/${{ matrix.arch }}/kernel-*.rpm
-          compression-level: 7
-
-      - name: Upload Kernel debuginfo to action
-        uses: actions/upload-artifact@v4
-        with:
-          name: kernel-f${{ matrix.fedora_version}}-${{ matrix.arch }}-debuginfo
-          path: |
-            ./build/DRPMS/*.rpm
-          compression-level: 7
-
-      - name: Convert to Arch
-        if: matrix.arch == 'x86_64' && matrix.fedora_version == 43 #arch_fedora
-        run: |
-          # Grab kernel ver from the log
-          KERNEL_VER=$(ls -a build/SRPMS/ | grep "kernel-*" | head -n 1 | sed 's/^kernel-//' | sed 's/.src.rpm//')
-          ARCH_VER=$(echo $KERNEL_VER | sed 's/-/./g')
-          # Place in PKGBUILD
-          cat PKGBUILD-ACTION | \
-            sed "s/VERSION_FEDORA/${KERNEL_VER}.x86_64/" | \
-            sed "s/VERSION_TAG/${ARCH_VER}/" \
-            > ./build/RPMS/${{ matrix.arch }}/PKGBUILD
-          sudo podman build . -f Dockerfile-arch --tag 'arch_builder' --build-arg UID=$(id -u) --build-arg GID=$(id -g) 
-          sudo podman run --rm -v $(pwd)/build/RPMS/${{ matrix.arch }}/:/workspace arch_builder makepkg -s
-
-      - name: Upload Kernel arch package to action
-        uses: actions/upload-artifact@v4
-        if: matrix.arch == 'x86_64' && matrix.fedora_version == 43 #arch_fedora
-        with:
-          name: linux-f${{ matrix.fedora_version }}-arch
-          path: |
-            ./build/RPMS/${{ matrix.arch }}/linux-*.pkg.tar.zst
-          compression-level: 7
-
-      - name: Generate artifact attestation
-        uses: actions/attest-build-provenance@v3
-        with:
-          subject-path: |
-            ./build/RPMS/${{ matrix.arch }}/kernel-*.rpm
-            ./build/SRPMS/${{ matrix.arch }}/kernel-*.rpm
-            ./build/RPMS/${{ matrix.arch }}/linux-*.pkg.tar.zst
-            ./build/RPMS/${{ matrix.arch }}/linux-*.pkg.tar.zst.sig
-
-      - name: Create OCI image
-        id: oci
-        run: |
-            FEDORA_VERSION="${{ matrix.fedora_version }}" ARCH="${{ matrix.arch }}" \
-              buildah unshare ./oci.sh
-      
-      - name: Upload OCI image to Registry
-        id: upload
-        run: |
-          echo "${{ secrets.GITHUB_TOKEN }}" | podman login ghcr.io -u ${{ github.actor }} --password-stdin
-          podman push --digestfile .oci-digest "localhost/kernel-f${{ matrix.fedora_version}}" \
-            "docker://ghcr.io/${{ github.repository }}:${{ github.ref_name }}-f${{ matrix.fedora_version }}-${{ matrix.arch }}"
-          echo "digest=$(cat .oci-digest)" >> $GITHUB_OUTPUT
-          
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build, sign, and push kernel container
+        id: build
+        env:
+          FEDORA_VERSION: ${{ matrix.fedora_version }}
+          ARCH: ${{ matrix.arch }}
+          PE_SIGNING_TOKEN: ${{ secrets.PE_SIGNING_TOKEN }}
+          PE_SIGNING_CERT: ${{ secrets.PE_SIGNING_CERT }}
+          PE_SIGNING_PIN: "0"
+          GCP_KMS_KEY: ${{ secrets.GCP_KMS_KEY }}
+          GCP_KMS_CERT: anatase-m002.crt
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.auth.outputs.credentials_file_path }}
+          IMAGE_REF: ghcr.io/anatase-org/kernel:f${{ matrix.fedora_version }}-${{ matrix.arch }}
+          EXTRA_IMAGE_REF: ghcr.io/anatase-org/kernel:f${{ matrix.fedora_version }}-${{ matrix.arch }}-${{ github.ref_name }}
+          PUSH_IMAGE: "1"
+        run: ./build.sh
 
       - name: Generate OCI attestation
         uses: actions/attest-build-provenance@v3
         with:
-          subject-digest: "${{ steps.upload.outputs.digest }}"
-          subject-name: "ghcr.io/${{ github.repository }}"
+          subject-digest: ${{ steps.build.outputs.digest }}
+          subject-name: ghcr.io/anatase-org/kernel
           push-to-registry: true
-      
-      - name: Upload OCI image to latest
-        if: github.ref_type == 'tag' && contains(github.ref_name, '-ba')
-        run: |
-          podman push "localhost/kernel-f${{ matrix.fedora_version}}" \
-            "docker://ghcr.io/${{ github.repository }}:latest-f${{ matrix.fedora_version }}-${{ matrix.arch }}"
-
-      - name: Upload Kernel to release
-        if: github.ref_type == 'tag'
-        uses: softprops/action-gh-release@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          files: |
-            ./build/RPMS/${{ matrix.arch }}/kernel-*.rpm
-            ./build/SRPMS/${{ matrix.arch }}/kernel-*.rpm
-            ./build/RPMS/${{ matrix.arch }}/linux-*.pkg.tar.zst
-            ./build/RPMS/${{ matrix.arch }}/linux-*.pkg.tar.zst.sig
-          fail_on_unmatched_files: false
-          draft: true
-
-  post_release:
-    runs-on: ubuntu-24.04
-    needs: build_kernel
-    if: github.ref_type == 'tag'
-    steps:
-      - name: Make release latest
-        uses: softprops/action-gh-release@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          draft: false
-          prerelease: ${{ !contains(github.ref_name, '-ba') }}
-
-  update_aur:
-    uses: ./.github/workflows/publish-aur.yml
-    needs: post_release
-    if: github.ref_type == 'tag' && contains(github.ref_name, '-ba')
-    secrets: inherit
-    with:
-      relver: ${{ github.ref_name }}
-      fedora_version: 43 #arch_fedora

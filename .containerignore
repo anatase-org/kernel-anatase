@@ -1,6 +1,7 @@
 *.xz
 *.bz2
 .env
+gha-creds-*.json
 kernel-6.*
 *.log
 build

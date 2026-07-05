@@ -29,6 +29,7 @@ CCACHE_USE=${CCACHE_USE:-1}
 PE_SIGNING_TOKEN=${PE_SIGNING_TOKEN:-}
 PE_SIGNING_CERT=${PE_SIGNING_CERT:-}
 PE_SIGNING_PIN_VALUE=${PE_SIGNING_PIN_VALUE:-}
+KMS_PKCS11_CONFIG=${KMS_PKCS11_CONFIG:-}
 
 pin_file=''
 cleanup() {
@@ -49,19 +50,32 @@ rpmbuild_signing_opts=()
 if [ -n "$PE_SIGNING_TOKEN" ] || [ -n "$PE_SIGNING_CERT" ]; then
     [ -n "$PE_SIGNING_TOKEN" ] || { echo "Error: PE_SIGNING_TOKEN is required when PE_SIGNING_CERT is set"; exit 1; }
     [ -n "$PE_SIGNING_CERT" ] || { echo "Error: PE_SIGNING_CERT is required when PE_SIGNING_TOKEN is set"; exit 1; }
-    [ -S /run/pcscd/pcscd.comm ] || { echo "Error: pcscd socket not found at /run/pcscd/pcscd.comm"; exit 1; }
+    if [ -z "$KMS_PKCS11_CONFIG" ]; then
+        [ -S /run/pcscd/pcscd.comm ] || { echo "Error: pcscd socket not found at /run/pcscd/pcscd.comm"; exit 1; }
+    fi
 
     rm -rf /etc/pki/pesign
     install -d -m 0755 /etc/pki/pesign
     certutil -N -d sql:/etc/pki/pesign --empty-password
     modutil -dbdir sql:/etc/pki/pesign -list
+    rm -f /run/pesign/socket /var/run/pesign/socket
 
     cat > ~/.rpmmacros <<EOF
 %pe_signing_token $PE_SIGNING_TOKEN
 %pe_signing_cert $PE_SIGNING_CERT
 EOF
 
-    if [ -n "$PE_SIGNING_PIN_VALUE" ]; then
+    if [ -n "$KMS_PKCS11_CONFIG" ]; then
+        tee /usr/local/bin/pesign-with-pin >/dev/null <<EOF
+#!/usr/bin/env bash
+exec /usr/bin/pesign "\$@"
+EOF
+        chmod 0755 /usr/local/bin/pesign-with-pin
+        cat >> ~/.rpmmacros <<EOF
+%_pesign /usr/local/bin/pesign-with-pin
+EOF
+        echo "Secure Boot signing enabled with Google Cloud KMS token '$PE_SIGNING_TOKEN' and cert '$PE_SIGNING_CERT'"
+    elif [ -n "$PE_SIGNING_PIN_VALUE" ]; then
         pin_file=$(mktemp)
         chmod 600 "$pin_file"
         printf '%s\n' "$PE_SIGNING_PIN_VALUE" > "$pin_file"
@@ -75,9 +89,11 @@ EOF
         cat >> ~/.rpmmacros <<EOF
 %_pesign /usr/local/bin/pesign-with-pin
 EOF
+        echo "Secure Boot signing enabled with token '$PE_SIGNING_TOKEN' and cert '$PE_SIGNING_CERT'"
+    else
+        echo "Secure Boot signing enabled with token '$PE_SIGNING_TOKEN' and cert '$PE_SIGNING_CERT'"
     fi
 
-    echo "Secure Boot signing enabled with token '$PE_SIGNING_TOKEN' and cert '$PE_SIGNING_CERT'"
     rpmbuild_signing_opts+=(--with anatase_signing)
 else
     echo "Secure Boot signing disabled; building unsigned kernel images"
