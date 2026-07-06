@@ -77,6 +77,19 @@ jobs:
           PUSH_IMAGE: "1"
         run: ./build.sh
 
+      - name: Trigger Anatase build
+        if: ${{ matrix.fedora_version == 44 }}
+        env:
+          ANATASE_TRIGGER: ${{ secrets.ANATASE_TRIGGER }}
+        run: |
+          curl --fail-with-body \
+            --request POST \
+            --header "Accept: application/vnd.github+json" \
+            --header "Authorization: Bearer ${ANATASE_TRIGGER}" \
+            --header "X-GitHub-Api-Version: 2022-11-28" \
+            https://api.github.com/repos/anatase-org/anatase/actions/workflows/build.yml/dispatches \
+            --data '{"ref":"master"}'
+
       # - name: Generate OCI attestation
       #   uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3
       #   with:
