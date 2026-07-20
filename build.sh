@@ -75,7 +75,7 @@ printf 'Tagging kernel version image %s\n' "${KERNEL_IMAGE_REF}"
 mkdir -p ./cache
 
 secret_opts=()
-volume_opts=(-v "$(pwd)/cache:/cache")
+volume_opts=(-v "$(pwd)/cache:/cache:Z")
 gcp_kms_key_ring=
 
 if [ -n "${GCP_KMS_KEY}" ]; then
