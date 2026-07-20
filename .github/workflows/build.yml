@@ -45,6 +45,7 @@ jobs:
           access_token_lifetime: 10800s
 
       - name: Maximize build space
+        if: ${{ runner.environment != 'self-hosted' }}
         run: |
           df -h
           sudo swapoff -a; sudo rm -f /swapfile
