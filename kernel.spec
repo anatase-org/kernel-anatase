@@ -190,13 +190,13 @@ Summary: The Linux kernel
 %define specrpmversion 7.0.12
 %define specversion 7.0.12
 %define patchversion 7.0
-%define pkgrelease an01
+%define pkgrelease an02
 %define kversion 7
 %define tarfile_release 7.0.12
 # This is needed to do merge window version magic
 %define patchlevel 0
 # This allows pkg_release to have configurable %%{?dist} tag
-%define specrelease an01%{?buildid}%{?dist}
+%define specrelease an02%{?buildid}%{?dist}
 # This defines the kabi tarball version
 %define kabiversion 7.0.12
 
@@ -1018,7 +1018,7 @@ Source1: Makefile.rhelver
 Source2: %{name}.changelog
 
 %define evdi_version 1.14.16
-%define nvidia_version 610.43.02
+%define nvidia_version 610.43.03
 %define nvidia_version_rel 1
 %define nvidia_version_lts 580.159.04
 %define nvidia_epoch 3
@@ -4947,7 +4947,7 @@ fi\
 #
 #
 %changelog
-* Mon Jul 20 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.0.12-an01]
+* Mon Jul 20 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.0.12-an02]
 - selinux: fix incorrect execmem checks on overlayfs (Ondrej Mosnacek)
 - x86/CPU/AMD: Lower RDSEED Warning level (Antheas Kapenekakis)
 - Revert "Input: xpad - use new BTN_GRIP* buttons" (Antheas Kapenekakis)
