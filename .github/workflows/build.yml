@@ -3,14 +3,12 @@ name: Build Anatase Kernel Container
 on:
   workflow_dispatch:
   push:
-    branches:
-      - anatase-*
     tags:
       - "*-an*"
       - "*-rc*"
 
 permissions:
-  contents: read
+  contents: write
   id-token: write
   attestations: write
   packages: write
@@ -28,7 +26,7 @@ jobs:
       matrix:
         arch: ["x86_64"]
         fedora_version: [44]
-    runs-on: ${{ matrix.arch == 'aarch64' && 'ubuntu-26.04-arm' || 'large' }}
+    runs-on: ${{ matrix.arch == 'aarch64' && 'ubuntu-26.04-arm' || 'ubuntu-26.04' }}
 
     steps:
       - name: Checkout
@@ -77,6 +75,12 @@ jobs:
           IMAGE_REF: ghcr.io/anatase-org/kernel:f${{ matrix.fedora_version }}-${{ matrix.arch }}
           PUSH_IMAGE: "1"
         run: ./build.sh
+
+      - name: Publish release
+        if: ${{ github.ref_type == 'tag' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release edit "$GITHUB_REF_NAME" --draft=false --prerelease=false
 
       - name: Trigger Anatase build
         if: ${{ matrix.fedora_version == 44 }}
