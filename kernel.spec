@@ -190,13 +190,13 @@ Summary: The Linux kernel
 %define specrpmversion 7.0.12
 %define specversion 7.0.12
 %define patchversion 7.0
-%define pkgrelease an02
+%define pkgrelease an03
 %define kversion 7
 %define tarfile_release 7.0.12
 # This is needed to do merge window version magic
 %define patchlevel 0
 # This allows pkg_release to have configurable %%{?dist} tag
-%define specrelease an02%{?buildid}%{?dist}
+%define specrelease an03%{?buildid}%{?dist}
 # This defines the kabi tarball version
 %define kabiversion 7.0.12
 
@@ -4947,7 +4947,10 @@ fi\
 #
 #
 %changelog
-* Mon Jul 20 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.0.12-an02]
+* Wed Aug 05 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.0.12-an03]
+- platform/x86: Add Lenovo GameZone fan WMI driver (Antheas Kapenekakis)
+- platform/x86: lenovo-wmi-other: Add full fan speed attribute (Antheas Kapenekakis)
+- draft patch for WIn5 failure (Antheas Kapenekakis)
 - selinux: fix incorrect execmem checks on overlayfs (Ondrej Mosnacek)
 - x86/CPU/AMD: Lower RDSEED Warning level (Antheas Kapenekakis)
 - Revert "Input: xpad - use new BTN_GRIP* buttons" (Antheas Kapenekakis)

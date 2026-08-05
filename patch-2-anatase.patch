@@ -8,8 +8,8 @@ Subject: [NA] add dev tools
  README.md    |  19 ++++++
  sync-arch.sh |  22 +++++++
  sync-ko.sh   |  25 ++++++++
- sync.sh      | 107 ++++++++++++++++++++++++++++++++
- 5 files changed, 173 insertions(+), 168 deletions(-)
+ sync.sh      | 108 +++++++++++++++++++++++++++++++++
+ 5 files changed, 174 insertions(+), 168 deletions(-)
  delete mode 100644 README
  create mode 100644 README.md
  create mode 100755 sync-arch.sh
@@ -278,10 +278,10 @@ index 000000000000..49405da76e6a
 \ No newline at end of file
 diff --git a/sync.sh b/sync.sh
 new file mode 100755
-index 000000000000..7efac373ae26
+index 000000000000..8058c285a8c7
 --- /dev/null
 +++ b/sync.sh
-@@ -0,0 +1,107 @@
+@@ -0,0 +1,108 @@
 +#!/bin/bash
 +
 +# This script temporarily replaces the kernel in a remote bootc system
@@ -345,8 +345,9 @@ index 000000000000..7efac373ae26
 +echo "Installing to ./out"
 +rm -rf out
 +mkdir -p out
-+make -j $(expr $(nproc) - 2) install INSTALL_PATH=./out/ -s
 +# sudo sbsign --key key.pem --cert key.cert.pem ./arch/x86/boot/bzImage --output vmlinuz
++KIMAGE=$(make -s image_name)
++install -m 0644 "$KIMAGE" ./out/vmlinuz
 +make -j $(expr $(nproc) - 2) modules_install INSTALL_MOD_PATH=./out/ -s
 +
 +KNAME=$(make -s kernelrelease)
@@ -355,7 +356,7 @@ index 000000000000..7efac373ae26
 +# Generate initramfs
 +ssh $HOST /bin/bash << EOF
 +sudo /usr/bin/dracut --hostonly --kver "$KNAME" --xz -v --add ostree -f /tmp/cinitramfs.img \
-+    --omit="plymouth"
++    --omit="plymouth dmsquash-live"
 +sudo chmod 644 /tmp/cinitramfs.img
 +EOF
 +scp $HOST:/tmp/cinitramfs.img ./out/initramfs.img
@@ -33311,6 +33312,695 @@ index 6c154a4d94b9..89c556553f2e 100644
  		if (rc)
  			return rc;
  	}
+-- 
+2.54.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Tue, 4 Aug 2026 21:00:23 +0200
+Subject: draft patch for WIn5 failure
+
+---
+ drivers/net/wireless/intel/iwlwifi/cfg/ax210.c         | 1 +
+ drivers/net/wireless/intel/iwlwifi/iwl-config.h        | 2 ++
+ drivers/net/wireless/intel/iwlwifi/pcie/gen1_2/trans.c | 4 ++++
+ 3 files changed, 7 insertions(+)
+
+diff --git a/drivers/net/wireless/intel/iwlwifi/cfg/ax210.c b/drivers/net/wireless/intel/iwlwifi/cfg/ax210.c
+index 582f61661062..7eee22740e6a 100644
+--- a/drivers/net/wireless/intel/iwlwifi/cfg/ax210.c
++++ b/drivers/net/wireless/intel/iwlwifi/cfg/ax210.c
+@@ -71,6 +71,7 @@ const struct iwl_mac_cfg iwl_ty_mac_cfg = {
+ 	.gen2 = true,
+ 	.device_family = IWL_DEVICE_FAMILY_AX210,
+ 	.base = &iwl_ax210_base,
++	.disable_pcie_l1_2 = true,
+ 	.umac_prph_offset = 0x300000,
+ 	/* TODO: the following values need to be checked */
+ 	.xtal_latency = 500,
+diff --git a/drivers/net/wireless/intel/iwlwifi/iwl-config.h b/drivers/net/wireless/intel/iwlwifi/iwl-config.h
+index 45cf2bc68e41..109c05a21f4f 100644
+--- a/drivers/net/wireless/intel/iwlwifi/iwl-config.h
++++ b/drivers/net/wireless/intel/iwlwifi/iwl-config.h
+@@ -354,6 +354,7 @@ enum iwl_mac_cfg_ltr_delay {
+  * @integrated: discrete or integrated
+  * @low_latency_xtal: use the low latency xtal if supported
+  * @bisr_workaround: BISR hardware workaround (for 22260 series devices)
++ * @disable_pcie_l1_2: disable PCIe ASPM L1.2
+  * @ltr_delay: LTR delay parameter, &enum iwl_mac_cfg_ltr_delay.
+  * @imr_enabled: use the IMR if supported.
+  */
+@@ -368,6 +369,7 @@ struct iwl_mac_cfg {
+ 	    integrated:1,
+ 	    low_latency_xtal:1,
+ 	    bisr_workaround:1,
++	    disable_pcie_l1_2:1,
+ 	    ltr_delay:2,
+ 	    imr_enabled:1;
+ };
+diff --git a/drivers/net/wireless/intel/iwlwifi/pcie/gen1_2/trans.c b/drivers/net/wireless/intel/iwlwifi/pcie/gen1_2/trans.c
+index 4560d92d76fe..1ec6ff1cc191 100644
+--- a/drivers/net/wireless/intel/iwlwifi/pcie/gen1_2/trans.c
++++ b/drivers/net/wireless/intel/iwlwifi/pcie/gen1_2/trans.c
+@@ -3853,6 +3853,10 @@ iwl_trans_pcie_alloc(struct pci_dev *pdev,
+ 
+ 	trans_pcie->debug_rfkill = -1;
+ 
++	/* Some devices lose the PCIe link with ASPM L1.2 enabled. */
++	if (mac_cfg->disable_pcie_l1_2)
++		pci_disable_link_state(pdev, PCIE_LINK_STATE_L1_2);
++
+ 	if (!mac_cfg->base->pcie_l1_allowed) {
+ 		/*
+ 		 * W/A - seems to solve weird behavior. We need to remove this
+-- 
+2.54.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Wed, 5 Aug 2026 20:14:42 +0200
+Subject: platform/x86: lenovo-wmi-other: Add full fan speed attribute
+
+The Other Mode fan feature 0x04020000 controls the firmware full-speed
+fan mode. Its Capability Data 00 entry describes whether the feature and
+its get and set operations are supported.
+
+Expose the feature as fan_full_speed under firmware-attributes when the
+capability entry is valid and a live value probe succeeds. Limit values to
+the firmware-defined boolean range.
+
+Assisted-by: Codex:gpt-5.6-sol
+Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
+---
+ .../wmi/devices/lenovo-wmi-other.rst          |   3 +
+ drivers/platform/x86/lenovo/wmi-other.c       | 137 ++++++++++++++++++
+ 2 files changed, 140 insertions(+)
+
+diff --git a/Documentation/wmi/devices/lenovo-wmi-other.rst b/Documentation/wmi/devices/lenovo-wmi-other.rst
+index 01d471156738..9025cf732d58 100644
+--- a/Documentation/wmi/devices/lenovo-wmi-other.rst
++++ b/Documentation/wmi/devices/lenovo-wmi-other.rst
+@@ -46,6 +46,9 @@ The following HWMON attributes are implemented:
+  - fanX_input: current RPM
+  - fanX_target: target RPM (tunable, 0=auto)
+ 
++The following firmware attribute is implemented:
++ - fan_full_speed: Enable full fan speed mode
++
+ Due to the internal RPM divisor, the current/target RPMs are rounded down to
+ its nearest multiple. The divisor itself is not necessary to be a power of two.
+ 
+diff --git a/drivers/platform/x86/lenovo/wmi-other.c b/drivers/platform/x86/lenovo/wmi-other.c
+index d1cab4d5787a..5775ef6a3af7 100644
+--- a/drivers/platform/x86/lenovo/wmi-other.c
++++ b/drivers/platform/x86/lenovo/wmi-other.c
+@@ -59,6 +59,7 @@
+ #define LWMI_FEATURE_ID_CPU_SPL 0x02
+ #define LWMI_FEATURE_ID_CPU_FPPT 0x03
+ 
++#define LWMI_FEATURE_ID_FAN_FULL_SPEED 0x02
+ #define LWMI_FEATURE_ID_FAN_RPM 0x03
+ 
+ #define LWMI_FEATURE_VALUE_GET 17
+@@ -74,6 +75,10 @@
+ 	lwmi_attr_id(LWMI_DEVICE_ID_FAN, LWMI_FEATURE_ID_FAN_RPM, \
+ 		     LWMI_GZ_THERMAL_MODE_NONE, LWMI_FAN_ID(x))
+ 
++#define LWMI_ATTR_ID_FAN_FULL_SPEED                                      \
++	lwmi_attr_id(LWMI_DEVICE_ID_FAN, LWMI_FEATURE_ID_FAN_FULL_SPEED, \
++		     LWMI_GZ_THERMAL_MODE_NONE, LWMI_TYPE_ID_NONE)
++
+ #define LWMI_OM_FW_ATTR_BASE_PATH "lenovo-wmi-other"
+ #define LWMI_OM_HWMON_NAME "lenovo_wmi_other"
+ 
+@@ -110,6 +115,7 @@ struct lwmi_om_priv {
+ 	int ida_id;
+ 
+ 	struct lwmi_fan_info fan_info[LWMI_FAN_NR];
++	bool full_fan_speed_created;
+ 
+ 	struct {
+ 		bool capdata00_collected : 1;
+@@ -550,6 +556,13 @@ struct tunable_attr_01 {
+ 	u8 cv_mode_id; /* mode arg for set/get current_value */
+ };
+ 
++struct tunable_attr_00 {
++	struct device *dev;
++	u32 default_value;
++};
++
++static struct tunable_attr_00 fan_full_speed;
++
+ /**
+  * tunable_attr_01_id() - Formats a tunable_attr_01 to a capdata attribute ID
+  * @attr: The tunable_attr_01 to format.
+@@ -697,6 +710,88 @@ static ssize_t int_type_show(struct kobject *kobj, struct kobj_attribute *kattr,
+ 	return sysfs_emit(buf, "integer\n");
+ }
+ 
++static int lwmi_full_fan_speed_get(struct lwmi_om_priv *priv, u32 *value)
++{
++	struct wmi_method_args_32 args = {
++		.arg0 = LWMI_ATTR_ID_FAN_FULL_SPEED,
++	};
++	u32 retval;
++	int ret;
++
++	ret = lwmi_dev_evaluate_int(priv->wdev, 0x0, LWMI_FEATURE_VALUE_GET,
++				    (u8 *)&args, sizeof(args), &retval);
++	if (ret)
++		return ret;
++	if (retval > 1)
++		return -ERANGE;
++
++	*value = retval;
++	return 0;
++}
++
++static ssize_t fan_full_speed_current_value_show(struct kobject *kobj,
++						 struct kobj_attribute *kattr,
++						 char *buf)
++{
++	struct lwmi_om_priv *priv = dev_get_drvdata(fan_full_speed.dev);
++	u32 value;
++	int ret;
++
++	ret = lwmi_full_fan_speed_get(priv, &value);
++	if (ret)
++		return ret;
++
++	return sysfs_emit(buf, "%u\n", value);
++}
++
++static ssize_t fan_full_speed_current_value_store(struct kobject *kobj,
++						  struct kobj_attribute *kattr,
++						  const char *buf, size_t count)
++{
++	struct lwmi_om_priv *priv = dev_get_drvdata(fan_full_speed.dev);
++	struct wmi_method_args_32 args = {
++		.arg0 = LWMI_ATTR_ID_FAN_FULL_SPEED,
++	};
++	u32 value;
++	int ret;
++
++	ret = kstrtouint(buf, 10, &value);
++	if (ret)
++		return ret;
++	if (value > 1)
++		return -EINVAL;
++
++	args.arg1 = value;
++	ret = lwmi_dev_evaluate_int(priv->wdev, 0x0, LWMI_FEATURE_VALUE_SET,
++				    (u8 *)&args, sizeof(args), NULL);
++	if (ret)
++		return ret;
++
++	return count;
++}
++
++static bool lwmi_full_fan_speed_is_supported(struct lwmi_om_priv *priv)
++{
++	const u32 required = LWMI_SUPP_VALID | LWMI_SUPP_GET | LWMI_SUPP_SET;
++	struct capdata00 capdata;
++	u32 value;
++	int ret;
++
++	ret = lwmi_cd00_get_data(priv->cd00_list, LWMI_ATTR_ID_FAN_FULL_SPEED,
++				 &capdata);
++	if (ret || (capdata.supported & required) != required ||
++	    capdata.default_value > 1)
++		return false;
++
++	ret = lwmi_full_fan_speed_get(priv, &value);
++	if (ret)
++		return false;
++
++	fan_full_speed.dev = &priv->wdev->dev;
++	fan_full_speed.default_value = capdata.default_value;
++	return true;
++}
++
+ /**
+  * attr_capdata01_show() - Get the value of the specified attribute property
+  *
+@@ -1011,6 +1106,34 @@ static bool lwmi_attr_01_is_supported(struct tunable_attr_01 *tunable_attr)
+ 		.name = _fsname, .attrs = _attrname##_attrs               \
+ 	}
+ 
++static struct kobj_attribute attr_fan_full_speed_current_value =
++	__LWMI_ATTR_RW(fan_full_speed, current_value);
++__LWMI_ATTR_SHOW_FMT(default_value, fan_full_speed, "%u\n",
++		     fan_full_speed.default_value);
++__LWMI_ATTR_SHOW_FMT(display_name, fan_full_speed, "%s\n",
++		     "Set full fan speed mode");
++__LWMI_ATTR_SHOW_FMT(max_value, fan_full_speed, "%u\n", 1);
++__LWMI_ATTR_SHOW_FMT(min_value, fan_full_speed, "%u\n", 0);
++__LWMI_ATTR_SHOW_FMT(scalar_increment, fan_full_speed, "%u\n", 1);
++static struct kobj_attribute attr_fan_full_speed_type =
++	__LWMI_ATTR_RO_AS(type, int_type_show);
++
++static struct attribute *fan_full_speed_attrs[] = {
++	&attr_fan_full_speed_current_value.attr,
++	&attr_fan_full_speed_default_value.attr,
++	&attr_fan_full_speed_display_name.attr,
++	&attr_fan_full_speed_max_value.attr,
++	&attr_fan_full_speed_min_value.attr,
++	&attr_fan_full_speed_scalar_increment.attr,
++	&attr_fan_full_speed_type.attr,
++	NULL,
++};
++
++static const struct attribute_group fan_full_speed_attr_group = {
++	.name = "fan_full_speed",
++	.attrs = fan_full_speed_attrs,
++};
++
+ LWMI_ATTR_GROUP_TUNABLE_CAP01(ppt_pl1_spl, "ppt_pl1_spl",
+ 			      "Set the CPU sustained power limit");
+ LWMI_ATTR_GROUP_TUNABLE_CAP01(ppt_pl2_sppt, "ppt_pl2_sppt",
+@@ -1066,6 +1189,15 @@ static void lwmi_om_fw_attr_add(struct lwmi_om_priv *priv)
+ 		if (err)
+ 			goto err_remove_groups;
+ 	}
++
++	if (lwmi_full_fan_speed_is_supported(priv)) {
++		err = sysfs_create_group(&priv->fw_attr_kset->kobj,
++					 &fan_full_speed_attr_group);
++		if (err)
++			goto err_remove_groups;
++
++		priv->full_fan_speed_created = true;
++	}
+ 	return;
+ 
+ err_remove_groups:
+@@ -1096,6 +1228,11 @@ static void lwmi_om_fw_attr_remove(struct lwmi_om_priv *priv)
+ {
+ 	if (priv->ida_id < 0)
+ 		return;
++	if (priv->full_fan_speed_created) {
++		sysfs_remove_group(&priv->fw_attr_kset->kobj,
++				   &fan_full_speed_attr_group);
++		priv->full_fan_speed_created = false;
++	}
+ 
+ 	for (unsigned int i = 0; i < ARRAY_SIZE(cd01_attr_groups) - 1; i++)
+ 		sysfs_remove_group(&priv->fw_attr_kset->kobj,
+-- 
+2.54.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Wed, 5 Aug 2026 20:11:10 +0200
+Subject: platform/x86: Add Lenovo GameZone fan WMI driver
+
+Lenovo's GameZone interface exposes a ten-point fan curve through a
+separate LENOVO_FAN_METHOD WMI GUID.
+
+Add a driver for the interface. Validate the fan table layout before
+exposing its points through hwmon, and use full-table read-modify-write
+transactions when changing a point.
+
+Assisted-by: Codex:gpt-5.6-sol
+Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
+---
+ .../wmi/devices/lenovo-wmi-gamezone.rst       |  19 ++
+ drivers/platform/x86/lenovo/Kconfig           |  11 +
+ drivers/platform/x86/lenovo/Makefile          |   1 +
+ .../platform/x86/lenovo/wmi-gamezone-fan.c    | 296 ++++++++++++++++++
+ 4 files changed, 327 insertions(+)
+ create mode 100644 drivers/platform/x86/lenovo/wmi-gamezone-fan.c
+
+diff --git a/Documentation/wmi/devices/lenovo-wmi-gamezone.rst b/Documentation/wmi/devices/lenovo-wmi-gamezone.rst
+index 1769ad3d57b9..bb3576afd54d 100644
+--- a/Documentation/wmi/devices/lenovo-wmi-gamezone.rst
++++ b/Documentation/wmi/devices/lenovo-wmi-gamezone.rst
+@@ -50,6 +50,25 @@ or the setting will have no effect. If another profile is set from the list
+ of supported profiles, the BIOS will override any user PPT settings when
+ switching to that profile.
+ 
++Gamezone Fan
++------------
++
++WMI GUID ``92549549-4BDE-4F06-AC04-CE8BF898DBAA``
++
++The Gamezone Fan interface provides a platform fan curve, exposed through HWMON
++as ten ``pwm1_auto_pointX_pwm`` and ``pwm1_auto_pointX_temp`` pairs. PWM values
++use the standard range from 0 to 255 and temperatures are in degrees Celsius.
++
++Setting the fan curve is always honored in ``custom`` mode and depending on
++the BIOS and make, on other modes as well. For example, original Legion Go
++and Go S devices honor it on all modes, with later BIOS versions only
++restricting it to ``custom``. Moreover, newer Legion devices, starting with Go
++S, enforce BIOS limits on the fan curve that are not exposed through WMI. On
++Legion Go S, those limits happen to be the default fan curve on each preset.
++I.e., it is not possible to make the device more silent than its factory
++preset. As there is no way to query the BIOS limits, the driver does not
++attempt to check them, deferring to the BIOS to enforce them.
++
+ Gamezone Thermal Mode Event
+ ---------------------------
+ 
+diff --git a/drivers/platform/x86/lenovo/Kconfig b/drivers/platform/x86/lenovo/Kconfig
+index f885127b007f..6d9286768ef8 100644
+--- a/drivers/platform/x86/lenovo/Kconfig
++++ b/drivers/platform/x86/lenovo/Kconfig
+@@ -260,6 +260,17 @@ config LENOVO_WMI_GAMEZONE
+ 	  To compile this driver as a module, choose M here: the module will
+ 	  be called lenovo-wmi-gamezone.
+ 
++config LENOVO_WMI_GAMEZONE_FAN
++	tristate "Lenovo GameZone WMI Fan Driver"
++	depends on ACPI_WMI
++	select HWMON
++	help
++	  Say Y here if you have a WMI aware Lenovo Legion device and would like to
++	  configure the platform fan curve.
++
++	  To compile this driver as a module, choose M here: the module will
++	  be called lenovo-wmi-gamezone-fan.
++
+ config LENOVO_WMI_TUNING
+ 	tristate "Lenovo Other Mode WMI Driver"
+ 	depends on ACPI_WMI
+diff --git a/drivers/platform/x86/lenovo/Makefile b/drivers/platform/x86/lenovo/Makefile
+index 91a9370f11b3..470d456fa32f 100644
+--- a/drivers/platform/x86/lenovo/Makefile
++++ b/drivers/platform/x86/lenovo/Makefile
+@@ -16,6 +16,7 @@ lenovo-target-$(CONFIG_LENOVO_WMI_CAPDATA)	+= wmi-capdata.o
+ lenovo-target-$(CONFIG_LENOVO_WMI_EVENTS)	+= wmi-events.o
+ lenovo-target-$(CONFIG_LENOVO_WMI_HELPERS)	+= wmi-helpers.o
+ lenovo-target-$(CONFIG_LENOVO_WMI_GAMEZONE)	+= wmi-gamezone.o
++lenovo-target-$(CONFIG_LENOVO_WMI_GAMEZONE_FAN)	+= wmi-gamezone-fan.o
+ lenovo-target-$(CONFIG_LENOVO_WMI_TUNING)	+= wmi-other.o
+ 
+ # Add 'lenovo' prefix to each module listed in lenovo-target-*
+diff --git a/drivers/platform/x86/lenovo/wmi-gamezone-fan.c b/drivers/platform/x86/lenovo/wmi-gamezone-fan.c
+new file mode 100644
+index 000000000000..20353a4b110c
+--- /dev/null
++++ b/drivers/platform/x86/lenovo/wmi-gamezone-fan.c
+@@ -0,0 +1,296 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++/*
++ * Lenovo GameZone fan WMI interface driver.
++ *
++ * Copyright (C) 2026 Antheas Kapenekakis <lkml@antheas.dev>
++ */
++
++#include <linux/acpi.h>
++#include <linux/cleanup.h>
++#include <linux/device.h>
++#include <linux/errno.h>
++#include <linux/hwmon.h>
++#include <linux/hwmon-sysfs.h>
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/mutex.h>
++#include <linux/slab.h>
++#include <linux/types.h>
++#include <linux/unaligned.h>
++#include <linux/wmi.h>
++
++#define LENOVO_GAMEZONE_FAN_GUID "92549549-4BDE-4F06-AC04-CE8BF898DBAA"
++
++#define LWMI_GZ_FAN_METHOD_CURVE_GET	5
++#define LWMI_GZ_FAN_METHOD_CURVE_SET	6
++
++#define LWMI_GZ_FAN_CURVE_POINTS		10
++#define LWMI_GZ_FAN_MAX_PERCENT			100
++#define LWMI_GZ_FAN_MAX_RAW				115
++
++enum lwmi_gz_fan_attr_type {
++	LWMI_GZ_FAN_ATTR_CURVE_PWM,
++	LWMI_GZ_FAN_ATTR_CURVE_TEMP,
++};
++
++struct lwmi_gz_fan_curve {
++	u32 pwm[LWMI_GZ_FAN_CURVE_POINTS];
++	u32 temp[LWMI_GZ_FAN_CURVE_POINTS];
++};
++
++struct lwmi_gz_fan_curve_raw {
++	__le32 pwm_count;
++	__le32 pwm[LWMI_GZ_FAN_CURVE_POINTS];
++	__le32 temp_count;
++	__le32 temp[LWMI_GZ_FAN_CURVE_POINTS];
++};
++
++struct lwmi_gz_fan_priv {
++	struct wmi_device *wdev;
++	struct mutex lock; /* WMI method serialization */
++};
++
++static int lwmi_gz_fan_eval(struct lwmi_gz_fan_priv *priv, u32 method,
++			    const void *data, size_t size,
++			    union acpi_object **ret_obj)
++{
++	struct acpi_buffer output = { ACPI_ALLOCATE_BUFFER, NULL };
++	struct acpi_buffer input = { size, (void *)data };
++	acpi_status status;
++
++	status = wmidev_evaluate_method(priv->wdev, 0, method, &input, &output);
++	if (ACPI_FAILURE(status))
++		return -EIO;
++
++	if (ret_obj)
++		*ret_obj = output.pointer;
++	else
++		kfree(output.pointer);
++
++	return 0;
++}
++
++static int lwmi_gz_fan_curve_get(struct lwmi_gz_fan_priv *priv,
++				 struct lwmi_gz_fan_curve *curve)
++{
++	union acpi_object *ret_obj __free(kfree) = NULL;
++	struct lwmi_gz_fan_curve_raw raw;
++	u32 args = 0;
++	int i;
++	int ret;
++
++	ret = lwmi_gz_fan_eval(priv, LWMI_GZ_FAN_METHOD_CURVE_GET,
++			       &args, sizeof(args), &ret_obj);
++	if (ret)
++		return ret;
++	if (!ret_obj)
++		return -ENODATA;
++	if (ret_obj->type != ACPI_TYPE_BUFFER ||
++	    ret_obj->buffer.length < sizeof(raw))
++		return -ENXIO;
++
++	memcpy(&raw, ret_obj->buffer.pointer, sizeof(raw));
++	if (le32_to_cpu(raw.pwm_count) != LWMI_GZ_FAN_CURVE_POINTS ||
++	    le32_to_cpu(raw.temp_count) != LWMI_GZ_FAN_CURVE_POINTS)
++		return -EINVAL;
++
++	for (i = 0; i < LWMI_GZ_FAN_CURVE_POINTS; i++) {
++		curve->pwm[i] = le32_to_cpu(raw.pwm[i]);
++		curve->temp[i] = le32_to_cpu(raw.temp[i]);
++
++		if (curve->pwm[i] > LWMI_GZ_FAN_MAX_RAW ||
++		    curve->temp[i] > U16_MAX)
++			return -ERANGE;
++	}
++
++	return 0;
++}
++
++static int lwmi_gz_fan_curve_set(struct lwmi_gz_fan_priv *priv,
++				 const struct lwmi_gz_fan_curve *curve)
++{
++	u8 args[52] = {};
++	int i;
++
++	/* Fan ID and sensor ID are currently ignored by the firmware. */
++	put_unaligned_le32(LWMI_GZ_FAN_CURVE_POINTS, &args[2]);
++	for (i = 0; i < LWMI_GZ_FAN_CURVE_POINTS; i++)
++		put_unaligned_le16(curve->pwm[i], &args[6 + i * sizeof(u16)]);
++
++	put_unaligned_le32(LWMI_GZ_FAN_CURVE_POINTS, &args[27]);
++	for (i = 0; i < LWMI_GZ_FAN_CURVE_POINTS; i++)
++		put_unaligned_le16(curve->temp[i], &args[31 + i * sizeof(u16)]);
++
++	return lwmi_gz_fan_eval(priv, LWMI_GZ_FAN_METHOD_CURVE_SET,
++				args, sizeof(args), NULL);
++}
++
++static ssize_t lwmi_gz_fan_curve_show(struct device *dev,
++				      struct device_attribute *attr, char *buf)
++{
++	struct sensor_device_attribute_2 *sattr = to_sensor_dev_attr_2(attr);
++	struct lwmi_gz_fan_priv *priv = dev_get_drvdata(dev);
++	struct lwmi_gz_fan_curve curve;
++	u32 value;
++	int ret;
++
++	guard(mutex)(&priv->lock);
++
++	ret = lwmi_gz_fan_curve_get(priv, &curve);
++	if (ret)
++		return ret;
++
++	if (sattr->nr == LWMI_GZ_FAN_ATTR_CURVE_PWM)
++		value = DIV_ROUND_CLOSEST(min(curve.pwm[sattr->index],
++					      LWMI_GZ_FAN_MAX_PERCENT) * 255,
++					  LWMI_GZ_FAN_MAX_PERCENT);
++	else
++		value = curve.temp[sattr->index];
++
++	return sysfs_emit(buf, "%u\n", value);
++}
++
++static ssize_t lwmi_gz_fan_curve_store(struct device *dev,
++				       struct device_attribute *attr,
++				       const char *buf, size_t count)
++{
++	struct sensor_device_attribute_2 *sattr = to_sensor_dev_attr_2(attr);
++	struct lwmi_gz_fan_priv *priv = dev_get_drvdata(dev);
++	struct lwmi_gz_fan_curve curve;
++	unsigned long value;
++	int ret;
++
++	ret = kstrtoul(buf, 10, &value);
++	if (ret)
++		return ret;
++	if (value > 255)
++		return -EINVAL;
++
++	guard(mutex)(&priv->lock);
++
++	ret = lwmi_gz_fan_curve_get(priv, &curve);
++	if (ret)
++		return ret;
++
++	curve.pwm[sattr->index] =
++		DIV_ROUND_CLOSEST(value * LWMI_GZ_FAN_MAX_PERCENT, 255);
++
++	ret = lwmi_gz_fan_curve_set(priv, &curve);
++	if (ret)
++		return ret;
++
++	return count;
++}
++
++static SENSOR_DEVICE_ATTR_2_RW(pwm1_auto_point1_pwm, lwmi_gz_fan_curve,
++			       LWMI_GZ_FAN_ATTR_CURVE_PWM, 0);
++static SENSOR_DEVICE_ATTR_2_RW(pwm1_auto_point2_pwm, lwmi_gz_fan_curve,
++			       LWMI_GZ_FAN_ATTR_CURVE_PWM, 1);
++static SENSOR_DEVICE_ATTR_2_RW(pwm1_auto_point3_pwm, lwmi_gz_fan_curve,
++			       LWMI_GZ_FAN_ATTR_CURVE_PWM, 2);
++static SENSOR_DEVICE_ATTR_2_RW(pwm1_auto_point4_pwm, lwmi_gz_fan_curve,
++			       LWMI_GZ_FAN_ATTR_CURVE_PWM, 3);
++static SENSOR_DEVICE_ATTR_2_RW(pwm1_auto_point5_pwm, lwmi_gz_fan_curve,
++			       LWMI_GZ_FAN_ATTR_CURVE_PWM, 4);
++static SENSOR_DEVICE_ATTR_2_RW(pwm1_auto_point6_pwm, lwmi_gz_fan_curve,
++			       LWMI_GZ_FAN_ATTR_CURVE_PWM, 5);
++static SENSOR_DEVICE_ATTR_2_RW(pwm1_auto_point7_pwm, lwmi_gz_fan_curve,
++			       LWMI_GZ_FAN_ATTR_CURVE_PWM, 6);
++static SENSOR_DEVICE_ATTR_2_RW(pwm1_auto_point8_pwm, lwmi_gz_fan_curve,
++			       LWMI_GZ_FAN_ATTR_CURVE_PWM, 7);
++static SENSOR_DEVICE_ATTR_2_RW(pwm1_auto_point9_pwm, lwmi_gz_fan_curve,
++			       LWMI_GZ_FAN_ATTR_CURVE_PWM, 8);
++static SENSOR_DEVICE_ATTR_2_RW(pwm1_auto_point10_pwm, lwmi_gz_fan_curve,
++			       LWMI_GZ_FAN_ATTR_CURVE_PWM, 9);
++
++static SENSOR_DEVICE_ATTR_2_RO(pwm1_auto_point1_temp, lwmi_gz_fan_curve,
++			       LWMI_GZ_FAN_ATTR_CURVE_TEMP, 0);
++static SENSOR_DEVICE_ATTR_2_RO(pwm1_auto_point2_temp, lwmi_gz_fan_curve,
++			       LWMI_GZ_FAN_ATTR_CURVE_TEMP, 1);
++static SENSOR_DEVICE_ATTR_2_RO(pwm1_auto_point3_temp, lwmi_gz_fan_curve,
++			       LWMI_GZ_FAN_ATTR_CURVE_TEMP, 2);
++static SENSOR_DEVICE_ATTR_2_RO(pwm1_auto_point4_temp, lwmi_gz_fan_curve,
++			       LWMI_GZ_FAN_ATTR_CURVE_TEMP, 3);
++static SENSOR_DEVICE_ATTR_2_RO(pwm1_auto_point5_temp, lwmi_gz_fan_curve,
++			       LWMI_GZ_FAN_ATTR_CURVE_TEMP, 4);
++static SENSOR_DEVICE_ATTR_2_RO(pwm1_auto_point6_temp, lwmi_gz_fan_curve,
++			       LWMI_GZ_FAN_ATTR_CURVE_TEMP, 5);
++static SENSOR_DEVICE_ATTR_2_RO(pwm1_auto_point7_temp, lwmi_gz_fan_curve,
++			       LWMI_GZ_FAN_ATTR_CURVE_TEMP, 6);
++static SENSOR_DEVICE_ATTR_2_RO(pwm1_auto_point8_temp, lwmi_gz_fan_curve,
++			       LWMI_GZ_FAN_ATTR_CURVE_TEMP, 7);
++static SENSOR_DEVICE_ATTR_2_RO(pwm1_auto_point9_temp, lwmi_gz_fan_curve,
++			       LWMI_GZ_FAN_ATTR_CURVE_TEMP, 8);
++static SENSOR_DEVICE_ATTR_2_RO(pwm1_auto_point10_temp, lwmi_gz_fan_curve,
++			       LWMI_GZ_FAN_ATTR_CURVE_TEMP, 9);
++
++#define LWMI_GZ_CURVE_ATTR_PTRS(_point) \
++	&sensor_dev_attr_pwm1_auto_point##_point##_pwm.dev_attr.attr, \
++	&sensor_dev_attr_pwm1_auto_point##_point##_temp.dev_attr.attr
++
++static struct attribute *lwmi_gz_fan_attrs[] = {
++	LWMI_GZ_CURVE_ATTR_PTRS(1),
++	LWMI_GZ_CURVE_ATTR_PTRS(2),
++	LWMI_GZ_CURVE_ATTR_PTRS(3),
++	LWMI_GZ_CURVE_ATTR_PTRS(4),
++	LWMI_GZ_CURVE_ATTR_PTRS(5),
++	LWMI_GZ_CURVE_ATTR_PTRS(6),
++	LWMI_GZ_CURVE_ATTR_PTRS(7),
++	LWMI_GZ_CURVE_ATTR_PTRS(8),
++	LWMI_GZ_CURVE_ATTR_PTRS(9),
++	LWMI_GZ_CURVE_ATTR_PTRS(10),
++	NULL,
++};
++
++static const struct attribute_group lwmi_gz_fan_group = {
++	.attrs = lwmi_gz_fan_attrs,
++};
++
++static const struct attribute_group *lwmi_gz_fan_groups[] = {
++	&lwmi_gz_fan_group,
++	NULL,
++};
++
++static int lwmi_gz_fan_probe(struct wmi_device *wdev, const void *context)
++{
++	struct device *dev = &wdev->dev;
++	struct lwmi_gz_fan_curve curve;
++	struct lwmi_gz_fan_priv *priv;
++	struct device *hwmon_dev;
++
++	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
++	if (!priv)
++		return -ENOMEM;
++
++	priv->wdev = wdev;
++	mutex_init(&priv->lock);
++	dev_set_drvdata(dev, priv);
++
++	if (lwmi_gz_fan_curve_get(priv, &curve))
++		return -ENODEV;
++
++	hwmon_dev = devm_hwmon_device_register_with_groups(dev, "lenovo_wmi_gamezone_fan",
++							   priv, lwmi_gz_fan_groups);
++	return PTR_ERR_OR_ZERO(hwmon_dev);
++}
++
++static const struct wmi_device_id lwmi_gz_fan_id_table[] = {
++	{ LENOVO_GAMEZONE_FAN_GUID, NULL },
++	{}
++};
++
++static struct wmi_driver lwmi_gz_fan_driver = {
++	.driver = {
++		.name = "lenovo_wmi_gamezone_fan",
++		.probe_type = PROBE_PREFER_ASYNCHRONOUS,
++	},
++	.id_table = lwmi_gz_fan_id_table,
++	.probe = lwmi_gz_fan_probe,
++	.no_singleton = true,
++};
++module_wmi_driver(lwmi_gz_fan_driver);
++
++MODULE_DEVICE_TABLE(wmi, lwmi_gz_fan_id_table);
++MODULE_AUTHOR("Antheas Kapenekakis <lkml@antheas.dev>");
++MODULE_DESCRIPTION("Lenovo GameZone Fan WMI Driver");
++MODULE_LICENSE("GPL");
 -- 
 2.54.0
 
