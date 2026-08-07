@@ -33318,68 +33318,6 @@ index 6c154a4d94b9..89c556553f2e 100644
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Antheas Kapenekakis <lkml@antheas.dev>
-Date: Tue, 4 Aug 2026 21:00:23 +0200
-Subject: draft patch for WIn5 failure
-
----
- drivers/net/wireless/intel/iwlwifi/cfg/ax210.c         | 1 +
- drivers/net/wireless/intel/iwlwifi/iwl-config.h        | 2 ++
- drivers/net/wireless/intel/iwlwifi/pcie/gen1_2/trans.c | 4 ++++
- 3 files changed, 7 insertions(+)
-
-diff --git a/drivers/net/wireless/intel/iwlwifi/cfg/ax210.c b/drivers/net/wireless/intel/iwlwifi/cfg/ax210.c
-index 582f61661062..7eee22740e6a 100644
---- a/drivers/net/wireless/intel/iwlwifi/cfg/ax210.c
-+++ b/drivers/net/wireless/intel/iwlwifi/cfg/ax210.c
-@@ -71,6 +71,7 @@ const struct iwl_mac_cfg iwl_ty_mac_cfg = {
- 	.gen2 = true,
- 	.device_family = IWL_DEVICE_FAMILY_AX210,
- 	.base = &iwl_ax210_base,
-+	.disable_pcie_l1_2 = true,
- 	.umac_prph_offset = 0x300000,
- 	/* TODO: the following values need to be checked */
- 	.xtal_latency = 500,
-diff --git a/drivers/net/wireless/intel/iwlwifi/iwl-config.h b/drivers/net/wireless/intel/iwlwifi/iwl-config.h
-index 45cf2bc68e41..109c05a21f4f 100644
---- a/drivers/net/wireless/intel/iwlwifi/iwl-config.h
-+++ b/drivers/net/wireless/intel/iwlwifi/iwl-config.h
-@@ -354,6 +354,7 @@ enum iwl_mac_cfg_ltr_delay {
-  * @integrated: discrete or integrated
-  * @low_latency_xtal: use the low latency xtal if supported
-  * @bisr_workaround: BISR hardware workaround (for 22260 series devices)
-+ * @disable_pcie_l1_2: disable PCIe ASPM L1.2
-  * @ltr_delay: LTR delay parameter, &enum iwl_mac_cfg_ltr_delay.
-  * @imr_enabled: use the IMR if supported.
-  */
-@@ -368,6 +369,7 @@ struct iwl_mac_cfg {
- 	    integrated:1,
- 	    low_latency_xtal:1,
- 	    bisr_workaround:1,
-+	    disable_pcie_l1_2:1,
- 	    ltr_delay:2,
- 	    imr_enabled:1;
- };
-diff --git a/drivers/net/wireless/intel/iwlwifi/pcie/gen1_2/trans.c b/drivers/net/wireless/intel/iwlwifi/pcie/gen1_2/trans.c
-index 4560d92d76fe..1ec6ff1cc191 100644
---- a/drivers/net/wireless/intel/iwlwifi/pcie/gen1_2/trans.c
-+++ b/drivers/net/wireless/intel/iwlwifi/pcie/gen1_2/trans.c
-@@ -3853,6 +3853,10 @@ iwl_trans_pcie_alloc(struct pci_dev *pdev,
- 
- 	trans_pcie->debug_rfkill = -1;
- 
-+	/* Some devices lose the PCIe link with ASPM L1.2 enabled. */
-+	if (mac_cfg->disable_pcie_l1_2)
-+		pci_disable_link_state(pdev, PCIE_LINK_STATE_L1_2);
-+
- 	if (!mac_cfg->base->pcie_l1_allowed) {
- 		/*
- 		 * W/A - seems to solve weird behavior. We need to remove this
--- 
-2.54.0
-
-
-From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
-From: Antheas Kapenekakis <lkml@antheas.dev>
 Date: Wed, 5 Aug 2026 20:14:42 +0200
 Subject: platform/x86: lenovo-wmi-other: Add full fan speed attribute
 
@@ -34007,6 +33945,414 @@ index 000000000000..20353a4b110c
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Fri, 7 Aug 2026 14:44:22 +0200
+Subject: platform/x86: Add Lenovo WMI lighting driver
+
+Lenovo Legion Go firmware exposes the power button light through the
+Lighting WMI interface. Depending on the firmware, it provides a combined
+runtime and suspend control, independent power and standby controls, or all
+three controls aliased to one EC setting.
+
+Add a driver which detects the implemented layout using read-only status
+queries. Prefer the combined control when it is available so that aliased
+firmware exposes one platform::power LED; otherwise expose independent
+platform::power and platform::standby LEDs. Retain both LED states at
+shutdown.
+
+Document the interface and the combined-control semantics.
+
+Assisted-by: Codex:gpt-5.6-sol
+Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
+---
+ .../wmi/devices/lenovo-wmi-lighting.rst       |  44 +++
+ MAINTAINERS                                   |   1 +
+ drivers/platform/x86/lenovo/Kconfig           |  12 +
+ drivers/platform/x86/lenovo/Makefile          |   1 +
+ drivers/platform/x86/lenovo/wmi-lighting.c    | 271 ++++++++++++++++++
+ 5 files changed, 329 insertions(+)
+ create mode 100644 Documentation/wmi/devices/lenovo-wmi-lighting.rst
+ create mode 100644 drivers/platform/x86/lenovo/wmi-lighting.c
+
+diff --git a/Documentation/wmi/devices/lenovo-wmi-lighting.rst b/Documentation/wmi/devices/lenovo-wmi-lighting.rst
+new file mode 100644
+index 000000000000..7acac398e74f
+--- /dev/null
++++ b/Documentation/wmi/devices/lenovo-wmi-lighting.rst
+@@ -0,0 +1,44 @@
++.. SPDX-License-Identifier: GPL-2.0-or-later
++
++========================================================
++Lenovo WMI Interface Lighting Driver (lenovo-wmi-lighting)
++========================================================
++
++Introduction
++============
++The Lenovo Lighting WMI interface provides control of power and standby
++indicator LEDs. The interface uses WMI GUID
++``8C5B9127-ECD4-4657-980F-851019F99CA5``.
++
++The driver exposes the indicators through the standard LED class interface.
++Firmware with independent runtime and suspend controls provides
++``platform::power`` and ``platform::standby`` respectively.
++
++Some firmware provides a single combined control for the physical power
++button light. On those systems only ``platform::power`` is registered and it
++controls the light during both runtime and suspend. This includes firmware
++which also advertises the independent controls but aliases all three controls
++to the same physical light.
++
++Firmware interface
++==================
++The firmware supports either a combined lighting ID, separate power and
++standby IDs, or all three IDs:
++
++================  ============  ============================================
++Lighting ID       LED name      Behavior
++================  ============  ============================================
++``0x03``          power         Combined runtime and suspend control
++``0x04``          power         Runtime control
++``0x24``          standby       Suspend control
++================  ============  ============================================
++
++The driver detects the implemented form with read-only status queries. When
++the combined ID is implemented it takes precedence, since devices such as the
++Legion Go S implement all three IDs using one EC setting. Otherwise both
++independent IDs must be implemented before the LEDs are registered.
++
++WMI methods
++===========
++Method 1 reads the current status for a lighting ID and method 2 writes a
++three-byte lighting ID, state and brightness tuple.
+diff --git a/MAINTAINERS b/MAINTAINERS
+index ffe23de642ce..1b49a0a15d87 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -14509,6 +14509,7 @@ M:	Derek J. Clark <derekjohn.clark@gmail.com>
+ L:	platform-driver-x86@vger.kernel.org
+ S:	Maintained
+ F:	Documentation/wmi/devices/lenovo-wmi-gamezone.rst
++F:	Documentation/wmi/devices/lenovo-wmi-lighting.rst
+ F:	Documentation/wmi/devices/lenovo-wmi-other.rst
+ F:	drivers/platform/x86/lenovo/*
+ 
+diff --git a/drivers/platform/x86/lenovo/Kconfig b/drivers/platform/x86/lenovo/Kconfig
+index 6d9286768ef8..997d2f8a92a3 100644
+--- a/drivers/platform/x86/lenovo/Kconfig
++++ b/drivers/platform/x86/lenovo/Kconfig
+@@ -271,6 +271,18 @@ config LENOVO_WMI_GAMEZONE_FAN
+ 	  To compile this driver as a module, choose M here: the module will
+ 	  be called lenovo-wmi-gamezone-fan.
+ 
++config LENOVO_WMI_LIGHTING
++	tristate "Lenovo WMI Lighting Driver"
++	depends on ACPI_WMI
++	select LEDS_CLASS
++	select NEW_LEDS
++	help
++	  Say Y here if you have a WMI aware Lenovo device and would like to
++	  control its power and standby indicator LEDs.
++
++	  To compile this driver as a module, choose M here: the module will
++	  be called lenovo-wmi-lighting.
++
+ config LENOVO_WMI_TUNING
+ 	tristate "Lenovo Other Mode WMI Driver"
+ 	depends on ACPI_WMI
+diff --git a/drivers/platform/x86/lenovo/Makefile b/drivers/platform/x86/lenovo/Makefile
+index 470d456fa32f..2d50e9ce8340 100644
+--- a/drivers/platform/x86/lenovo/Makefile
++++ b/drivers/platform/x86/lenovo/Makefile
+@@ -17,6 +17,7 @@ lenovo-target-$(CONFIG_LENOVO_WMI_EVENTS)	+= wmi-events.o
+ lenovo-target-$(CONFIG_LENOVO_WMI_HELPERS)	+= wmi-helpers.o
+ lenovo-target-$(CONFIG_LENOVO_WMI_GAMEZONE)	+= wmi-gamezone.o
+ lenovo-target-$(CONFIG_LENOVO_WMI_GAMEZONE_FAN)	+= wmi-gamezone-fan.o
++lenovo-target-$(CONFIG_LENOVO_WMI_LIGHTING)	+= wmi-lighting.o
+ lenovo-target-$(CONFIG_LENOVO_WMI_TUNING)	+= wmi-other.o
+ 
+ # Add 'lenovo' prefix to each module listed in lenovo-target-*
+diff --git a/drivers/platform/x86/lenovo/wmi-lighting.c b/drivers/platform/x86/lenovo/wmi-lighting.c
+new file mode 100644
+index 000000000000..74b47b287f4c
+--- /dev/null
++++ b/drivers/platform/x86/lenovo/wmi-lighting.c
+@@ -0,0 +1,271 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++/*
++ * Lenovo Lighting WMI interface driver.
++ *
++ * Copyright (C) 2026 Antheas Kapenekakis <lkml@antheas.dev>
++ */
++
++#include <linux/device.h>
++#include <linux/errno.h>
++#include <linux/leds.h>
++#include <linux/module.h>
++#include <linux/mutex.h>
++#include <linux/slab.h>
++#include <linux/types.h>
++#include <linux/wmi.h>
++
++#define LENOVO_LIGHTING_GUID		"8C5B9127-ECD4-4657-980F-851019F99CA5"
++
++#define LWMI_LIGHTING_METHOD_GET	1
++#define LWMI_LIGHTING_METHOD_SET	2
++
++#define LWMI_LIGHTING_ID_COMBINED	0x03
++#define LWMI_LIGHTING_ID_POWER		0x04
++#define LWMI_LIGHTING_ID_STANDBY		0x24
++
++#define LWMI_LIGHTING_STATE_OFF		0x01
++#define LWMI_LIGHTING_STATE_POWER_ON	0x02
++#define LWMI_LIGHTING_STATE_STANDBY_ON	0x03
++
++enum lwmi_lighting_type {
++	LWMI_LIGHTING_COMBINED,
++	LWMI_LIGHTING_POWER,
++	LWMI_LIGHTING_STANDBY,
++};
++
++struct lwmi_lighting_priv;
++
++struct lwmi_lighting_led {
++	struct led_classdev cdev;
++	struct lwmi_lighting_priv *priv;
++	enum lwmi_lighting_type type;
++	u8 id;
++};
++
++struct lwmi_lighting_priv {
++	struct wmi_device *wdev;
++	struct mutex lock; /* WMI method serialization */
++	struct lwmi_lighting_led leds[2];
++};
++
++static int lwmi_lighting_get(struct lwmi_lighting_priv *priv, u8 id,
++			     enum lwmi_lighting_type type,
++			     enum led_brightness *brightness)
++{
++	struct wmi_buffer output = {};
++	struct wmi_buffer input = {
++		.length = sizeof(id),
++		.data = &id,
++	};
++	u8 *status;
++	int ret;
++
++	ret = wmidev_invoke_method(priv->wdev, 0, LWMI_LIGHTING_METHOD_GET,
++				   &input, &output);
++	if (ret)
++		return ret;
++	if (output.length != 2) {
++		ret = -ENODATA;
++		goto out_free;
++	}
++
++	status = output.data;
++	switch (type) {
++	case LWMI_LIGHTING_COMBINED:
++		if (status[0] > 1 || status[1] != 0) {
++			ret = -ENODATA;
++			break;
++		}
++
++		*brightness = status[0] ? LED_ON : LED_OFF;
++		break;
++	case LWMI_LIGHTING_POWER:
++		if (status[0] != 1 ||
++		    (status[1] != LWMI_LIGHTING_STATE_OFF &&
++		     status[1] != LWMI_LIGHTING_STATE_POWER_ON)) {
++			ret = -ENODATA;
++			break;
++		}
++
++		*brightness = status[1] == LWMI_LIGHTING_STATE_POWER_ON ?
++			      LED_ON : LED_OFF;
++		break;
++	case LWMI_LIGHTING_STANDBY:
++		if (status[0] != 1 ||
++		    (status[1] != LWMI_LIGHTING_STATE_OFF &&
++		     status[1] != LWMI_LIGHTING_STATE_STANDBY_ON)) {
++			ret = -ENODATA;
++			break;
++		}
++
++		*brightness = status[1] == LWMI_LIGHTING_STATE_STANDBY_ON ?
++			      LED_ON : LED_OFF;
++		break;
++	}
++
++out_free:
++	kfree(output.data);
++	return ret;
++}
++
++static int lwmi_lighting_set(struct lwmi_lighting_led *led,
++			     enum led_brightness brightness)
++{
++	u8 args[3] = { led->id };
++	struct wmi_buffer input = {
++		.length = sizeof(args),
++		.data = args,
++	};
++
++	switch (led->type) {
++	case LWMI_LIGHTING_COMBINED:
++		args[1] = brightness != LED_OFF;
++		break;
++	case LWMI_LIGHTING_POWER:
++		args[2] = brightness == LED_OFF ? LWMI_LIGHTING_STATE_OFF :
++			  LWMI_LIGHTING_STATE_POWER_ON;
++		break;
++	case LWMI_LIGHTING_STANDBY:
++		args[2] = brightness == LED_OFF ? LWMI_LIGHTING_STATE_OFF :
++			  LWMI_LIGHTING_STATE_STANDBY_ON;
++		break;
++	}
++
++	return wmidev_invoke_method(led->priv->wdev, 0,
++				    LWMI_LIGHTING_METHOD_SET, &input, NULL);
++}
++
++static enum led_brightness
++lwmi_lighting_brightness_get(struct led_classdev *cdev)
++{
++	struct lwmi_lighting_led *led = container_of(cdev,
++						      struct lwmi_lighting_led,
++						      cdev);
++	enum led_brightness brightness;
++	int ret;
++
++	mutex_lock(&led->priv->lock);
++	ret = lwmi_lighting_get(led->priv, led->id, led->type, &brightness);
++	mutex_unlock(&led->priv->lock);
++	if (ret) {
++		dev_warn_ratelimited(&led->priv->wdev->dev,
++				     "Failed to get %s LED brightness: %d\n",
++				     cdev->name, ret);
++		return cdev->brightness;
++	}
++
++	return brightness;
++}
++
++static int lwmi_lighting_brightness_set(struct led_classdev *cdev,
++					enum led_brightness brightness)
++{
++	struct lwmi_lighting_led *led = container_of(cdev,
++						      struct lwmi_lighting_led,
++						      cdev);
++	int ret;
++
++	mutex_lock(&led->priv->lock);
++	ret = lwmi_lighting_set(led, brightness);
++	mutex_unlock(&led->priv->lock);
++
++	return ret;
++}
++
++static int lwmi_lighting_register_led(struct lwmi_lighting_priv *priv,
++				      unsigned int index, const char *name,
++				      u8 id, enum lwmi_lighting_type type,
++				      enum led_brightness brightness)
++{
++	struct lwmi_lighting_led *led = &priv->leds[index];
++
++	led->priv = priv;
++	led->id = id;
++	led->type = type;
++	led->cdev.name = name;
++	led->cdev.max_brightness = LED_ON;
++	led->cdev.brightness = brightness;
++	led->cdev.brightness_get = lwmi_lighting_brightness_get;
++	led->cdev.brightness_set_blocking = lwmi_lighting_brightness_set;
++	led->cdev.flags = LED_RETAIN_AT_SHUTDOWN;
++
++	return devm_led_classdev_register(&priv->wdev->dev, &led->cdev);
++}
++
++static int lwmi_lighting_probe(struct wmi_device *wdev, const void *context)
++{
++	enum led_brightness combined_brightness;
++	enum led_brightness standby_brightness;
++	enum led_brightness power_brightness;
++	struct lwmi_lighting_priv *priv;
++	bool power_supported;
++	int ret;
++
++	priv = devm_kzalloc(&wdev->dev, sizeof(*priv), GFP_KERNEL);
++	if (!priv)
++		return -ENOMEM;
++
++	priv->wdev = wdev;
++	mutex_init(&priv->lock);
++	dev_set_drvdata(&wdev->dev, priv);
++
++	/*
++	 * Query power first to populate the firmware's shared return buffer.
++	 * Unsupported IDs leave that buffer unchanged, so the following combined
++	 * query can then be distinguished from a split-only implementation.
++	 */
++	ret = lwmi_lighting_get(priv, LWMI_LIGHTING_ID_POWER,
++				LWMI_LIGHTING_POWER, &power_brightness);
++	power_supported = !ret;
++
++	ret = lwmi_lighting_get(priv, LWMI_LIGHTING_ID_COMBINED,
++				LWMI_LIGHTING_COMBINED, &combined_brightness);
++	if (!ret) {
++		dev_dbg(&wdev->dev, "Using combined power LED control\n");
++		return lwmi_lighting_register_led(priv, 0, "platform::power",
++						  LWMI_LIGHTING_ID_COMBINED,
++						  LWMI_LIGHTING_COMBINED,
++						  combined_brightness);
++	}
++
++	if (!power_supported)
++		return -ENODEV;
++
++	ret = lwmi_lighting_get(priv, LWMI_LIGHTING_ID_STANDBY,
++				LWMI_LIGHTING_STANDBY, &standby_brightness);
++	if (ret)
++		return -ENODEV;
++
++	ret = lwmi_lighting_register_led(priv, 0, "platform::power",
++					 LWMI_LIGHTING_ID_POWER,
++					 LWMI_LIGHTING_POWER, power_brightness);
++	if (ret)
++		return ret;
++
++	dev_dbg(&wdev->dev, "Using separate power and standby LED controls\n");
++	return lwmi_lighting_register_led(priv, 1, "platform::standby",
++					  LWMI_LIGHTING_ID_STANDBY,
++					  LWMI_LIGHTING_STANDBY,
++					  standby_brightness);
++}
++
++static const struct wmi_device_id lwmi_lighting_id_table[] = {
++	{ LENOVO_LIGHTING_GUID, NULL },
++	{}
++};
++
++static struct wmi_driver lwmi_lighting_driver = {
++	.driver = {
++		.name = "lenovo_wmi_lighting",
++		.probe_type = PROBE_PREFER_ASYNCHRONOUS,
++	},
++	.id_table = lwmi_lighting_id_table,
++	.probe = lwmi_lighting_probe,
++	.no_singleton = true,
++};
++module_wmi_driver(lwmi_lighting_driver);
++
++MODULE_DEVICE_TABLE(wmi, lwmi_lighting_id_table);
++MODULE_AUTHOR("Antheas Kapenekakis <lkml@antheas.dev>");
++MODULE_DESCRIPTION("Lenovo Lighting WMI Driver");
++MODULE_LICENSE("GPL");
+-- 
+2.54.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
 Date: Thu, 6 Aug 2026 01:35:06 +0200
 Subject: platform/x86: lenovo-wmi-other: Add charge type control
 
@@ -34053,10 +34399,10 @@ index 9025cf732d58..dcef1fa232b0 100644
  its nearest multiple. The divisor itself is not necessary to be a power of two.
  
 diff --git a/drivers/platform/x86/lenovo/Kconfig b/drivers/platform/x86/lenovo/Kconfig
-index 6d9286768ef8..0ed642333def 100644
+index 997d2f8a92a3..97bf3e7e95a8 100644
 --- a/drivers/platform/x86/lenovo/Kconfig
 +++ b/drivers/platform/x86/lenovo/Kconfig
-@@ -274,6 +274,7 @@ config LENOVO_WMI_GAMEZONE_FAN
+@@ -286,6 +286,7 @@ config LENOVO_WMI_LIGHTING
  config LENOVO_WMI_TUNING
  	tristate "Lenovo Other Mode WMI Driver"
  	depends on ACPI_WMI
@@ -34327,6 +34673,68 @@ index 5775ef6a3af7..07db524c475b 100644
  
  	component_unbind_all(dev, NULL);
  }
+-- 
+2.54.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Tue, 4 Aug 2026 21:00:23 +0200
+Subject: draft patch for WIn5 failure
+
+---
+ drivers/net/wireless/intel/iwlwifi/cfg/ax210.c         | 1 +
+ drivers/net/wireless/intel/iwlwifi/iwl-config.h        | 2 ++
+ drivers/net/wireless/intel/iwlwifi/pcie/gen1_2/trans.c | 4 ++++
+ 3 files changed, 7 insertions(+)
+
+diff --git a/drivers/net/wireless/intel/iwlwifi/cfg/ax210.c b/drivers/net/wireless/intel/iwlwifi/cfg/ax210.c
+index 582f61661062..7eee22740e6a 100644
+--- a/drivers/net/wireless/intel/iwlwifi/cfg/ax210.c
++++ b/drivers/net/wireless/intel/iwlwifi/cfg/ax210.c
+@@ -71,6 +71,7 @@ const struct iwl_mac_cfg iwl_ty_mac_cfg = {
+ 	.gen2 = true,
+ 	.device_family = IWL_DEVICE_FAMILY_AX210,
+ 	.base = &iwl_ax210_base,
++	.disable_pcie_l1_2 = true,
+ 	.umac_prph_offset = 0x300000,
+ 	/* TODO: the following values need to be checked */
+ 	.xtal_latency = 500,
+diff --git a/drivers/net/wireless/intel/iwlwifi/iwl-config.h b/drivers/net/wireless/intel/iwlwifi/iwl-config.h
+index 45cf2bc68e41..109c05a21f4f 100644
+--- a/drivers/net/wireless/intel/iwlwifi/iwl-config.h
++++ b/drivers/net/wireless/intel/iwlwifi/iwl-config.h
+@@ -354,6 +354,7 @@ enum iwl_mac_cfg_ltr_delay {
+  * @integrated: discrete or integrated
+  * @low_latency_xtal: use the low latency xtal if supported
+  * @bisr_workaround: BISR hardware workaround (for 22260 series devices)
++ * @disable_pcie_l1_2: disable PCIe ASPM L1.2
+  * @ltr_delay: LTR delay parameter, &enum iwl_mac_cfg_ltr_delay.
+  * @imr_enabled: use the IMR if supported.
+  */
+@@ -368,6 +369,7 @@ struct iwl_mac_cfg {
+ 	    integrated:1,
+ 	    low_latency_xtal:1,
+ 	    bisr_workaround:1,
++	    disable_pcie_l1_2:1,
+ 	    ltr_delay:2,
+ 	    imr_enabled:1;
+ };
+diff --git a/drivers/net/wireless/intel/iwlwifi/pcie/gen1_2/trans.c b/drivers/net/wireless/intel/iwlwifi/pcie/gen1_2/trans.c
+index 4560d92d76fe..1ec6ff1cc191 100644
+--- a/drivers/net/wireless/intel/iwlwifi/pcie/gen1_2/trans.c
++++ b/drivers/net/wireless/intel/iwlwifi/pcie/gen1_2/trans.c
+@@ -3853,6 +3853,10 @@ iwl_trans_pcie_alloc(struct pci_dev *pdev,
+ 
+ 	trans_pcie->debug_rfkill = -1;
+ 
++	/* Some devices lose the PCIe link with ASPM L1.2 enabled. */
++	if (mac_cfg->disable_pcie_l1_2)
++		pci_disable_link_state(pdev, PCIE_LINK_STATE_L1_2);
++
+ 	if (!mac_cfg->base->pcie_l1_allowed) {
+ 		/*
+ 		 * W/A - seems to solve weird behavior. We need to remove this
 -- 
 2.54.0
 
