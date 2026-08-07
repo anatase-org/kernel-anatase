@@ -9,6 +9,7 @@ fi
 
 ARCH=${ARCH:-$(uname -m)}
 FEDORA_VERSION=${FEDORA_VERSION:-44}
+CCACHE_USE=${CCACHE_USE:-1}
 PE_SIGNING_PIN=${PE_SIGNING_PIN:-0}
 PE_SIGNING_TOKEN=${PE_SIGNING_TOKEN:-}
 PE_SIGNING_CERT=${PE_SIGNING_CERT:-}
@@ -46,6 +47,7 @@ esac
 
 normalize_bool PE_SIGNING_PIN "${PE_SIGNING_PIN}"
 normalize_bool PUSH_IMAGE "${PUSH_IMAGE}"
+normalize_bool CCACHE_USE "${CCACHE_USE}"
 
 TARFILE_RELEASE=$(sed -n 's/^%define[[:space:]]\+tarfile_release[[:space:]]\+//p' kernel.spec)
 NVIDIA_RELEASE=$(sed -n 's/^%define[[:space:]]\+nvidia_version[[:space:]]\+//p' kernel.spec)
@@ -126,6 +128,7 @@ podman build \
     --pull=always \
     --build-arg "BUILDER_IMAGE=${BUILDER_IMAGE}" \
     --build-arg "FEDORA_VERSION=${FEDORA_VERSION}" \
+    --build-arg "CCACHE_USE=${CCACHE_USE}" \
     --build-arg "TARFILE_RELEASE=${TARFILE_RELEASE}" \
     --build-arg "NVIDIA_RELEASE=${NVIDIA_RELEASE}" \
     --build-arg "NVIDIA_RELEASE_REL=${NVIDIA_RELEASE_REL}" \

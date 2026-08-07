@@ -66,6 +66,7 @@ jobs:
         env:
           FEDORA_VERSION: ${{ matrix.fedora_version }}
           ARCH: ${{ matrix.arch }}
+          CCACHE_USE: "0"
           PE_SIGNING_TOKEN: ${{ secrets.PE_SIGNING_TOKEN }}
           PE_SIGNING_CERT: ${{ secrets.PE_SIGNING_CERT }}
           PE_SIGNING_PIN: "0"
