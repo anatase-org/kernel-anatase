@@ -190,13 +190,13 @@ Summary: The Linux kernel
 %define specrpmversion 7.0.12
 %define specversion 7.0.12
 %define patchversion 7.0
-%define pkgrelease an06
+%define pkgrelease an07
 %define kversion 7
 %define tarfile_release 7.0.12
 # This is needed to do merge window version magic
 %define patchlevel 0
 # This allows pkg_release to have configurable %%{?dist} tag
-%define specrelease an06%{?buildid}%{?dist}
+%define specrelease an07%{?buildid}%{?dist}
 # This defines the kabi tarball version
 %define kabiversion 7.0.12
 
@@ -4947,7 +4947,10 @@ fi\
 #
 #
 %changelog
-* Sat Aug 08 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.0.12-an06]
+* Sat Aug 08 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.0.12-an07]
+- platform/x86: oxpec: Report tablet mode on OneXPlayer detachables (Alexander Egorov)
+- platform/x86: oxpec: Distinguish OneXPlayer Super X board (Alexander Egorov)
+- platform/x86: oxpec: Add support for OneXPlayer X2 Mini Pro (Jeff Hagadorn)
 - draft patch for WIn5 failure (Antheas Kapenekakis)
 - platform/x86: lenovo-wmi-other: Add charge type control (Antheas Kapenekakis)
 - platform/x86: Add Lenovo WMI lighting driver (Antheas Kapenekakis)
