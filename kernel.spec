@@ -190,13 +190,13 @@ Summary: The Linux kernel
 %define specrpmversion 7.0.12
 %define specversion 7.0.12
 %define patchversion 7.0
-%define pkgrelease an05
+%define pkgrelease an06
 %define kversion 7
 %define tarfile_release 7.0.12
 # This is needed to do merge window version magic
 %define patchlevel 0
 # This allows pkg_release to have configurable %%{?dist} tag
-%define specrelease an05%{?buildid}%{?dist}
+%define specrelease an06%{?buildid}%{?dist}
 # This defines the kabi tarball version
 %define kabiversion 7.0.12
 
@@ -1018,7 +1018,7 @@ Source1: Makefile.rhelver
 Source2: %{name}.changelog
 
 %define evdi_version 1.14.16
-%define nvidia_version 610.43.03
+%define nvidia_version 610.57.04
 %define nvidia_version_rel 1
 %define nvidia_version_lts 580.159.04
 %define nvidia_epoch 3
@@ -4947,7 +4947,7 @@ fi\
 #
 #
 %changelog
-* Fri Aug 07 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.0.12-an05]
+* Sat Aug 08 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.0.12-an06]
 - draft patch for WIn5 failure (Antheas Kapenekakis)
 - platform/x86: lenovo-wmi-other: Add charge type control (Antheas Kapenekakis)
 - platform/x86: Add Lenovo WMI lighting driver (Antheas Kapenekakis)
