@@ -35103,3 +35103,30 @@ index 00a5e64b2001..5680c3bcd604 100644
 -- 
 2.54.0
 
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Wed, 19 Nov 2025 00:38:05 +0100
+Subject: disable split lock detection by default
+
+Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
+---
+ arch/x86/kernel/cpu/bus_lock.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/x86/kernel/cpu/bus_lock.c b/arch/x86/kernel/cpu/bus_lock.c
+index fb166662bc0d..8cb1e234b22f 100644
+--- a/arch/x86/kernel/cpu/bus_lock.c
++++ b/arch/x86/kernel/cpu/bus_lock.c
+@@ -111,7 +111,7 @@ static bool split_lock_verify_msr(bool on)
+ 
+ static void __init sld_state_setup(void)
+ {
+-	enum split_lock_detect_state state = sld_warn;
++	enum split_lock_detect_state state = sld_off;
+ 	char arg[20];
+ 	int i, ret;
+ 
+-- 
+2.54.0
+
