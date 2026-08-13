@@ -190,13 +190,13 @@ Summary: The Linux kernel
 %define specrpmversion 7.0.12
 %define specversion 7.0.12
 %define patchversion 7.0
-%define pkgrelease an08
+%define pkgrelease an09
 %define kversion 7
 %define tarfile_release 7.0.12
 # This is needed to do merge window version magic
 %define patchlevel 0
 # This allows pkg_release to have configurable %%{?dist} tag
-%define specrelease an08%{?buildid}%{?dist}
+%define specrelease an09%{?buildid}%{?dist}
 # This defines the kabi tarball version
 %define kabiversion 7.0.12
 
@@ -1017,7 +1017,7 @@ Source0: linux-%{tarfile_release}.tar.xz
 Source1: Makefile.rhelver
 Source2: %{name}.changelog
 
-%define evdi_version 1.14.16
+%define evdi_version 1.15.0
 %define nvidia_version 610.57.04
 %define nvidia_version_rel 1
 %define nvidia_version_lts 580.159.04
@@ -4947,7 +4947,9 @@ fi\
 #
 #
 %changelog
-* Tue Aug 11 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.0.12-an08]
+* Thu Aug 13 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.0.12-an09]
+- add x2mini pro to dptc (Antheas Kapenekakis)
+- lower tdp for ai max devices (Antheas Kapenekakis)
 - disable split lock detection by default (Antheas Kapenekakis)
 - platform/x86: oxpec: Report tablet mode on OneXPlayer detachables (Alexander Egorov)
 - platform/x86: oxpec: Distinguish OneXPlayer Super X board (Alexander Egorov)
@@ -4959,8 +4961,6 @@ fi\
 - platform/x86: lenovo-wmi-other: Add full fan speed attribute (Antheas Kapenekakis)
 - selinux: fix incorrect execmem checks on overlayfs (Ondrej Mosnacek)
 - x86/CPU/AMD: Lower RDSEED Warning level (Antheas Kapenekakis)
-- Revert "Input: xpad - use new BTN_GRIP* buttons" (Antheas Kapenekakis)
-- Revert "Input: xpad - change buttons the D-Pad gets mapped as to BTN_DPAD_*" (Antheas Kapenekakis)
 - platform/x86: asus-wmi: Don't reset charge threshold on boot (Antheas Kapenekakis)
 - orientation: add x1 air (Antheas Kapenekakis)
 - drm/amdgpu: defer overdrive taint until used (Antheas Kapenekakis)
@@ -4972,12 +4972,38 @@ fi\
 - drm/amd/display: enable private color API universally (Antheas Kapenekakis)
 - drm/amdgpu: tweak min and max clocks of cyan_skillfish (Antheas Kapenekakis)
 - ACPI: EC: Set ec_no_wakeup for MSI Claw A8 (Antheas Kapenekakis)
-- HID: hid-steam: keep evdev connected while steam is active (Antheas Kapenekakis)
 - watchdog: reduce error message level to maintain plymouth (Antheas Kapenekakis)
 - Input: evdev - allow releasing keys on grab (Antheas Kapenekakis)
 - drm/amd: Use suspend and hibernate post freeze notifications (Mario Limonciello)
 - PM: Add suspend and hibernate notifications for after freeze (Mario Limonciello)
 - drm/amd: Lower logging level of overdrive warning to err (Antheas Kapenekakis)
+- [FOR-UPSTREAM] Expose control over the boot animation color. (Florian Zitzelsberger)
+- [FOR-UPSTREAM] Fixes two issues with the LED driver. (Florian Zitzelsberger)
+- [FOR-UPSTREAM] leds: leds-valve: Add suspend/resume support (Robert Beckett)
+- [FOR-UPSTREAM] Expose additional brightness controls in firmware. (Florian Zitzelsberger)
+- [FOR-UPSTREAM] leds: rgb: add leds-valve driver (Robert Beckett)
+- [FOR-UPSTREAM] platform/chrome: cros_ec_sysfs: expose CEC wake enable and phys addr settings (NaKyle)
+- [FOR-UPSTREAM] cec: cros-ec: add support for wake enable and set pa host commands (NaKyle)
+- [FOR-UPSTREAM] cec: cros-ec: update dmi match table to support newer bios releases (NaKyle)
+- [FOR-UPSTREAM] cec: cros_ec buffers messages, read all available rather than just 1. (NaKyle)
+- hid: steam: retain controller while steam is open (Antheas Kapenekakis)
+- HID: steam: Zero out inputs when disabling gamepad mode (Vicki Pfau)
+- HID: steam: Clean up locking (Vicki Pfau)
+- HID: steam: Don't set feature reports when disconnecting (Vicki Pfau)
+- HID: steam: Fix wording of connect/disconnect logs (Vicki Pfau)
+- HID: steam: Initial 2026 Steam Controller support (Vicki Pfau)
+- HID: steam: Refactor registration (Vicki Pfau)
+- HID: steam: Retry send/recv reports if stale (Vicki Pfau)
+- HID: steam: Reject short reads (Vicki Pfau)
+- HID: steam: Zero-initialize reply in serial lookup (Vicki Pfau)
+- HID: steam: Improve logging and other cleanup (Vicki Pfau)
+- HID: steam: Rearrange teardown sequence (Vicki Pfau)
+- HID: steam: Fully unregister controller when hidraw is opened (Vicki Pfau)
+- HID: steam: Coalesce rumble packets (Vicki Pfau)
+- HID: steam: Add support for sensor events on the Steam Controller (2015) (Vicki Pfau)
+- HID: steam: Rename some constants that got renamed upstream (Vicki Pfau)
+- HID: steam: Refactor and clean up report parsing (Vicki Pfau)
+- HID: steam: Update documentation (Vicki Pfau)
 - hwmon: (gpd-fan) Add GPD Win 5 (Antheas Kapenekakis)
 - platform/x86/amd: dptc: Add device entries for handheld PCs (Antheas Kapenekakis)
 - platform/x86/amd: dptc: Add platform profile support (Antheas Kapenekakis)

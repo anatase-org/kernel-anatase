@@ -402,7 +402,7 @@ Subject: CI: add akmod modules
 
 Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
 ---
- .gitmodules                               |  42 ++++
+ .gitmodules                               |  39 ++++
  drivers/Kconfig                           |   2 +
  drivers/Makefile                          |   2 +
  drivers/custom/.gitignore                 |   3 +
@@ -412,7 +412,6 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
  drivers/custom/ayn_platform               |   1 +
  drivers/custom/bmi260                     |   1 +
  drivers/custom/evdi                       |   1 +
- drivers/custom/facetimehd                 |   1 +
  drivers/custom/fanatecff                  |   1 +
  drivers/custom/hid-tmff2                  |   1 +
  drivers/custom/lg4ff                      |   1 +
@@ -426,7 +425,7 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
  drivers/custom/v4l2loopback               |   1 +
  drivers/custom/xone                       |   1 +
  scripts/mod/modpost.c                     |   4 +-
- 24 files changed, 432 insertions(+), 2 deletions(-)
+ 23 files changed, 428 insertions(+), 2 deletions(-)
  create mode 100644 .gitmodules
  create mode 100644 drivers/custom/.gitignore
  create mode 100644 drivers/custom/Kconfig
@@ -435,7 +434,6 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
  create mode 160000 drivers/custom/ayn_platform
  create mode 160000 drivers/custom/bmi260
  create mode 160000 drivers/custom/evdi
- create mode 160000 drivers/custom/facetimehd
  create mode 160000 drivers/custom/fanatecff
  create mode 160000 drivers/custom/hid-tmff2
  create mode 160000 drivers/custom/lg4ff
@@ -451,10 +449,10 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
 
 diff --git a/.gitmodules b/.gitmodules
 new file mode 100644
-index 000000000000..6e34aae0fc4d
+index 000000000000..0c19f8f47f9d
 --- /dev/null
 +++ b/.gitmodules
-@@ -0,0 +1,42 @@
+@@ -0,0 +1,39 @@
 +[submodule "drivers/custom/ayn_platform"]
 +	path = drivers/custom/ayn_platform
 +	url = https://github.com/ShadowBlip/ayn-platform
@@ -469,7 +467,7 @@ index 000000000000..6e34aae0fc4d
 +	url = https://github.com/anatase-org/xone
 +[submodule "drivers/custom/razer"]
 +	path = drivers/custom/razer
-+	url = https://github.com/ublue-os/openrazer.git
++	url = https://github.com/openrazer/openrazer
 +[submodule "drivers/custom/v4l2loopback"]
 +	path = drivers/custom/v4l2loopback
 +	url = https://github.com/umlaeute/v4l2loopback
@@ -485,9 +483,6 @@ index 000000000000..6e34aae0fc4d
 +[submodule "drivers/custom/system76_io"]
 +	path = drivers/custom/system76_io
 +	url = https://github.com/pop-os/system76-io-dkms
-+[submodule "drivers/custom/facetimehd"]
-+	path = drivers/custom/facetimehd
-+	url = https://github.com/patjak/facetimehd/
 +[submodule "drivers/custom/fanatecff"]
 +	path = drivers/custom/fanatecff
 +	url = https://github.com/gotzl/hid-fanatecff
@@ -677,18 +672,11 @@ index 000000000000..2d764db2bd69
 +Subproject commit 2d764db2bd69f2922d7fad6cb162136e32f357a2
 diff --git a/drivers/custom/evdi b/drivers/custom/evdi
 new file mode 160000
-index 000000000000..cf0e2ad95784
+index 000000000000..2713cd41932f
 --- /dev/null
 +++ b/drivers/custom/evdi
 @@ -0,0 +1 @@
-+Subproject commit cf0e2ad95784468aaa27a51ca0510247e1fc3484
-diff --git a/drivers/custom/facetimehd b/drivers/custom/facetimehd
-new file mode 160000
-index 000000000000..b238cd935cf6
---- /dev/null
-+++ b/drivers/custom/facetimehd
-@@ -0,0 +1 @@
-+Subproject commit b238cd935cf65a8ea143a57832523b6ba8abafd9
++Subproject commit 2713cd41932f2bd8697953a205862a68a966b5ba
 diff --git a/drivers/custom/fanatecff b/drivers/custom/fanatecff
 new file mode 160000
 index 000000000000..dd78ef477c0d
@@ -698,11 +686,11 @@ index 000000000000..dd78ef477c0d
 +Subproject commit dd78ef477c0dc90d59291a0197afcea26911fca8
 diff --git a/drivers/custom/hid-tmff2 b/drivers/custom/hid-tmff2
 new file mode 160000
-index 000000000000..8187920ed261
+index 000000000000..c5b9b79d4e61
 --- /dev/null
 +++ b/drivers/custom/hid-tmff2
 @@ -0,0 +1 @@
-+Subproject commit 8187920ed261c7024826f8204cc7bea45153a3da
++Subproject commit c5b9b79d4e61b77e0827e81dd676420b3c366743
 diff --git a/drivers/custom/lg4ff b/drivers/custom/lg4ff
 new file mode 160000
 index 000000000000..2092db19f7b4
@@ -999,11 +987,11 @@ index 000000000000..878ab5a561d1
 +Subproject commit 878ab5a561d1e7acbbaeb82031820acb217b1d04
 diff --git a/drivers/custom/system76 b/drivers/custom/system76
 new file mode 160000
-index 000000000000..5256643e70df
+index 000000000000..90ea5e69af3b
 --- /dev/null
 +++ b/drivers/custom/system76
 @@ -0,0 +1 @@
-+Subproject commit 5256643e70dfa20a9bc42704ca4effb41e442332
++Subproject commit 90ea5e69af3bbc64ad373c7b8fec8c1197e8bd4f
 diff --git a/drivers/custom/system76_io b/drivers/custom/system76_io
 new file mode 160000
 index 000000000000..fc71f154ab8d
@@ -1020,11 +1008,11 @@ index 000000000000..f7ecb30c65ee
 +Subproject commit f7ecb30c65ee5f7870e921bc0a2354df8e1e8100
 diff --git a/drivers/custom/v4l2loopback b/drivers/custom/v4l2loopback
 new file mode 160000
-index 000000000000..94d18a57aea2
+index 000000000000..9ef83fb9bc88
 --- /dev/null
 +++ b/drivers/custom/v4l2loopback
 @@ -0,0 +1 @@
-+Subproject commit 94d18a57aea281559ccfb31f99325f822fa8ab4a
++Subproject commit 9ef83fb9bc88e8f841786753c362ac52c580defc
 diff --git a/drivers/custom/xone b/drivers/custom/xone
 new file mode 160000
 index 000000000000..9053b2a0f66f
@@ -31840,6 +31828,5365 @@ index 1729729b135f..6ee7e6bf3531 100644
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Vicki Pfau <vi@endrift.com>
+Date: Wed, 29 Jul 2026 21:12:24 -0700
+Subject: HID: steam: Update documentation
+
+Mark myself as the maintainer, as well as adding myself as an author.
+
+It also makes some minor updates to comments, such as correcly calling the
+left menu key view and retroactively renaming the original Steam Controller
+as Steam Controller (2015), in preparation for support for the 2026 model.
+
+Signed-off-by: Vicki Pfau <vi@endrift.com>
+---
+ MAINTAINERS             |  6 ++++++
+ drivers/hid/hid-steam.c | 13 +++++++------
+ 2 files changed, 13 insertions(+), 6 deletions(-)
+
+diff --git a/MAINTAINERS b/MAINTAINERS
+index ffe23de642ce..f338f04edb47 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -11413,6 +11413,12 @@ S:	Maintained
+ B:	https://github.com/JacKeTUs/universal-pidff/issues
+ F:	drivers/hid/hid-universal-pidff.c
+ 
++HID STEAM CONTROLLER
++M:	Vicki Pfau <vi@endrift.com>
++L:	linux-input@vger.kernel.org
++S:	Maintained
++F:	drivers/hid/hid-steam.c
++
+ HID VRC-2 CAR CONTROLLER DRIVER
+ M:	Marcus Folkesson <marcus.folkesson@gmail.com>
+ L:	linux-input@vger.kernel.org
+diff --git a/drivers/hid/hid-steam.c b/drivers/hid/hid-steam.c
+index 197126d6e081..a854d6360a0e 100644
+--- a/drivers/hid/hid-steam.c
++++ b/drivers/hid/hid-steam.c
+@@ -48,6 +48,7 @@
+ MODULE_DESCRIPTION("HID driver for Valve Steam Controller");
+ MODULE_LICENSE("GPL");
+ MODULE_AUTHOR("Rodrigo Rivas Costa <rodrigorivascosta@gmail.com>");
++MODULE_AUTHOR("Vicki Pfau <vi@endrift.com>");
+ 
+ static bool lizard_mode = true;
+ 
+@@ -1413,9 +1414,9 @@ static inline s16 steam_le16(u8 *data)
+  *  9.1  | BTN_DPAD_RIGHT | left-pad right
+  *  9.2  | BTN_DPAD_LEFT  | left-pad left
+  *  9.3  | BTN_DPAD_DOWN  | left-pad down
+- *  9.4  | BTN_SELECT | menu left
++ *  9.4  | BTN_SELECT | view
+  *  9.5  | BTN_MODE   | steam logo
+- *  9.6  | BTN_START  | menu right
++ *  9.6  | BTN_START  | menu
+  *  9.7  | BTN_GRIPL  | left back lever
+  * 10.0  | BTN_GRIPR  | right back lever
+  * 10.1  | --         | left-pad clicked
+@@ -1541,9 +1542,9 @@ static void steam_do_input_event(struct steam_device *steam,
+  *  9.1  | BTN_DPAD_RIGHT | left-pad right
+  *  9.2  | BTN_DPAD_LEFT  | left-pad left
+  *  9.3  | BTN_DPAD_DOWN  | left-pad down
+- *  9.4  | BTN_SELECT | menu left
++ *  9.4  | BTN_SELECT | view
+  *  9.5  | BTN_MODE   | steam logo
+- *  9.6  | BTN_START  | menu right
++ *  9.6  | BTN_START  | menu
+  *  9.7  | BTN_GRIPL2 | left bottom grip button
+  *  10.0 | BTN_GRIPR2 | right bottom grip button
+  *  10.1 | BTN_THUMB  | left pad pressed
+@@ -1850,11 +1851,11 @@ MODULE_PARM_DESC(lizard_mode,
+ 	"Enable mouse and keyboard emulation (lizard mode) when the gamepad is not in use");
+ 
+ static const struct hid_device_id steam_controllers[] = {
+-	{ /* Wired Steam Controller */
++	{ /* Wired Steam Controller (2015) */
+ 	  HID_USB_DEVICE(USB_VENDOR_ID_VALVE,
+ 		USB_DEVICE_ID_STEAM_CONTROLLER)
+ 	},
+-	{ /* Wireless Steam Controller */
++	{ /* Wireless Steam Controller (2015) */
+ 	  HID_USB_DEVICE(USB_VENDOR_ID_VALVE,
+ 		USB_DEVICE_ID_STEAM_CONTROLLER_WIRELESS),
+ 	  .driver_data = STEAM_QUIRK_WIRELESS
+-- 
+2.54.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Vicki Pfau <vi@endrift.com>
+Date: Wed, 29 Jul 2026 21:12:25 -0700
+Subject: HID: steam: Refactor and clean up report parsing
+
+This switches from a parsing style where each button or axis is parsed
+individually out of a report using !!(byte & BIT(x)) style. This commit
+switches it to a mostly unified approach of defining a list of individual
+mappings in an array and passing it to a function that handles all of the
+extraction. Theoretically this is more lines, but in practice it results in
+(subjectively) cleaner code. Some exceptions still need to be made for
+things like handling the lizard mode toggle key, but in general there's a
+lot less manual code.
+
+Signed-off-by: Vicki Pfau <vi@endrift.com>
+---
+ drivers/hid/hid-steam.c | 211 ++++++++++++++++++++++++----------------
+ 1 file changed, 128 insertions(+), 83 deletions(-)
+
+diff --git a/drivers/hid/hid-steam.c b/drivers/hid/hid-steam.c
+index a854d6360a0e..75d6be0be0a2 100644
+--- a/drivers/hid/hid-steam.c
++++ b/drivers/hid/hid-steam.c
+@@ -43,6 +43,7 @@
+ #include <linux/rcupdate.h>
+ #include <linux/delay.h>
+ #include <linux/power_supply.h>
++#include <linux/unaligned.h>
+ #include "hid-ids.h"
+ 
+ MODULE_DESCRIPTION("HID driver for Valve Steam Controller");
+@@ -1355,13 +1356,45 @@ static void steam_do_connect_event(struct steam_device *steam, bool connected)
+  * Clamp the values to 32767..-32767 so that the range is
+  * symmetrical and can be negated safely.
+  */
+-static inline s16 steam_le16(u8 *data)
++static inline s16 steam_le16(const u8 *data)
+ {
+-	s16 x = (s16) le16_to_cpup((__le16 *)data);
++	s16 x = (s16) get_unaligned_le16((const __le16 *)data);
+ 
+ 	return x == -32768 ? -32767 : x;
+ }
+ 
++struct steam_button_mapping {
++	int code;
++	u8 byte;
++	u8 bit;
++};
++
++struct steam_axis_mapping {
++	int code;
++	s8 sign;
++	u8 byte;
++};
++
++static void steam_map_buttons(struct input_dev *input,
++		const struct steam_button_mapping *mappings, const u8 *data)
++{
++	const struct steam_button_mapping *mapping;
++
++	for (mapping = mappings; mapping->code; mapping++)
++		input_report_key(input, mapping->code,
++			data[mapping->byte] & BIT(mapping->bit));
++}
++
++static void steam_map_axes(struct input_dev *input,
++		const struct steam_axis_mapping *mappings, const u8 *data)
++{
++	const struct steam_axis_mapping *mapping;
++
++	for (mapping = mappings; mapping->sign; mapping++)
++		input_report_abs(input, mapping->code,
++			mapping->sign * steam_le16(&data[mapping->byte]));
++}
++
+ /*
+  * The size for this message payload is 60.
+  * The known values are:
+@@ -1428,18 +1461,42 @@ static inline s16 steam_le16(u8 *data)
+  * 10.7  | --         | lpad_and_joy
+  */
+ 
++static const struct steam_button_mapping steam_controller_button_mappings[] = {
++	{ BTN_TR2,		 8, 0 },
++	{ BTN_TL2,		 8, 1 },
++	{ BTN_TR,		 8, 2 },
++	{ BTN_TL,		 8, 3 },
++	{ BTN_Y,		 8, 4 },
++	{ BTN_B,		 8, 5 },
++	{ BTN_X,		 8, 6 },
++	{ BTN_A,		 8, 7 },
++	{ BTN_SELECT,		 9, 4 },
++	{ BTN_MODE,		 9, 5 },
++	{ BTN_START,		 9, 6 },
++	{ BTN_GRIPL,		 9, 7 },
++	{ BTN_GRIPR,		10, 0 },
++	{ BTN_THUMBR,		10, 2 },
++	{ BTN_THUMBL,		10, 6 },
++	{ BTN_THUMB2,		10, 4 },
++	{ BTN_DPAD_UP,		 9, 0 },
++	{ BTN_DPAD_RIGHT,	 9, 1 },
++	{ BTN_DPAD_LEFT,	 9, 2 },
++	{ BTN_DPAD_DOWN,	 9, 3 },
++	{ /* sentinel */ },
++};
++
++static const struct steam_axis_mapping steam_controller_axis_mappings[] = {
++	{ ABS_RX,  1, 20 },
++	{ ABS_RY, -1, 22 },
++	{ /* sentinel */ },
++};
++
+ static void steam_do_input_event(struct steam_device *steam,
+ 		struct input_dev *input, u8 *data)
+ {
+-	/* 24 bits of buttons */
+-	u8 b8, b9, b10;
+ 	s16 x, y;
+ 	bool lpad_touched, lpad_and_joy;
+ 
+-	b8 = data[8];
+-	b9 = data[9];
+-	b10 = data[10];
+-
+ 	input_report_abs(input, ABS_HAT2Y, data[11]);
+ 	input_report_abs(input, ABS_HAT2X, data[12]);
+ 
+@@ -1451,8 +1508,8 @@ static void steam_do_input_event(struct steam_device *steam,
+ 	 * joystick values.
+ 	 * (lpad_touched || lpad_and_joy) tells if the lpad is really touched.
+ 	 */
+-	lpad_touched = b10 & BIT(3);
+-	lpad_and_joy = b10 & BIT(7);
++	lpad_touched = data[10] & BIT(3);
++	lpad_and_joy = data[10] & BIT(7);
+ 	x = steam_le16(data + 16);
+ 	y = -steam_le16(data + 18);
+ 
+@@ -1468,31 +1525,10 @@ static void steam_do_input_event(struct steam_device *steam,
+ 		input_report_abs(input, ABS_HAT0X, 0);
+ 		input_report_abs(input, ABS_HAT0Y, 0);
+ 	}
++	input_report_key(input, BTN_THUMB, lpad_touched || lpad_and_joy);
+ 
+-	input_report_abs(input, ABS_RX, steam_le16(data + 20));
+-	input_report_abs(input, ABS_RY, -steam_le16(data + 22));
+-
+-	input_event(input, EV_KEY, BTN_TR2, !!(b8 & BIT(0)));
+-	input_event(input, EV_KEY, BTN_TL2, !!(b8 & BIT(1)));
+-	input_event(input, EV_KEY, BTN_TR, !!(b8 & BIT(2)));
+-	input_event(input, EV_KEY, BTN_TL, !!(b8 & BIT(3)));
+-	input_event(input, EV_KEY, BTN_Y, !!(b8 & BIT(4)));
+-	input_event(input, EV_KEY, BTN_B, !!(b8 & BIT(5)));
+-	input_event(input, EV_KEY, BTN_X, !!(b8 & BIT(6)));
+-	input_event(input, EV_KEY, BTN_A, !!(b8 & BIT(7)));
+-	input_event(input, EV_KEY, BTN_SELECT, !!(b9 & BIT(4)));
+-	input_event(input, EV_KEY, BTN_MODE, !!(b9 & BIT(5)));
+-	input_event(input, EV_KEY, BTN_START, !!(b9 & BIT(6)));
+-	input_event(input, EV_KEY, BTN_GRIPL, !!(b9 & BIT(7)));
+-	input_event(input, EV_KEY, BTN_GRIPR, !!(b10 & BIT(0)));
+-	input_event(input, EV_KEY, BTN_THUMBR, !!(b10 & BIT(2)));
+-	input_event(input, EV_KEY, BTN_THUMBL, !!(b10 & BIT(6)));
+-	input_event(input, EV_KEY, BTN_THUMB, lpad_touched || lpad_and_joy);
+-	input_event(input, EV_KEY, BTN_THUMB2, !!(b10 & BIT(4)));
+-	input_event(input, EV_KEY, BTN_DPAD_UP, !!(b9 & BIT(0)));
+-	input_event(input, EV_KEY, BTN_DPAD_RIGHT, !!(b9 & BIT(1)));
+-	input_event(input, EV_KEY, BTN_DPAD_LEFT, !!(b9 & BIT(2)));
+-	input_event(input, EV_KEY, BTN_DPAD_DOWN, !!(b9 & BIT(3)));
++	steam_map_buttons(input, steam_controller_button_mappings, data);
++	steam_map_axes(input, steam_controller_axis_mappings, data);
+ 
+ 	input_sync(input);
+ }
+@@ -1595,23 +1631,67 @@ static void steam_do_input_event(struct steam_device *steam,
+  *  15.6 | --         | unknown
+  *  15.7 | --         | unknown
+  */
++
++static const struct steam_button_mapping steam_deck_button_mappings[] = {
++	{ BTN_TR2,		 8, 0 },
++	{ BTN_TL2,		 8, 1 },
++	{ BTN_TR,		 8, 2 },
++	{ BTN_TL,		 8, 3 },
++	{ BTN_Y,		 8, 4 },
++	{ BTN_B,		 8, 5 },
++	{ BTN_X,		 8, 6 },
++	{ BTN_A,		 8, 7 },
++	{ BTN_SELECT,		 9, 4 },
++	{ BTN_MODE,		 9, 5 },
++	{ BTN_START,		 9, 6 },
++	{ BTN_GRIPL2,		 9, 7 },
++	{ BTN_GRIPR2,		10, 0 },
++	{ BTN_THUMBL,		10, 6 },
++	{ BTN_THUMBR,		11, 2 },
++	{ BTN_DPAD_UP,		 9, 0 },
++	{ BTN_DPAD_RIGHT,	 9, 1 },
++	{ BTN_DPAD_LEFT,	 9, 2 },
++	{ BTN_DPAD_DOWN,	 9, 3 },
++	{ BTN_THUMB,		10, 1 },
++	{ BTN_THUMB2,		10, 2 },
++	{ BTN_GRIPL,		13, 1 },
++	{ BTN_GRIPR,		13, 2 },
++	{ BTN_BASE,		14, 2 },
++	{ /* sentinel */ },
++};
++
++static const struct steam_axis_mapping steam_deck_axis_mappings[] = {
++	{ ABS_X,	 1, 48 },
++	{ ABS_Y,	-1, 50 },
++	{ ABS_RX,	 1, 52 },
++	{ ABS_RY,	-1, 54 },
++	{ ABS_HAT2Y,	 1, 44 },
++	{ ABS_HAT2X,	 1, 46 },
++	{ /* sentinel */ },
++};
++
++static const struct steam_axis_mapping steam_deck_imu_mappings[] = {
++	{ ABS_X,   1, 24 },
++	{ ABS_Z,  -1, 26 },
++	{ ABS_Y,   1, 28 },
++	{ ABS_RX,  1, 30 },
++	{ ABS_RZ, -1, 32 },
++	{ ABS_RY,  1, 34 },
++	{ /* sentinel */ },
++};
++
+ static void steam_do_deck_input_event(struct steam_device *steam,
+ 		struct input_dev *input, u8 *data)
+ {
+-	u8 b8, b9, b10, b11, b13, b14;
++	bool start_pressed;
+ 	bool lpad_touched, rpad_touched;
+ 
+-	b8 = data[8];
+-	b9 = data[9];
+-	b10 = data[10];
+-	b11 = data[11];
+-	b13 = data[13];
+-	b14 = data[14];
++	start_pressed = data[9] & BIT(6);
+ 
+-	if (!(b9 & BIT(6)) && steam->did_mode_switch) {
++	if (!start_pressed && steam->did_mode_switch) {
+ 		steam->did_mode_switch = false;
+ 		cancel_delayed_work(&steam->mode_switch);
+-	} else if (!steam->client_opened && (b9 & BIT(6)) && !steam->did_mode_switch) {
++	} else if (!steam->client_opened && start_pressed && !steam->did_mode_switch) {
+ 		steam->did_mode_switch = true;
+ 		schedule_delayed_work(&steam->mode_switch, 45 * HZ / 100);
+ 	}
+@@ -1619,8 +1699,8 @@ static void steam_do_deck_input_event(struct steam_device *steam,
+ 	if (!steam->gamepad_mode && lizard_mode)
+ 		return;
+ 
+-	lpad_touched = b10 & BIT(3);
+-	rpad_touched = b10 & BIT(4);
++	lpad_touched = data[10] & BIT(3);
++	rpad_touched = data[10] & BIT(4);
+ 
+ 	if (lpad_touched) {
+ 		input_report_abs(input, ABS_HAT0X, steam_le16(data + 16));
+@@ -1638,38 +1718,8 @@ static void steam_do_deck_input_event(struct steam_device *steam,
+ 		input_report_abs(input, ABS_HAT1Y, 0);
+ 	}
+ 
+-	input_report_abs(input, ABS_X, steam_le16(data + 48));
+-	input_report_abs(input, ABS_Y, -steam_le16(data + 50));
+-	input_report_abs(input, ABS_RX, steam_le16(data + 52));
+-	input_report_abs(input, ABS_RY, -steam_le16(data + 54));
+-
+-	input_report_abs(input, ABS_HAT2Y, steam_le16(data + 44));
+-	input_report_abs(input, ABS_HAT2X, steam_le16(data + 46));
+-
+-	input_event(input, EV_KEY, BTN_TR2, !!(b8 & BIT(0)));
+-	input_event(input, EV_KEY, BTN_TL2, !!(b8 & BIT(1)));
+-	input_event(input, EV_KEY, BTN_TR, !!(b8 & BIT(2)));
+-	input_event(input, EV_KEY, BTN_TL, !!(b8 & BIT(3)));
+-	input_event(input, EV_KEY, BTN_Y, !!(b8 & BIT(4)));
+-	input_event(input, EV_KEY, BTN_B, !!(b8 & BIT(5)));
+-	input_event(input, EV_KEY, BTN_X, !!(b8 & BIT(6)));
+-	input_event(input, EV_KEY, BTN_A, !!(b8 & BIT(7)));
+-	input_event(input, EV_KEY, BTN_SELECT, !!(b9 & BIT(4)));
+-	input_event(input, EV_KEY, BTN_MODE, !!(b9 & BIT(5)));
+-	input_event(input, EV_KEY, BTN_START, !!(b9 & BIT(6)));
+-	input_event(input, EV_KEY, BTN_GRIPL2, !!(b9 & BIT(7)));
+-	input_event(input, EV_KEY, BTN_GRIPR2, !!(b10 & BIT(0)));
+-	input_event(input, EV_KEY, BTN_THUMBL, !!(b10 & BIT(6)));
+-	input_event(input, EV_KEY, BTN_THUMBR, !!(b11 & BIT(2)));
+-	input_event(input, EV_KEY, BTN_DPAD_UP, !!(b9 & BIT(0)));
+-	input_event(input, EV_KEY, BTN_DPAD_RIGHT, !!(b9 & BIT(1)));
+-	input_event(input, EV_KEY, BTN_DPAD_LEFT, !!(b9 & BIT(2)));
+-	input_event(input, EV_KEY, BTN_DPAD_DOWN, !!(b9 & BIT(3)));
+-	input_event(input, EV_KEY, BTN_THUMB, !!(b10 & BIT(1)));
+-	input_event(input, EV_KEY, BTN_THUMB2, !!(b10 & BIT(2)));
+-	input_event(input, EV_KEY, BTN_GRIPL, !!(b13 & BIT(1)));
+-	input_event(input, EV_KEY, BTN_GRIPR, !!(b13 & BIT(2)));
+-	input_event(input, EV_KEY, BTN_BASE, !!(b14 & BIT(2)));
++	steam_map_buttons(input, steam_deck_button_mappings, data);
++	steam_map_axes(input, steam_deck_axis_mappings, data);
+ 
+ 	input_sync(input);
+ }
+@@ -1690,12 +1740,7 @@ static void steam_do_deck_sensors_event(struct steam_device *steam,
+ 		return;
+ 
+ 	input_event(sensors, EV_MSC, MSC_TIMESTAMP, steam->sensor_timestamp_us);
+-	input_report_abs(sensors, ABS_X, steam_le16(data + 24));
+-	input_report_abs(sensors, ABS_Z, -steam_le16(data + 26));
+-	input_report_abs(sensors, ABS_Y, steam_le16(data + 28));
+-	input_report_abs(sensors, ABS_RX, steam_le16(data + 30));
+-	input_report_abs(sensors, ABS_RZ, -steam_le16(data + 32));
+-	input_report_abs(sensors, ABS_RY, steam_le16(data + 34));
++	steam_map_axes(sensors, steam_deck_imu_mappings, data);
+ 
+ 	input_sync(sensors);
+ }
+-- 
+2.54.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Vicki Pfau <vi@endrift.com>
+Date: Wed, 29 Jul 2026 21:12:26 -0700
+Subject: HID: steam: Rename some constants that got renamed upstream
+
+SETTING_MOUSE_POINTER_ENABLED was renamed to SETTING_LIZARD_MODE upstream.
+SETTING_GYRO_MODE was renamed to SETTING_IMU_MODE in an older commit, but
+the associated enum was overlooked.
+
+Signed-off-by: Vicki Pfau <vi@endrift.com>
+---
+ drivers/hid/hid-steam.c | 16 ++++++++--------
+ 1 file changed, 8 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/hid/hid-steam.c b/drivers/hid/hid-steam.c
+index 75d6be0be0a2..983d18d1de4f 100644
+--- a/drivers/hid/hid-steam.c
++++ b/drivers/hid/hid-steam.c
+@@ -151,7 +151,7 @@ enum {
+ 	SETTING_USB_DEBUG_MODE,
+ 	SETTING_LEFT_TRACKPAD_MODE,
+ 	SETTING_RIGHT_TRACKPAD_MODE,
+-	SETTING_MOUSE_POINTER_ENABLED,
++	SETTING_LIZARD_MODE,
+ 
+ 	/* 10 */
+ 	SETTING_DPAD_DEADZONE,
+@@ -261,14 +261,14 @@ enum {
+ 	ATTRIB_STR_UNIT_SERIAL,
+ };
+ 
+-/* Values for GYRO_MODE (bitmask) */
++/* Values for IMU_MODE (bitmask) */
+ enum {
+-	SETTING_GYRO_MODE_OFF			= 0,
+-	SETTING_GYRO_MODE_STEERING		= BIT(0),
+-	SETTING_GYRO_MODE_TILT			= BIT(1),
+-	SETTING_GYRO_MODE_SEND_ORIENTATION	= BIT(2),
+-	SETTING_GYRO_MODE_SEND_RAW_ACCEL	= BIT(3),
+-	SETTING_GYRO_MODE_SEND_RAW_GYRO		= BIT(4),
++	SETTING_IMU_MODE_OFF			= 0,
++	SETTING_IMU_MODE_STEERING		= BIT(0),
++	SETTING_IMU_MODE_TILT			= BIT(1),
++	SETTING_IMU_MODE_SEND_ORIENTATION	= BIT(2),
++	SETTING_IMU_MODE_SEND_RAW_ACCEL		= BIT(3),
++	SETTING_IMU_MODE_SEND_RAW_GYRO		= BIT(4),
+ };
+ 
+ /* Trackpad modes */
+-- 
+2.54.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Vicki Pfau <vi@endrift.com>
+Date: Wed, 29 Jul 2026 21:12:27 -0700
+Subject: HID: steam: Add support for sensor events on the Steam Controller
+ (2015)
+
+Sensor support was added for the Steam Deck previously, but Steam
+Controller sensor events were never added. This adds that missing support,
+bringing Steam Controller support much closer to feature parity with things
+like SDL and Steam itself.
+
+Signed-off-by: Vicki Pfau <vi@endrift.com>
+---
+ drivers/hid/hid-steam.c | 214 ++++++++++++++++++++++++++++++++--------
+ 1 file changed, 175 insertions(+), 39 deletions(-)
+
+diff --git a/drivers/hid/hid-steam.c b/drivers/hid/hid-steam.c
+index 983d18d1de4f..1ceb044e170b 100644
+--- a/drivers/hid/hid-steam.c
++++ b/drivers/hid/hid-steam.c
+@@ -70,13 +70,14 @@ static LIST_HEAD(steam_devices);
+ /* Joystick runs are about 5 mm and 32768 units */
+ #define STEAM_DECK_JOYSTICK_RESOLUTION 6553
+ /* Accelerometer has 16 bit resolution and a range of +/- 2g */
+-#define STEAM_DECK_ACCEL_RES_PER_G 16384
+-#define STEAM_DECK_ACCEL_RANGE 32768
++#define STEAM_ACCEL_RES_PER_G 16384
++#define STEAM_ACCEL_RANGE 32768
++#define STEAM_ACCEL_FUZZ 128
+ #define STEAM_DECK_ACCEL_FUZZ 32
+ /* Gyroscope has 16 bit resolution and a range of +/- 2000 dps */
+-#define STEAM_DECK_GYRO_RES_PER_DPS 16
+-#define STEAM_DECK_GYRO_RANGE 32768
+-#define STEAM_DECK_GYRO_FUZZ 1
++#define STEAM_GYRO_RES_PER_DPS 16
++#define STEAM_GYRO_RANGE 32768
++#define STEAM_GYRO_FUZZ 0
+ 
+ #define STEAM_PAD_FUZZ 256
+ 
+@@ -255,6 +256,31 @@ enum
+ 	ID_CONTROLLER_DECK_STATE = 9
+ };
+ 
++/* Read-only attributes */
++enum {
++	ATTRIB_UNIQUE_ID, // deprecated
++	ATTRIB_PRODUCT_ID,
++	ATTRIB_PRODUCT_REVISON, // deprecated
++	ATTRIB_CAPABILITIES = ATTRIB_PRODUCT_REVISON, // intentional aliasing
++	ATTRIB_FIRMWARE_VERSION, // deprecated
++	ATTRIB_FIRMWARE_BUILD_TIME,
++	ATTRIB_RADIO_FIRMWARE_BUILD_TIME,
++	ATTRIB_RADIO_DEVICE_ID0,
++	ATTRIB_RADIO_DEVICE_ID1,
++	ATTRIB_DONGLE_FIRMWARE_BUILD_TIME,
++	ATTRIB_HW_ID, // AKA BOARD_REVISION,
++	ATTRIB_BOOTLOADER_BUILD_TIME,
++	ATTRIB_CONNECTION_INTERVAL_IN_US,
++	ATTRIB_SECONDARY_FIRMWARE_BUILD_TIME,
++	ATTRIB_SECONDARY_BOOTLOADER_BUILD_TIME,
++	ATTRIB_SECONDARY_HW_ID, // AKA BOARD_REVISION,
++	ATTRIB_STREAMING,
++	ATTRIB_TRACKPAD_ID,
++	ATTRIB_SECONDARY_TRACKPAD_ID,
++
++	ATTRIB_COUNT
++};
++
+ /* String attribute identifiers */
+ enum {
+ 	ATTRIB_STR_BOARD_SERIAL,
+@@ -284,6 +310,11 @@ enum {
+ 	TRACKPAD_GESTURE_KEYBOARD,
+ };
+ 
++struct steam_controller_attribute {
++	unsigned char tag;
++	__le32 value;
++} __packed;
++
+ /* Pad identifiers for the deck */
+ #define STEAM_PAD_LEFT 0
+ #define STEAM_PAD_RIGHT 1
+@@ -315,6 +346,7 @@ struct steam_device {
+ 	u16 rumble_left;
+ 	u16 rumble_right;
+ 	unsigned int sensor_timestamp_us;
++	unsigned int sensor_update_rate_us;
+ 	struct work_struct unregister_work;
+ };
+ 
+@@ -468,6 +500,38 @@ static int steam_get_serial(struct steam_device *steam)
+ 	return ret;
+ }
+ 
++static int steam_get_attributes(struct steam_device *steam)
++{
++	int ret = 0;
++	u8 cmd[] = {ID_GET_ATTRIBUTES_VALUES, 0};
++	u8 reply[64] = {};
++	u8 size;
++	int i;
++	struct steam_controller_attribute *attr;
++
++	guard(mutex)(&steam->report_mutex);
++	ret = steam_send_report(steam, cmd, sizeof(cmd));
++	if (ret < 0)
++		return ret;
++	ret = steam_recv_report(steam, reply, sizeof(reply));
++	if (ret < 0)
++		return ret;
++	if (reply[0] != ID_GET_ATTRIBUTES_VALUES || reply[1] < 2)
++		return -EIO;
++
++	size = min(reply[1], sizeof(reply) - 2);
++	for (i = 0; i + sizeof(*attr) <= size; i += sizeof(*attr)) {
++		attr = (struct steam_controller_attribute *)&reply[i + 2];
++		if (attr->tag == ATTRIB_CONNECTION_INTERVAL_IN_US) {
++			steam->sensor_update_rate_us = get_unaligned_le32(&attr->value);
++			hid_dbg(steam->hdev, "Sensor update rate: %uus\n",
++				steam->sensor_update_rate_us);
++		}
++	}
++
++	return 0;
++}
++
+ /*
+  * This command requests the wireless adaptor to post an event
+  * with the connection status. Useful if this driver is loaded when
+@@ -626,6 +690,42 @@ static void steam_input_close(struct input_dev *dev)
+ 	}
+ }
+ 
++static int steam_sensor_open(struct input_dev *dev)
++{
++	struct steam_device *steam = input_get_drvdata(dev);
++	unsigned long flags;
++	bool client_opened;
++
++	spin_lock_irqsave(&steam->lock, flags);
++	client_opened = steam->client_opened;
++	spin_unlock_irqrestore(&steam->lock, flags);
++	if (client_opened)
++		return 0;
++
++	guard(mutex)(&steam->report_mutex);
++	steam_write_settings(steam, SETTING_IMU_MODE,
++			SETTING_IMU_MODE_SEND_RAW_ACCEL | SETTING_IMU_MODE_SEND_RAW_GYRO,
++			0);
++
++	return 0;
++}
++
++static void steam_sensor_close(struct input_dev *dev)
++{
++	struct steam_device *steam = input_get_drvdata(dev);
++	unsigned long flags;
++	bool client_opened;
++
++	spin_lock_irqsave(&steam->lock, flags);
++	client_opened = steam->client_opened;
++	spin_unlock_irqrestore(&steam->lock, flags);
++	if (client_opened)
++		return;
++
++	guard(mutex)(&steam->report_mutex);
++	steam_write_settings(steam, SETTING_IMU_MODE, 0, 0);
++}
++
+ static enum power_supply_property steam_battery_props[] = {
+ 	POWER_SUPPLY_PROP_PRESENT,
+ 	POWER_SUPPLY_PROP_SCOPE,
+@@ -839,9 +939,6 @@ static int steam_sensors_register(struct steam_device *steam)
+ 	struct input_dev *sensors;
+ 	int ret;
+ 
+-	if (!(steam->quirks & STEAM_QUIRK_DECK))
+-		return 0;
+-
+ 	rcu_read_lock();
+ 	sensors = rcu_dereference(steam->sensors);
+ 	rcu_read_unlock();
+@@ -856,8 +953,14 @@ static int steam_sensors_register(struct steam_device *steam)
+ 
+ 	input_set_drvdata(sensors, steam);
+ 	sensors->dev.parent = &hdev->dev;
++	if (!(steam->quirks & STEAM_QUIRK_DECK)) {
++		sensors->open = steam_sensor_open;
++		sensors->close = steam_sensor_close;
++	}
+ 
+-	sensors->name = "Steam Deck Motion Sensors";
++	sensors->name = steam->quirks & STEAM_QUIRK_DECK ?
++		"Steam Deck Motion Sensors" :
++		"Steam Controller Motion Sensors";
+ 	sensors->phys = hdev->phys;
+ 	sensors->uniq = steam->serial_no;
+ 	sensors->id.bustype = hdev->bus;
+@@ -869,25 +972,34 @@ static int steam_sensors_register(struct steam_device *steam)
+ 	__set_bit(EV_MSC, sensors->evbit);
+ 	__set_bit(MSC_TIMESTAMP, sensors->mscbit);
+ 
+-	input_set_abs_params(sensors, ABS_X, -STEAM_DECK_ACCEL_RANGE,
+-			STEAM_DECK_ACCEL_RANGE, STEAM_DECK_ACCEL_FUZZ, 0);
+-	input_set_abs_params(sensors, ABS_Y, -STEAM_DECK_ACCEL_RANGE,
+-			STEAM_DECK_ACCEL_RANGE, STEAM_DECK_ACCEL_FUZZ, 0);
+-	input_set_abs_params(sensors, ABS_Z, -STEAM_DECK_ACCEL_RANGE,
+-			STEAM_DECK_ACCEL_RANGE, STEAM_DECK_ACCEL_FUZZ, 0);
+-	input_abs_set_res(sensors, ABS_X, STEAM_DECK_ACCEL_RES_PER_G);
+-	input_abs_set_res(sensors, ABS_Y, STEAM_DECK_ACCEL_RES_PER_G);
+-	input_abs_set_res(sensors, ABS_Z, STEAM_DECK_ACCEL_RES_PER_G);
+-
+-	input_set_abs_params(sensors, ABS_RX, -STEAM_DECK_GYRO_RANGE,
+-			STEAM_DECK_GYRO_RANGE, STEAM_DECK_GYRO_FUZZ, 0);
+-	input_set_abs_params(sensors, ABS_RY, -STEAM_DECK_GYRO_RANGE,
+-			STEAM_DECK_GYRO_RANGE, STEAM_DECK_GYRO_FUZZ, 0);
+-	input_set_abs_params(sensors, ABS_RZ, -STEAM_DECK_GYRO_RANGE,
+-			STEAM_DECK_GYRO_RANGE, STEAM_DECK_GYRO_FUZZ, 0);
+-	input_abs_set_res(sensors, ABS_RX, STEAM_DECK_GYRO_RES_PER_DPS);
+-	input_abs_set_res(sensors, ABS_RY, STEAM_DECK_GYRO_RES_PER_DPS);
+-	input_abs_set_res(sensors, ABS_RZ, STEAM_DECK_GYRO_RES_PER_DPS);
++	if (steam->quirks & STEAM_QUIRK_DECK) {
++		input_set_abs_params(sensors, ABS_X, -STEAM_ACCEL_RANGE,
++				STEAM_ACCEL_RANGE, STEAM_DECK_ACCEL_FUZZ, 0);
++		input_set_abs_params(sensors, ABS_Y, -STEAM_ACCEL_RANGE,
++				STEAM_ACCEL_RANGE, STEAM_DECK_ACCEL_FUZZ, 0);
++		input_set_abs_params(sensors, ABS_Z, -STEAM_ACCEL_RANGE,
++				STEAM_ACCEL_RANGE, STEAM_DECK_ACCEL_FUZZ, 0);
++	} else {
++		input_set_abs_params(sensors, ABS_X, -STEAM_ACCEL_RANGE,
++				STEAM_ACCEL_RANGE, STEAM_ACCEL_FUZZ, 0);
++		input_set_abs_params(sensors, ABS_Y, -STEAM_ACCEL_RANGE,
++				STEAM_ACCEL_RANGE, STEAM_ACCEL_FUZZ, 0);
++		input_set_abs_params(sensors, ABS_Z, -STEAM_ACCEL_RANGE,
++				STEAM_ACCEL_RANGE, STEAM_ACCEL_FUZZ, 0);
++	}
++	input_abs_set_res(sensors, ABS_X, STEAM_ACCEL_RES_PER_G);
++	input_abs_set_res(sensors, ABS_Y, STEAM_ACCEL_RES_PER_G);
++	input_abs_set_res(sensors, ABS_Z, STEAM_ACCEL_RES_PER_G);
++
++	input_set_abs_params(sensors, ABS_RX, -STEAM_GYRO_RANGE,
++			STEAM_GYRO_RANGE, STEAM_GYRO_FUZZ, 0);
++	input_set_abs_params(sensors, ABS_RY, -STEAM_GYRO_RANGE,
++			STEAM_GYRO_RANGE, STEAM_GYRO_FUZZ, 0);
++	input_set_abs_params(sensors, ABS_RZ, -STEAM_GYRO_RANGE,
++			STEAM_GYRO_RANGE, STEAM_GYRO_FUZZ, 0);
++	input_abs_set_res(sensors, ABS_RX, STEAM_GYRO_RES_PER_DPS);
++	input_abs_set_res(sensors, ABS_RY, STEAM_GYRO_RES_PER_DPS);
++	input_abs_set_res(sensors, ABS_RZ, STEAM_GYRO_RES_PER_DPS);
+ 
+ 	ret = input_register_device(sensors);
+ 	if (ret)
+@@ -918,9 +1030,6 @@ static void steam_sensors_unregister(struct steam_device *steam)
+ {
+ 	struct input_dev *sensors;
+ 
+-	if (!(steam->quirks & STEAM_QUIRK_DECK))
+-		return;
+-
+ 	rcu_read_lock();
+ 	sensors = rcu_dereference(steam->sensors);
+ 	rcu_read_unlock();
+@@ -968,6 +1077,12 @@ static int steam_register(struct steam_device *steam)
+ 			strscpy(steam->serial_no, "XXXXXXXXXX",
+ 					sizeof(steam->serial_no));
+ 
++		ret = steam_get_attributes(steam);
++		if (ret < 0)
++			hid_err(steam->hdev,
++				"%s:steam_get_attributes failed with error %d\n",
++				__func__, ret);
++
+ 		hid_info(steam->hdev, "Steam Controller '%s' connected",
+ 				steam->serial_no);
+ 
+@@ -1246,6 +1361,10 @@ static int steam_probe(struct hid_device *hdev,
+ 	INIT_LIST_HEAD(&steam->list);
+ 	INIT_WORK(&steam->rumble_work, steam_haptic_rumble_cb);
+ 	steam->sensor_timestamp_us = 0;
++	if (steam->quirks & STEAM_QUIRK_DECK)
++		steam->sensor_update_rate_us = 4000;
++	else
++		steam->sensor_update_rate_us = 9000;
+ 	INIT_WORK(&steam->unregister_work, steam_work_unregister_cb);
+ 
+ 	/*
+@@ -1491,6 +1610,16 @@ static const struct steam_axis_mapping steam_controller_axis_mappings[] = {
+ 	{ /* sentinel */ },
+ };
+ 
++static const struct steam_axis_mapping steam_controller_imu_mappings[] = {
++	{ ABS_X,   1, 28 },
++	{ ABS_Z,  -1, 30 },
++	{ ABS_Y,   1, 32 },
++	{ ABS_RX,  1, 34 },
++	{ ABS_RZ,  1, 36 },
++	{ ABS_RY,  1, 38 },
++	{ /* sentinel */ },
++};
++
+ static void steam_do_input_event(struct steam_device *steam,
+ 		struct input_dev *input, u8 *data)
+ {
+@@ -1533,6 +1662,17 @@ static void steam_do_input_event(struct steam_device *steam,
+ 	input_sync(input);
+ }
+ 
++static void steam_do_sensors_event(struct steam_device *steam,
++		struct input_dev *sensors, u8 *data)
++{
++	steam->sensor_timestamp_us += steam->sensor_update_rate_us;
++
++	input_event(sensors, EV_MSC, MSC_TIMESTAMP, steam->sensor_timestamp_us);
++	steam_map_axes(sensors, steam_controller_imu_mappings, data);
++
++	input_sync(sensors);
++}
++
+ /*
+  * The size for this message payload is 56.
+  * The known values are:
+@@ -1727,14 +1867,7 @@ static void steam_do_deck_input_event(struct steam_device *steam,
+ static void steam_do_deck_sensors_event(struct steam_device *steam,
+ 		struct input_dev *sensors, u8 *data)
+ {
+-	/*
+-	 * The deck input report is received every 4 ms on average,
+-	 * with a jitter of +/- 4 ms even though the USB descriptor claims
+-	 * that it uses 1 kHz.
+-	 * Since the HID report does not include a sensor timestamp,
+-	 * use a fixed increment here.
+-	 */
+-	steam->sensor_timestamp_us += 4000;
++	steam->sensor_timestamp_us += steam->sensor_update_rate_us;
+ 
+ 	if (!steam->gamepad_mode && lizard_mode)
+ 		return;
+@@ -1819,6 +1952,9 @@ static int steam_raw_event(struct hid_device *hdev,
+ 		input = rcu_dereference(steam->input);
+ 		if (likely(input))
+ 			steam_do_input_event(steam, input, data);
++		sensors = rcu_dereference(steam->sensors);
++		if (likely(sensors))
++			steam_do_sensors_event(steam, sensors, data);
+ 		rcu_read_unlock();
+ 		break;
+ 	case ID_CONTROLLER_DECK_STATE:
+-- 
+2.54.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Vicki Pfau <vi@endrift.com>
+Date: Wed, 29 Jul 2026 21:12:28 -0700
+Subject: HID: steam: Coalesce rumble packets
+
+The Steam Deck resets the haptic pattern every time it receives a rumble
+packet, leading to weird discontinuities or sometimes cutting out entirely.
+Instead of overloading the interface, Steam interally rate-limits sending
+these packets, so we should too.
+
+Signed-off-by: Vicki Pfau <vi@endrift.com>
+---
+ drivers/hid/hid-steam.c | 26 ++++++++++++++++++++++++++
+ 1 file changed, 26 insertions(+)
+
+diff --git a/drivers/hid/hid-steam.c b/drivers/hid/hid-steam.c
+index 1ceb044e170b..87b3817a2f69 100644
+--- a/drivers/hid/hid-steam.c
++++ b/drivers/hid/hid-steam.c
+@@ -343,6 +343,7 @@ struct steam_device {
+ 	bool did_mode_switch;
+ 	bool gamepad_mode;
+ 	struct work_struct rumble_work;
++	struct delayed_work coalesce_rumble_work;
+ 	u16 rumble_left;
+ 	u16 rumble_right;
+ 	unsigned int sensor_timestamp_us;
+@@ -603,10 +604,24 @@ static void steam_haptic_rumble_cb(struct work_struct *work)
+ {
+ 	struct steam_device *steam = container_of(work, struct steam_device,
+ 							rumble_work);
++
+ 	steam_haptic_rumble(steam, 0, steam->rumble_left,
+ 		steam->rumble_right, 2, 0);
+ }
+ 
++static void steam_coalesce_rumble_cb(struct work_struct *work)
++{
++	struct steam_device *steam = container_of(to_delayed_work(work),
++							struct steam_device,
++							coalesce_rumble_work);
++
++	steam_haptic_rumble(steam, 0, steam->rumble_left,
++		steam->rumble_right, 2, 0);
++
++	if (steam->rumble_left || steam->rumble_right)
++		schedule_delayed_work(&steam->coalesce_rumble_work, HZ / 20);
++}
++
+ #ifdef CONFIG_STEAM_FF
+ static int steam_play_effect(struct input_dev *dev, void *data,
+ 				struct ff_effect *effect)
+@@ -616,6 +631,14 @@ static int steam_play_effect(struct input_dev *dev, void *data,
+ 	steam->rumble_left = effect->u.rumble.strong_magnitude;
+ 	steam->rumble_right = effect->u.rumble.weak_magnitude;
+ 
++	/*
++	 * The interface gets somewhat overloaded when too many rumble
++	 * packets are sent in a row, so Steam throttles it to 20 Hz
++	 */
++	if (delayed_work_pending(&steam->coalesce_rumble_work))
++		return 0;
++
++	schedule_delayed_work(&steam->coalesce_rumble_work, HZ / 20);
+ 	return schedule_work(&steam->rumble_work);
+ }
+ #endif
+@@ -1360,6 +1383,7 @@ static int steam_probe(struct hid_device *hdev,
+ 	INIT_DELAYED_WORK(&steam->mode_switch, steam_mode_switch_cb);
+ 	INIT_LIST_HEAD(&steam->list);
+ 	INIT_WORK(&steam->rumble_work, steam_haptic_rumble_cb);
++	INIT_DELAYED_WORK(&steam->coalesce_rumble_work, steam_coalesce_rumble_cb);
+ 	steam->sensor_timestamp_us = 0;
+ 	if (steam->quirks & STEAM_QUIRK_DECK)
+ 		steam->sensor_update_rate_us = 4000;
+@@ -1426,6 +1450,7 @@ static int steam_probe(struct hid_device *hdev,
+ 	cancel_work_sync(&steam->work_connect);
+ 	cancel_delayed_work_sync(&steam->mode_switch);
+ 	cancel_work_sync(&steam->rumble_work);
++	cancel_delayed_work_sync(&steam->coalesce_rumble_work);
+ 	cancel_work_sync(&steam->unregister_work);
+ 
+ 	return ret;
+@@ -1444,6 +1469,7 @@ static void steam_remove(struct hid_device *hdev)
+ 	cancel_delayed_work_sync(&steam->mode_switch);
+ 	cancel_work_sync(&steam->work_connect);
+ 	cancel_work_sync(&steam->rumble_work);
++	cancel_delayed_work_sync(&steam->coalesce_rumble_work);
+ 	cancel_work_sync(&steam->unregister_work);
+ 	steam->client_hdev = NULL;
+ 	steam->client_opened = 0;
+-- 
+2.54.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Vicki Pfau <vi@endrift.com>
+Date: Wed, 29 Jul 2026 21:12:29 -0700
+Subject: HID: steam: Fully unregister controller when hidraw is opened
+
+To avoid conflicts between anything touching the hidraw and the driver we
+had previously detached the evdev nodes when the hidraw is opened. However,
+this isn't sufficient to avoid FEATURE reports from conflicting, so we
+change to fully unregistering the controller internally, leaving only the
+hidraw active until it's closed.
+
+This also unifies the unregister and connect callbacks, as now the logic
+between these two callbacks is identical.
+
+Signed-off-by: Vicki Pfau <vi@endrift.com>
+---
+ drivers/hid/hid-steam.c | 73 +++++++++++++++--------------------------
+ 1 file changed, 27 insertions(+), 46 deletions(-)
+
+diff --git a/drivers/hid/hid-steam.c b/drivers/hid/hid-steam.c
+index 87b3817a2f69..12203d61922f 100644
+--- a/drivers/hid/hid-steam.c
++++ b/drivers/hid/hid-steam.c
+@@ -348,7 +348,6 @@ struct steam_device {
+ 	u16 rumble_right;
+ 	unsigned int sensor_timestamp_us;
+ 	unsigned int sensor_update_rate_us;
+-	struct work_struct unregister_work;
+ };
+ 
+ static int steam_recv_report(struct steam_device *steam,
+@@ -818,6 +817,7 @@ static int steam_battery_register(struct steam_device *steam)
+ 			&steam->battery_desc, &battery_cfg);
+ 	if (IS_ERR(battery)) {
+ 		ret = PTR_ERR(battery);
++		devm_kfree(&steam->hdev->dev, steam->battery_desc.name);
+ 		hid_err(steam->hdev,
+ 				"%s:power_supply_register failed with error %d\n",
+ 				__func__, ret);
+@@ -1077,6 +1077,7 @@ static void steam_battery_unregister(struct steam_device *steam)
+ 	RCU_INIT_POINTER(steam->battery, NULL);
+ 	synchronize_rcu();
+ 	power_supply_unregister(battery);
++	devm_kfree(&steam->hdev->dev, steam->battery_desc.name);
+ }
+ 
+ static int steam_register(struct steam_device *steam)
+@@ -1084,6 +1085,7 @@ static int steam_register(struct steam_device *steam)
+ 	int ret;
+ 	unsigned long client_opened;
+ 	unsigned long flags;
++	bool do_add;
+ 
+ 	/*
+ 	 * This function can be called several times in a row with the
+@@ -1113,10 +1115,7 @@ static int steam_register(struct steam_device *steam)
+ 		if (steam->quirks & STEAM_QUIRK_WIRELESS)
+ 			steam_battery_register(steam);
+ 
+-		mutex_lock(&steam_devices_lock);
+-		if (list_empty(&steam->list))
+-			list_add(&steam->list, &steam_devices);
+-		mutex_unlock(&steam_devices_lock);
++		do_add = true;
+ 	}
+ 
+ 	spin_lock_irqsave(&steam->lock, flags);
+@@ -1132,6 +1131,13 @@ static int steam_register(struct steam_device *steam)
+ 		if (ret != 0)
+ 			goto steam_register_sensors_fail;
+ 	}
++
++	if (do_add) {
++		mutex_lock(&steam_devices_lock);
++		if (list_empty(&steam->list))
++			list_add(&steam->list, &steam_devices);
++		mutex_unlock(&steam_devices_lock);
++	}
+ 	return 0;
+ 
+ steam_register_sensors_fail:
+@@ -1142,38 +1148,41 @@ static int steam_register(struct steam_device *steam)
+ 
+ static void steam_unregister(struct steam_device *steam)
+ {
++	if (!steam->serial_no[0])
++		return;
++
++	hid_info(steam->hdev, "Steam Controller '%s' disconnected",
++			steam->serial_no);
+ 	steam_battery_unregister(steam);
+ 	steam_sensors_unregister(steam);
+ 	steam_input_unregister(steam);
+-	if (steam->serial_no[0]) {
+-		hid_info(steam->hdev, "Steam Controller '%s' disconnected",
+-				steam->serial_no);
+-		mutex_lock(&steam_devices_lock);
+-		list_del_init(&steam->list);
+-		mutex_unlock(&steam_devices_lock);
+-		steam->serial_no[0] = 0;
+-	}
++	mutex_lock(&steam_devices_lock);
++	list_del_init(&steam->list);
++	mutex_unlock(&steam_devices_lock);
++	steam->serial_no[0] = 0;
+ }
+ 
+ static void steam_work_connect_cb(struct work_struct *work)
+ {
+ 	struct steam_device *steam = container_of(work, struct steam_device,
+ 							work_connect);
++
+ 	unsigned long flags;
+ 	bool connected;
++	bool opened;
+ 	int ret;
+ 
+ 	spin_lock_irqsave(&steam->lock, flags);
++	opened = steam->client_opened;
+ 	connected = steam->connected;
+ 	spin_unlock_irqrestore(&steam->lock, flags);
+ 
+-	if (connected) {
++	if (connected && !opened) {
+ 		ret = steam_register(steam);
+-		if (ret) {
++		if (ret)
+ 			hid_err(steam->hdev,
+ 				"%s:steam_register failed with error %d\n",
+ 				__func__, ret);
+-		}
+ 	} else {
+ 		steam_unregister(steam);
+ 	}
+@@ -1207,31 +1216,6 @@ static void steam_mode_switch_cb(struct work_struct *work)
+ 	}
+ }
+ 
+-static void steam_work_unregister_cb(struct work_struct *work)
+-{
+-	struct steam_device *steam = container_of(work, struct steam_device,
+-							unregister_work);
+-	unsigned long flags;
+-	bool connected;
+-	bool opened;
+-
+-	spin_lock_irqsave(&steam->lock, flags);
+-	opened = steam->client_opened;
+-	connected = steam->connected;
+-	spin_unlock_irqrestore(&steam->lock, flags);
+-
+-	if (connected) {
+-		if (opened) {
+-			steam_sensors_unregister(steam);
+-			steam_input_unregister(steam);
+-		} else {
+-			steam_set_lizard_mode(steam, lizard_mode);
+-			steam_input_register(steam);
+-			steam_sensors_register(steam);
+-		}
+-	}
+-}
+-
+ static bool steam_is_valve_interface(struct hid_device *hdev)
+ {
+ 	struct hid_report_enum *rep_enum;
+@@ -1277,7 +1261,7 @@ static int steam_client_ll_open(struct hid_device *hdev)
+ 	steam->client_opened++;
+ 	spin_unlock_irqrestore(&steam->lock, flags);
+ 
+-	schedule_work(&steam->unregister_work);
++	schedule_work(&steam->work_connect);
+ 
+ 	return 0;
+ }
+@@ -1292,7 +1276,7 @@ static void steam_client_ll_close(struct hid_device *hdev)
+ 	steam->client_opened--;
+ 	spin_unlock_irqrestore(&steam->lock, flags);
+ 
+-	schedule_work(&steam->unregister_work);
++	schedule_work(&steam->work_connect);
+ }
+ 
+ static int steam_client_ll_raw_request(struct hid_device *hdev,
+@@ -1389,7 +1373,6 @@ static int steam_probe(struct hid_device *hdev,
+ 		steam->sensor_update_rate_us = 4000;
+ 	else
+ 		steam->sensor_update_rate_us = 9000;
+-	INIT_WORK(&steam->unregister_work, steam_work_unregister_cb);
+ 
+ 	/*
+ 	 * With the real steam controller interface, do not connect hidraw.
+@@ -1451,7 +1434,6 @@ static int steam_probe(struct hid_device *hdev,
+ 	cancel_delayed_work_sync(&steam->mode_switch);
+ 	cancel_work_sync(&steam->rumble_work);
+ 	cancel_delayed_work_sync(&steam->coalesce_rumble_work);
+-	cancel_work_sync(&steam->unregister_work);
+ 
+ 	return ret;
+ }
+@@ -1470,7 +1452,6 @@ static void steam_remove(struct hid_device *hdev)
+ 	cancel_work_sync(&steam->work_connect);
+ 	cancel_work_sync(&steam->rumble_work);
+ 	cancel_delayed_work_sync(&steam->coalesce_rumble_work);
+-	cancel_work_sync(&steam->unregister_work);
+ 	steam->client_hdev = NULL;
+ 	steam->client_opened = 0;
+ 	if (steam->quirks & STEAM_QUIRK_WIRELESS) {
+-- 
+2.54.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Vicki Pfau <vi@endrift.com>
+Date: Wed, 29 Jul 2026 21:12:30 -0700
+Subject: HID: steam: Rearrange teardown sequence
+
+This fixes a narrow window during the teardown sequence where callbacks
+could still be scheduled during cleanup that would then have a dangling
+pointer to the now-freed steam struct.
+
+This also puts work canceling for rumble and mode switch in
+steam_unregister, as that shouldn't persist while the client hdev is open.
+
+Signed-off-by: Vicki Pfau <vi@endrift.com>
+---
+ drivers/hid/hid-steam.c | 16 +++++++++-------
+ 1 file changed, 9 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/hid/hid-steam.c b/drivers/hid/hid-steam.c
+index 12203d61922f..663fda8a86fd 100644
+--- a/drivers/hid/hid-steam.c
++++ b/drivers/hid/hid-steam.c
+@@ -1156,6 +1156,9 @@ static void steam_unregister(struct steam_device *steam)
+ 	steam_battery_unregister(steam);
+ 	steam_sensors_unregister(steam);
+ 	steam_input_unregister(steam);
++	cancel_work_sync(&steam->rumble_work);
++	cancel_delayed_work_sync(&steam->mode_switch);
++	cancel_delayed_work_sync(&steam->coalesce_rumble_work);
+ 	mutex_lock(&steam_devices_lock);
+ 	list_del_init(&steam->list);
+ 	mutex_unlock(&steam_devices_lock);
+@@ -1441,25 +1444,24 @@ static int steam_probe(struct hid_device *hdev,
+ static void steam_remove(struct hid_device *hdev)
+ {
+ 	struct steam_device *steam = hid_get_drvdata(hdev);
++	unsigned long flags;
+ 
+ 	if (!steam || hdev->group == HID_GROUP_STEAM) {
+ 		hid_hw_stop(hdev);
+ 		return;
+ 	}
+ 
++	hid_hw_close(hdev);
+ 	hid_destroy_device(steam->client_hdev);
+-	cancel_delayed_work_sync(&steam->mode_switch);
+-	cancel_work_sync(&steam->work_connect);
+-	cancel_work_sync(&steam->rumble_work);
+-	cancel_delayed_work_sync(&steam->coalesce_rumble_work);
+-	steam->client_hdev = NULL;
++	spin_lock_irqsave(&steam->lock, flags);
+ 	steam->client_opened = 0;
++	spin_unlock_irqrestore(&steam->lock, flags);
++	cancel_work_sync(&steam->work_connect);
+ 	if (steam->quirks & STEAM_QUIRK_WIRELESS) {
+ 		hid_info(hdev, "Steam wireless receiver disconnected");
+ 	}
+-	hid_hw_close(hdev);
+-	hid_hw_stop(hdev);
+ 	steam_unregister(steam);
++	hid_hw_stop(hdev);
+ }
+ 
+ static void steam_do_connect_event(struct steam_device *steam, bool connected)
+-- 
+2.54.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Vicki Pfau <vi@endrift.com>
+Date: Wed, 29 Jul 2026 21:12:31 -0700
+Subject: HID: steam: Improve logging and other cleanup
+
+Adds more logging as appropriate, reindents an enum to match surrounding
+style, as well as cleaning up some places where we can use guard() instead
+of doing locking and unlocking manually.
+
+Signed-off-by: Vicki Pfau <vi@endrift.com>
+---
+ drivers/hid/hid-steam.c | 56 ++++++++++++++++++++++++-----------------
+ 1 file changed, 33 insertions(+), 23 deletions(-)
+
+diff --git a/drivers/hid/hid-steam.c b/drivers/hid/hid-steam.c
+index 663fda8a86fd..222b5751040a 100644
+--- a/drivers/hid/hid-steam.c
++++ b/drivers/hid/hid-steam.c
+@@ -246,14 +246,14 @@ enum {
+ /* Input report identifiers */
+ enum
+ {
+-	ID_CONTROLLER_STATE = 1,
+-	ID_CONTROLLER_DEBUG = 2,
+-	ID_CONTROLLER_WIRELESS = 3,
+-	ID_CONTROLLER_STATUS = 4,
+-	ID_CONTROLLER_DEBUG2 = 5,
+-	ID_CONTROLLER_SECONDARY_STATE = 6,
+-	ID_CONTROLLER_BLE_STATE = 7,
+-	ID_CONTROLLER_DECK_STATE = 9
++	ID_CONTROLLER_STATE		= 1,
++	ID_CONTROLLER_DEBUG		= 2,
++	ID_CONTROLLER_WIRELESS		= 3,
++	ID_CONTROLLER_STATUS		= 4,
++	ID_CONTROLLER_DEBUG2		= 5,
++	ID_CONTROLLER_SECONDARY_STATE	= 6,
++	ID_CONTROLLER_BLE_STATE		= 7,
++	ID_CONTROLLER_DECK_STATE	= 9,
+ };
+ 
+ /* Read-only attributes */
+@@ -379,9 +379,16 @@ static int steam_recv_report(struct steam_device *steam,
+ 	ret = hid_hw_raw_request(steam->hdev, 0x00,
+ 			buf, hid_report_len(r) + 1,
+ 			HID_FEATURE_REPORT, HID_REQ_GET_REPORT);
+-	if (ret > 0)
+-		memcpy(data, buf + 1, min(size, ret - 1));
++	if (ret > 0) {
++		ret = min(size, ret - 1);
++		memcpy(data, buf + 1, ret);
++	}
+ 	kfree(buf);
++
++	if (ret < 0)
++		hid_err(steam->hdev, "%s: error %d\n", __func__, ret);
++	else
++		hid_dbg(steam->hdev, "Received report %*ph\n", ret, data);
+ 	return ret;
+ }
+ 
+@@ -409,6 +416,8 @@ static int steam_send_report(struct steam_device *steam,
+ 	/* The report ID is always 0 */
+ 	memcpy(buf + 1, cmd, size);
+ 
++	hid_dbg(steam->hdev, "Sending report %*ph\n", size, cmd);
++
+ 	/*
+ 	 * Sometimes the wireless controller fails with EPIPE
+ 	 * when sending a feature report.
+@@ -481,22 +490,21 @@ static int steam_get_serial(struct steam_device *steam)
+ 	u8 cmd[] = {ID_GET_STRING_ATTRIBUTE, sizeof(steam->serial_no), ATTRIB_STR_UNIT_SERIAL};
+ 	u8 reply[3 + STEAM_SERIAL_LEN + 1];
+ 
+-	mutex_lock(&steam->report_mutex);
++	guard(mutex)(&steam->report_mutex);
+ 	ret = steam_send_report(steam, cmd, sizeof(cmd));
+ 	if (ret < 0)
+-		goto out;
++		return ret;
+ 	ret = steam_recv_report(steam, reply, sizeof(reply));
+ 	if (ret < 0)
+-		goto out;
++		return ret;
+ 	if (reply[0] != ID_GET_STRING_ATTRIBUTE || reply[1] < 1 ||
+ 	    reply[1] > sizeof(steam->serial_no) || reply[2] != ATTRIB_STR_UNIT_SERIAL) {
+-		ret = -EIO;
+-		goto out;
++		hid_err(steam->hdev, "%s: invalid reply (%*ph)\n", __func__,
++				(int)sizeof(reply), reply);
++		return -EIO;
+ 	}
+ 	reply[3 + STEAM_SERIAL_LEN] = 0;
+ 	strscpy(steam->serial_no, reply + 3, reply[1]);
+-out:
+-	mutex_unlock(&steam->report_mutex);
+ 	return ret;
+ }
+ 
+@@ -516,8 +524,11 @@ static int steam_get_attributes(struct steam_device *steam)
+ 	ret = steam_recv_report(steam, reply, sizeof(reply));
+ 	if (ret < 0)
+ 		return ret;
+-	if (reply[0] != ID_GET_ATTRIBUTES_VALUES || reply[1] < 2)
++	if (reply[0] != ID_GET_ATTRIBUTES_VALUES || reply[1] < 2) {
++		hid_err(steam->hdev, "%s: invalid reply (%*ph)\n", __func__,
++				(int)sizeof(reply), reply);
+ 		return -EIO;
++	}
+ 
+ 	size = min(reply[1], sizeof(reply) - 2);
+ 	for (i = 0; i + sizeof(*attr) <= size; i += sizeof(*attr)) {
+@@ -539,11 +550,8 @@ static int steam_get_attributes(struct steam_device *steam)
+  */
+ static inline int steam_request_conn_status(struct steam_device *steam)
+ {
+-	int ret;
+-	mutex_lock(&steam->report_mutex);
+-	ret = steam_send_report_byte(steam, ID_DONGLE_GET_WIRELESS_STATE);
+-	mutex_unlock(&steam->report_mutex);
+-	return ret;
++	guard(mutex)(&steam->report_mutex);
++	return steam_send_report_byte(steam, ID_DONGLE_GET_WIRELESS_STATE);
+ }
+ 
+ /*
+@@ -1201,6 +1209,7 @@ static void steam_mode_switch_cb(struct work_struct *work)
+ 		return;
+ 
+ 	steam->gamepad_mode = !steam->gamepad_mode;
++	hid_dbg(steam->hdev, "%s: switching gamepad mode to %i\n", __func__, steam->gamepad_mode);
+ 	if (steam->gamepad_mode)
+ 		steam_set_lizard_mode(steam, false);
+ 	else {
+@@ -1841,6 +1850,7 @@ static void steam_do_deck_input_event(struct steam_device *steam,
+ 		steam->did_mode_switch = false;
+ 		cancel_delayed_work(&steam->mode_switch);
+ 	} else if (!steam->client_opened && start_pressed && !steam->did_mode_switch) {
++		hid_dbg(steam->hdev, "%s: doing mode switch\n", __func__);
+ 		steam->did_mode_switch = true;
+ 		schedule_delayed_work(&steam->mode_switch, 45 * HZ / 100);
+ 	}
+-- 
+2.54.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Vicki Pfau <vi@endrift.com>
+Date: Wed, 29 Jul 2026 21:12:32 -0700
+Subject: HID: steam: Zero-initialize reply in serial lookup
+
+When requesting the serial number from a controller, the function will do
+some basic bounds checking to make sure the reply is valid, as well as
+capping off the reply with a null byte before copying. However, the error
+logging can leak uninitialized memory in some cases. We can simplify and
+solve this by just zero-initalizing the reply memory eagerly instead.
+
+Signed-off-by: Vicki Pfau <vi@endrift.com>
+---
+ drivers/hid/hid-steam.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/drivers/hid/hid-steam.c b/drivers/hid/hid-steam.c
+index 222b5751040a..ddd439dd069b 100644
+--- a/drivers/hid/hid-steam.c
++++ b/drivers/hid/hid-steam.c
+@@ -488,7 +488,7 @@ static int steam_get_serial(struct steam_device *steam)
+ 	 */
+ 	int ret = 0;
+ 	u8 cmd[] = {ID_GET_STRING_ATTRIBUTE, sizeof(steam->serial_no), ATTRIB_STR_UNIT_SERIAL};
+-	u8 reply[3 + STEAM_SERIAL_LEN + 1];
++	u8 reply[3 + STEAM_SERIAL_LEN + 1] = {0};
+ 
+ 	guard(mutex)(&steam->report_mutex);
+ 	ret = steam_send_report(steam, cmd, sizeof(cmd));
+@@ -503,7 +503,6 @@ static int steam_get_serial(struct steam_device *steam)
+ 				(int)sizeof(reply), reply);
+ 		return -EIO;
+ 	}
+-	reply[3 + STEAM_SERIAL_LEN] = 0;
+ 	strscpy(steam->serial_no, reply + 3, reply[1]);
+ 	return ret;
+ }
+-- 
+2.54.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Vicki Pfau <vi@endrift.com>
+Date: Wed, 29 Jul 2026 21:12:33 -0700
+Subject: HID: steam: Reject short reads
+
+Steam Controller FEATURE reports encode the size of the message in the
+message itself. Previously we were trusting that the size reported matched
+the size we actually read, leading to a potential issue with short reads.
+Instead, we should actually verify the length of the read.
+
+Fixes: c164d6abf384 ("HID: add driver for Valve Steam Controller")
+Reported-by: syzbot+75f3f9bff8c510602d36@syzkaller.appspotmail.com
+Closes: https://syzkaller.appspot.com/bug?extid=75f3f9bff8c510602d36
+
+Signed-off-by: Vicki Pfau <vi@endrift.com>
+Link: https://syzkaller.appspot.com/bug?extid=75f3f9bff8c510602d36
+---
+ drivers/hid/hid-steam.c | 29 +++++++++++++++++++++++++----
+ 1 file changed, 25 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/hid/hid-steam.c b/drivers/hid/hid-steam.c
+index ddd439dd069b..3b4a588c20ad 100644
+--- a/drivers/hid/hid-steam.c
++++ b/drivers/hid/hid-steam.c
+@@ -357,6 +357,13 @@ static int steam_recv_report(struct steam_device *steam,
+ 	u8 *buf;
+ 	int ret;
+ 
++	/*
++	 * All reports start with a two byte header.
++	 * We must read at least two bytes to get a sensible output.
++	 */
++	if (size < 2)
++		return -EINVAL;
++
+ 	r = steam->hdev->report_enum[HID_FEATURE_REPORT].report_id_hash[0];
+ 	if (!r) {
+ 		hid_err(steam->hdev, "No HID_FEATURE_REPORT submitted -  nothing to read\n");
+@@ -380,16 +387,30 @@ static int steam_recv_report(struct steam_device *steam,
+ 			buf, hid_report_len(r) + 1,
+ 			HID_FEATURE_REPORT, HID_REQ_GET_REPORT);
+ 	if (ret > 0) {
+-		ret = min(size, ret - 1);
+-		memcpy(data, buf + 1, ret);
++		/* Remove the report ID from the return buffer */
++		ret--;
++		size = min(size, ret);
++		memcpy(data, buf + 1, size);
+ 	}
+ 	kfree(buf);
+ 
+ 	if (ret < 0)
+ 		hid_err(steam->hdev, "%s: error %d\n", __func__, ret);
+ 	else
+-		hid_dbg(steam->hdev, "Received report %*ph\n", ret, data);
+-	return ret;
++		hid_dbg(steam->hdev, "Received report %*ph\n", size, data);
++	if (ret < 0)
++		return ret;
++
++	if (ret < 2) {
++		hid_err(steam->hdev, "%s: reply too short\n", __func__);
++		return -EPROTO;
++	}
++	if (ret < data[1] + 2) {
++		hid_err(steam->hdev, "%s: expected %u bytes, read %i\n",
++				__func__, data[1] + 2, ret);
++		return -EPROTO;
++	}
++	return size;
+ }
+ 
+ static int steam_send_report(struct steam_device *steam,
+-- 
+2.54.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Vicki Pfau <vi@endrift.com>
+Date: Wed, 29 Jul 2026 21:12:34 -0700
+Subject: HID: steam: Retry send/recv reports if stale
+
+Sometimes recv report will reply with a stale result from a previous send
+report. Instead of failing out, we should retry them, as they generally
+reply correctly after three tries, give or take.
+
+Signed-off-by: Vicki Pfau <vi@endrift.com>
+---
+ drivers/hid/hid-steam.c | 54 +++++++++++++++++++++++++++++++----------
+ 1 file changed, 41 insertions(+), 13 deletions(-)
+
+diff --git a/drivers/hid/hid-steam.c b/drivers/hid/hid-steam.c
+index 3b4a588c20ad..6199f67f3c4c 100644
+--- a/drivers/hid/hid-steam.c
++++ b/drivers/hid/hid-steam.c
+@@ -501,6 +501,43 @@ static int steam_write_settings(struct steam_device *steam,
+ 	return steam_recv_report(steam, cmd, 2 + cmd[1]);
+ }
+ 
++static int steam_exchange_report(struct steam_device *steam, u8 *cmd, int csize,
++		u8 *reply, int rsize)
++{
++	unsigned int retries = 5;
++	int ret;
++
++	guard(mutex)(&steam->report_mutex);
++	do {
++		ret = steam_send_report(steam, cmd, csize);
++		if (ret < 0)
++			return ret;
++		ret = steam_recv_report(steam, reply, rsize);
++		/*
++		 * Sometimes this can fail on the first few tries on the Steam
++		 * Controller (2015). It appears to be a firmware bug, and Steam
++		 * itself just retries, so we should also retry a few times to
++		 * see if we get it.
++		 */
++		if (ret == -EPROTO)
++			continue;
++		if (ret < 0) {
++			hid_err(steam->hdev, "%s: error reading reply (%*ph)\n",
++					__func__, csize, cmd);
++			return ret;
++		}
++		if (reply[0] == cmd[0] && reply[1] >= 1)
++			break;
++		if (retries > 0)
++			continue;
++		hid_err(steam->hdev, "%s: invalid reply (%*ph)\n", __func__,
++				rsize, reply);
++		return -EPROTO;
++	} while (retries--);
++
++	return ret;
++}
++
+ static int steam_get_serial(struct steam_device *steam)
+ {
+ 	/*
+@@ -511,15 +548,10 @@ static int steam_get_serial(struct steam_device *steam)
+ 	u8 cmd[] = {ID_GET_STRING_ATTRIBUTE, sizeof(steam->serial_no), ATTRIB_STR_UNIT_SERIAL};
+ 	u8 reply[3 + STEAM_SERIAL_LEN + 1] = {0};
+ 
+-	guard(mutex)(&steam->report_mutex);
+-	ret = steam_send_report(steam, cmd, sizeof(cmd));
++	ret = steam_exchange_report(steam, cmd, sizeof(cmd), reply, sizeof(reply));
+ 	if (ret < 0)
+ 		return ret;
+-	ret = steam_recv_report(steam, reply, sizeof(reply));
+-	if (ret < 0)
+-		return ret;
+-	if (reply[0] != ID_GET_STRING_ATTRIBUTE || reply[1] < 1 ||
+-	    reply[1] > sizeof(steam->serial_no) || reply[2] != ATTRIB_STR_UNIT_SERIAL) {
++	if (reply[1] > sizeof(steam->serial_no) || reply[2] != ATTRIB_STR_UNIT_SERIAL) {
+ 		hid_err(steam->hdev, "%s: invalid reply (%*ph)\n", __func__,
+ 				(int)sizeof(reply), reply);
+ 		return -EIO;
+@@ -537,14 +569,10 @@ static int steam_get_attributes(struct steam_device *steam)
+ 	int i;
+ 	struct steam_controller_attribute *attr;
+ 
+-	guard(mutex)(&steam->report_mutex);
+-	ret = steam_send_report(steam, cmd, sizeof(cmd));
+-	if (ret < 0)
+-		return ret;
+-	ret = steam_recv_report(steam, reply, sizeof(reply));
++	ret = steam_exchange_report(steam, cmd, sizeof(cmd), reply, sizeof(reply));
+ 	if (ret < 0)
+ 		return ret;
+-	if (reply[0] != ID_GET_ATTRIBUTES_VALUES || reply[1] < 2) {
++	if (reply[1] < 2) {
+ 		hid_err(steam->hdev, "%s: invalid reply (%*ph)\n", __func__,
+ 				(int)sizeof(reply), reply);
+ 		return -EIO;
+-- 
+2.54.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Vicki Pfau <vi@endrift.com>
+Date: Tue, 11 Aug 2026 18:13:52 -0700
+Subject: HID: steam: Refactor registration
+
+This refactors and simplifies the registration/unregistration flow. Since
+we now only perform registration when the client isn't opened anymore, the
+logic for handling that can be removed, and the rest of the function
+streamlined.
+
+We also remove the previous assumption that we have a serial number to show
+we're registered, replacing it with a single purpose boolean.
+
+In a previous refactor the code for unregistering a battery if later
+registration steps failed was accidentally left out. As a result, a
+lingering power_supply object could get left over after the steam object
+was torn down. This is also fixed here.
+
+Signed-off-by: Vicki Pfau <vi@endrift.com>
+---
+ drivers/hid/hid-steam.c | 81 +++++++++++++++++++----------------------
+ 1 file changed, 38 insertions(+), 43 deletions(-)
+
+diff --git a/drivers/hid/hid-steam.c b/drivers/hid/hid-steam.c
+index 6199f67f3c4c..d4ebc1efc01e 100644
+--- a/drivers/hid/hid-steam.c
++++ b/drivers/hid/hid-steam.c
+@@ -334,6 +334,7 @@ struct steam_device {
+ 	unsigned long quirks;
+ 	struct work_struct work_connect;
+ 	bool connected;
++	bool registered;
+ 	char serial_no[STEAM_SERIAL_LEN + 1];
+ 	struct power_supply_desc battery_desc;
+ 	struct power_supply __rcu *battery;
+@@ -1139,9 +1140,6 @@ static void steam_battery_unregister(struct steam_device *steam)
+ static int steam_register(struct steam_device *steam)
+ {
+ 	int ret;
+-	unsigned long client_opened;
+-	unsigned long flags;
+-	bool do_add;
+ 
+ 	/*
+ 	 * This function can be called several times in a row with the
+@@ -1149,66 +1147,63 @@ static int steam_register(struct steam_device *steam)
+ 	 * another client send a get_connection_status command, for example.
+ 	 * The battery and serial number are set just once per device.
+ 	 */
+-	if (!steam->serial_no[0]) {
+-		/*
+-		 * Unlikely, but getting the serial could fail, and it is not so
+-		 * important, so make up a serial number and go on.
+-		 */
+-		if (steam_get_serial(steam) < 0)
+-			strscpy(steam->serial_no, "XXXXXXXXXX",
+-					sizeof(steam->serial_no));
+-
+-		ret = steam_get_attributes(steam);
+-		if (ret < 0)
+-			hid_err(steam->hdev,
+-				"%s:steam_get_attributes failed with error %d\n",
+-				__func__, ret);
++	if (steam->registered)
++		return 0;
+ 
+-		hid_info(steam->hdev, "Steam Controller '%s' connected",
+-				steam->serial_no);
++	/*
++	 * Unlikely, but getting the serial could fail, and it is not so
++	 * important, so make up a serial number and go on.
++	 */
++	if (steam_get_serial(steam) < 0 || !steam->serial_no[0])
++		strscpy(steam->serial_no, "XXXXXXXXXX",
++				sizeof(steam->serial_no));
+ 
+-		/* ignore battery errors, we can live without it */
+-		if (steam->quirks & STEAM_QUIRK_WIRELESS)
+-			steam_battery_register(steam);
++	ret = steam_get_attributes(steam);
++	if (ret < 0)
++		hid_err(steam->hdev,
++			"%s:steam_get_attributes failed with error %d\n",
++			__func__, ret);
+ 
+-		do_add = true;
+-	}
++	hid_info(steam->hdev, "Steam Controller '%s' connected",
++			steam->serial_no);
+ 
+-	spin_lock_irqsave(&steam->lock, flags);
+-	client_opened = steam->client_opened;
+-	spin_unlock_irqrestore(&steam->lock, flags);
++	/* ignore battery errors, we can live without it */
++	if (steam->quirks & STEAM_QUIRK_WIRELESS)
++		steam_battery_register(steam);
+ 
+-	if (!client_opened) {
+-		steam_set_lizard_mode(steam, lizard_mode);
+-		ret = steam_input_register(steam);
+-		if (ret != 0)
+-			goto steam_register_input_fail;
+-		ret = steam_sensors_register(steam);
+-		if (ret != 0)
+-			goto steam_register_sensors_fail;
+-	}
++	steam_set_lizard_mode(steam, lizard_mode);
++	ret = steam_input_register(steam);
++	if (ret != 0)
++		goto steam_register_input_fail;
++	ret = steam_sensors_register(steam);
++	if (ret != 0)
++		goto steam_register_sensors_fail;
+ 
+-	if (do_add) {
+-		mutex_lock(&steam_devices_lock);
+-		if (list_empty(&steam->list))
+-			list_add(&steam->list, &steam_devices);
+-		mutex_unlock(&steam_devices_lock);
+-	}
++	steam->registered = true;
++	mutex_lock(&steam_devices_lock);
++	if (list_empty(&steam->list))
++		list_add(&steam->list, &steam_devices);
++	mutex_unlock(&steam_devices_lock);
+ 	return 0;
+ 
+ steam_register_sensors_fail:
+ 	steam_input_unregister(steam);
+ steam_register_input_fail:
++	steam_battery_unregister(steam);
++	cancel_work_sync(&steam->rumble_work);
++	cancel_delayed_work_sync(&steam->mode_switch);
++	cancel_delayed_work_sync(&steam->coalesce_rumble_work);
+ 	return ret;
+ }
+ 
+ static void steam_unregister(struct steam_device *steam)
+ {
+-	if (!steam->serial_no[0])
++	if (!steam->registered)
+ 		return;
+ 
+ 	hid_info(steam->hdev, "Steam Controller '%s' disconnected",
+ 			steam->serial_no);
++	steam->registered = false;
+ 	steam_battery_unregister(steam);
+ 	steam_sensors_unregister(steam);
+ 	steam_input_unregister(steam);
+-- 
+2.54.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Vicki Pfau <vi@endrift.com>
+Date: Tue, 11 Aug 2026 18:13:53 -0700
+Subject: HID: steam: Initial 2026 Steam Controller support
+
+This brings support for the 2026 Steam Controller, comparably featureful to
+the existing support for the Steam Deck.
+
+Signed-off-by: Vicki Pfau <vi@endrift.com>
+---
+ drivers/hid/hid-ids.h   |   4 +
+ drivers/hid/hid-steam.c | 783 ++++++++++++++++++++++++++++++++++------
+ 2 files changed, 682 insertions(+), 105 deletions(-)
+
+diff --git a/drivers/hid/hid-ids.h b/drivers/hid/hid-ids.h
+index 2ca076c3fca3..33dc4a1655f1 100644
+--- a/drivers/hid/hid-ids.h
++++ b/drivers/hid/hid-ids.h
+@@ -1334,6 +1334,10 @@
+ #define USB_DEVICE_ID_STEAM_CONTROLLER		0x1102
+ #define USB_DEVICE_ID_STEAM_CONTROLLER_WIRELESS	0x1142
+ #define USB_DEVICE_ID_STEAM_DECK	0x1205
++#define USB_DEVICE_ID_STEAM_CONTROLLER_IBEX	0x1302
++#define USB_DEVICE_ID_STEAM_CONTROLLER_IBEX_BLE	0x1303
++#define USB_DEVICE_ID_STEAM_CONTROLLER_PROTEUS	0x1304
++#define USB_DEVICE_ID_STEAM_CONTROLLER_NEREID	0x1305
+ 
+ #define USB_VENDOR_ID_STEELSERIES	0x1038
+ #define USB_DEVICE_ID_STEELSERIES_SRWS1	0x1410
+diff --git a/drivers/hid/hid-steam.c b/drivers/hid/hid-steam.c
+index d4ebc1efc01e..29de32051319 100644
+--- a/drivers/hid/hid-steam.c
++++ b/drivers/hid/hid-steam.c
+@@ -44,6 +44,7 @@
+ #include <linux/delay.h>
+ #include <linux/power_supply.h>
+ #include <linux/unaligned.h>
++#include <linux/usb.h>
+ #include "hid-ids.h"
+ 
+ MODULE_DESCRIPTION("HID driver for Valve Steam Controller");
+@@ -58,6 +59,8 @@ static LIST_HEAD(steam_devices);
+ 
+ #define STEAM_QUIRK_WIRELESS		BIT(0)
+ #define STEAM_QUIRK_DECK		BIT(1)
++#define STEAM_QUIRK_IBEX		BIT(2)
++#define STEAM_QUIRK_BLE			BIT(3)
+ 
+ /* Touch pads are 40 mm in diameter and 65535 units */
+ #define STEAM_PAD_RESOLUTION 1638
+@@ -310,11 +313,83 @@ enum {
+ 	TRACKPAD_GESTURE_KEYBOARD,
+ };
+ 
++/* Report identifiers (Ibex only) */
++enum {
++	/* Feature */
++	REPORT_ID_FEATURES_CONTROLLER	= 1,
++	REPORT_ID_FEATURES_DONGLE	= 2,
++
++	/* Input */
++	REPORT_ID_INPUT			= 0x42,
++	REPORT_ID_BATTERY		= 0x43,
++	REPORT_ID_INPUT2		= 0x45,
++	REPORT_ID_WIRELESS_EVENT	= 0x79,
++
++	/* Output */
++	REPORT_ID_HAPTIC_RUMBLE		= 0x80,
++	REPORT_ID_HAPTIC_PULSE		= 0x81,
++	REPORT_ID_HAPTIC_COMMAND	= 0x82,
++	REPORT_ID_HAPTIC_LFO_TONE	= 0x83,
++	REPORT_ID_HAPTIC_LOG_SWEEP	= 0x84,
++	REPORT_ID_HAPTIC_SCRIPT		= 0x85,
++};
++
++/* Ibex charge state */
++enum {
++	CHARGE_STATE_DISCHARGING	= 1,
++	CHARGE_STATE_CHARGING		= 2,
++	CHARGE_STATE_CHARGING_DONE	= 4,
++};
++
++/* Ibex wireless events */
++enum {
++	WIRELESS_EVENT_DISCONNECT	= 1,
++	WIRELESS_EVENT_CONNECT		= 2,
++	WIRELESS_EVENT_PAIR		= 3,
++};
++
+ struct steam_controller_attribute {
+ 	unsigned char tag;
+ 	__le32 value;
+ } __packed;
+ 
++struct steam_ibex_battery_status {
++	u8 charge_state;
++	u8 battery_level;
++	__le16 battery_voltage;
++	__le16 system_voltage;
++	__le16 input_voltage;
++	__le16 battery_current;
++	__le16 input_current;
++	__le16 temperature;
++};
++
++struct steam_ibex_haptic_rumble {
++	u8 type;
++	__le16 intensity;
++	struct {
++		__le16 speed;
++		u8 gain;
++	} __packed left, right;
++} __packed;
++static_assert(sizeof(struct steam_ibex_haptic_rumble) == 9);
++
++struct steam_ibex_haptic_pulse {
++	u8 side;
++	__le16 on_us;
++	__le16 off_us;
++	__le16 repeat_count;
++} __packed;
++static_assert(sizeof(struct steam_ibex_haptic_pulse) == 7);
++
++struct steam_ibex_output_report {
++	u8 id;
++	union {
++		struct steam_ibex_haptic_rumble rumble;
++		struct steam_ibex_haptic_pulse pulse;
++	};
++} __packed;
++
+ /* Pad identifiers for the deck */
+ #define STEAM_PAD_LEFT 0
+ #define STEAM_PAD_RIGHT 1
+@@ -339,7 +414,10 @@ struct steam_device {
+ 	struct power_supply_desc battery_desc;
+ 	struct power_supply __rcu *battery;
+ 	u8 battery_charge;
+-	u16 voltage;
++	u8 battery_status;
++	u16 battery_temp;
++	u16 battery_voltage;
++	u16 battery_current;
+ 	struct delayed_work mode_switch;
+ 	bool did_mode_switch;
+ 	bool gamepad_mode;
+@@ -351,12 +429,14 @@ struct steam_device {
+ 	unsigned int sensor_update_rate_us;
+ };
+ 
+-static int steam_recv_report(struct steam_device *steam,
+-		u8 *data, int size)
++static int steam_recv_report_id(struct steam_device *steam,
++		u8 *data, int size, u8 report_id)
+ {
+ 	struct hid_report *r;
+ 	u8 *buf;
++	unsigned int retries = 50;
+ 	int ret;
++	u32 len;
+ 
+ 	/*
+ 	 * All reports start with a two byte header.
+@@ -365,13 +445,14 @@ static int steam_recv_report(struct steam_device *steam,
+ 	if (size < 2)
+ 		return -EINVAL;
+ 
+-	r = steam->hdev->report_enum[HID_FEATURE_REPORT].report_id_hash[0];
++	r = steam->hdev->report_enum[HID_FEATURE_REPORT].report_id_hash[report_id];
+ 	if (!r) {
+-		hid_err(steam->hdev, "No HID_FEATURE_REPORT submitted -  nothing to read\n");
++		hid_err(steam->hdev, "No HID_FEATURE_REPORT present for ID %u\n", report_id);
+ 		return -EINVAL;
+ 	}
+ 
+-	if (hid_report_len(r) < 64)
++	len = hid_report_len(r);
++	if (len < 64)
+ 		return -EINVAL;
+ 
+ 	buf = hid_alloc_report_buf(r, GFP_KERNEL);
+@@ -379,22 +460,36 @@ static int steam_recv_report(struct steam_device *steam,
+ 		return -ENOMEM;
+ 
+ 	/*
+-	 * The report ID is always 0, so strip the first byte from the output.
++	 * The report ID is consistent, so strip the first byte from the output.
+ 	 * hid_report_len() is not counting the report ID, so +1 to the length
+ 	 * or else we get a EOVERFLOW. We are safe from a buffer overflow
+ 	 * because hid_alloc_report_buf() allocates +7 bytes.
+ 	 */
+-	ret = hid_hw_raw_request(steam->hdev, 0x00,
+-			buf, hid_report_len(r) + 1,
+-			HID_FEATURE_REPORT, HID_REQ_GET_REPORT);
++	if (!(steam->quirks & STEAM_QUIRK_IBEX))
++		len += 1;
++
++	/*
++	 * Sometimes the wireless controller fails with EPIPE
++	 * when sending a feature report.
++	 * Doing a HID_REQ_GET_REPORT and waiting for a while
++	 * seems to fix that.
++	 */
++	do {
++		ret = hid_hw_raw_request(steam->hdev, report_id,
++				buf, len,
++				HID_FEATURE_REPORT, HID_REQ_GET_REPORT);
++		if (ret != -EPIPE)
++			break;
++		msleep(20);
++	} while (--retries);
+ 	if (ret > 0) {
+ 		/* Remove the report ID from the return buffer */
+ 		ret--;
+ 		size = min(size, ret);
+ 		memcpy(data, buf + 1, size);
+ 	}
+-	kfree(buf);
+ 
++	kfree(buf);
+ 	if (ret < 0)
+ 		hid_err(steam->hdev, "%s: error %d\n", __func__, ret);
+ 	else
+@@ -414,41 +509,47 @@ static int steam_recv_report(struct steam_device *steam,
+ 	return size;
+ }
+ 
+-static int steam_send_report(struct steam_device *steam,
+-		u8 *cmd, int size)
++static int steam_send_report_id(struct steam_device *steam,
++		u8 *cmd, int size, u8 report_id)
+ {
+ 	struct hid_report *r;
+ 	u8 *buf;
+ 	unsigned int retries = 50;
+ 	int ret;
++	u32 len;
+ 
+-	r = steam->hdev->report_enum[HID_FEATURE_REPORT].report_id_hash[0];
++	r = steam->hdev->report_enum[HID_FEATURE_REPORT].report_id_hash[report_id];
+ 	if (!r) {
+-		hid_err(steam->hdev, "No HID_FEATURE_REPORT submitted -  nothing to read\n");
++		hid_err(steam->hdev, "No HID_FEATURE_REPORT present for ID %u\n", report_id);
+ 		return -EINVAL;
+ 	}
+ 
+-	if (hid_report_len(r) < 64)
++	len = hid_report_len(r);
++	if (len < 64)
+ 		return -EINVAL;
+ 
+ 	buf = hid_alloc_report_buf(r, GFP_KERNEL);
+ 	if (!buf)
+ 		return -ENOMEM;
+ 
+-	/* The report ID is always 0 */
++	/* The report ID is always consistent */
++	buf[0] = report_id;
+ 	memcpy(buf + 1, cmd, size);
+ 
+ 	hid_dbg(steam->hdev, "Sending report %*ph\n", size, cmd);
+ 
++	if (!(steam->quirks & STEAM_QUIRK_IBEX))
++		len += 1;
++
+ 	/*
+ 	 * Sometimes the wireless controller fails with EPIPE
+ 	 * when sending a feature report.
+-	 * Doing a HID_REQ_GET_REPORT and waiting for a while
++	 * Doing a HID_REQ_SET_REPORT and waiting for a while
+ 	 * seems to fix that.
+ 	 */
+ 	do {
+-		ret = hid_hw_raw_request(steam->hdev, 0,
+-				buf, max(size, 64) + 1,
++		ret = hid_hw_raw_request(steam->hdev, report_id,
++				buf, max(size + 1, len),
+ 				HID_FEATURE_REPORT, HID_REQ_SET_REPORT);
+ 		if (ret != -EPIPE)
+ 			break;
+@@ -462,6 +563,19 @@ static int steam_send_report(struct steam_device *steam,
+ 	return ret;
+ }
+ 
++static int steam_send_report(struct steam_device *steam,
++		u8 *cmd, int size)
++{
++	u8 report_id;
++
++	if (steam->quirks & STEAM_QUIRK_IBEX)
++		report_id = REPORT_ID_FEATURES_CONTROLLER;
++	else
++		report_id = 0;
++
++	return steam_send_report_id(steam, cmd, size, report_id);
++}
++
+ static inline int steam_send_report_byte(struct steam_device *steam, u8 cmd)
+ {
+ 	return steam_send_report(steam, &cmd, 1);
+@@ -474,7 +588,6 @@ static int steam_write_settings(struct steam_device *steam,
+ 	u8 reg;
+ 	u16 val;
+ 	u8 cmd[64] = {ID_SET_SETTINGS_VALUES, 0x00};
+-	int ret;
+ 	va_list args;
+ 
+ 	va_start(args, steam);
+@@ -490,30 +603,21 @@ static int steam_write_settings(struct steam_device *steam,
+ 	}
+ 	va_end(args);
+ 
+-	ret = steam_send_report(steam, cmd, 2 + cmd[1]);
+-	if (ret < 0)
+-		return ret;
+-
+-	/*
+-	 * Sometimes a lingering report for this command can
+-	 * get read back instead of the last set report if
+-	 * this isn't explicitly queried
+-	 */
+-	return steam_recv_report(steam, cmd, 2 + cmd[1]);
++	return steam_send_report(steam, cmd, 2 + cmd[1]);
+ }
+ 
+-static int steam_exchange_report(struct steam_device *steam, u8 *cmd, int csize,
+-		u8 *reply, int rsize)
++static int steam_exchange_report_id(struct steam_device *steam, u8 *cmd, int csize,
++		u8 *reply, int rsize, u8 report_id)
+ {
+ 	unsigned int retries = 5;
+ 	int ret;
+ 
+ 	guard(mutex)(&steam->report_mutex);
+ 	do {
+-		ret = steam_send_report(steam, cmd, csize);
++		ret = steam_send_report_id(steam, cmd, csize, report_id);
+ 		if (ret < 0)
+ 			return ret;
+-		ret = steam_recv_report(steam, reply, rsize);
++		ret = steam_recv_report_id(steam, reply, rsize, report_id);
+ 		/*
+ 		 * Sometimes this can fail on the first few tries on the Steam
+ 		 * Controller (2015). It appears to be a firmware bug, and Steam
+@@ -539,6 +643,19 @@ static int steam_exchange_report(struct steam_device *steam, u8 *cmd, int csize,
+ 	return ret;
+ }
+ 
++static int steam_exchange_report(struct steam_device *steam, u8 *cmd, int csize,
++		u8 *reply, int rsize)
++{
++	u8 report_id;
++
++	if (steam->quirks & STEAM_QUIRK_IBEX)
++		report_id = REPORT_ID_FEATURES_CONTROLLER;
++	else
++		report_id = 0;
++
++	return steam_exchange_report_id(steam, cmd, csize, reply, rsize, report_id);
++}
++
+ static int steam_get_serial(struct steam_device *steam)
+ {
+ 	/*
+@@ -592,15 +709,29 @@ static int steam_get_attributes(struct steam_device *steam)
+ 	return 0;
+ }
+ 
+-/*
+- * This command requests the wireless adaptor to post an event
+- * with the connection status. Useful if this driver is loaded when
+- * the controller is already connected.
+- */
+-static inline int steam_request_conn_status(struct steam_device *steam)
++static int steam_get_conn_status(struct steam_device *steam)
+ {
++	int ret = 0;
++	u8 cmd[] = {ID_DONGLE_GET_WIRELESS_STATE};
++	u8 reply[3] = {};
++	u8 report_id;
++
++	if (steam->quirks & STEAM_QUIRK_IBEX)
++		report_id = REPORT_ID_FEATURES_DONGLE;
++	else
++		report_id = 0;
++
+ 	guard(mutex)(&steam->report_mutex);
+-	return steam_send_report_byte(steam, ID_DONGLE_GET_WIRELESS_STATE);
++	ret = steam_exchange_report_id(steam, cmd, sizeof(cmd), reply, sizeof(reply), report_id);
++	if (ret < 0)
++		return ret;
++	if (reply[0] != ID_DONGLE_GET_WIRELESS_STATE || reply[1] < 1) {
++		hid_err(steam->hdev, "%s: invalid reply (%*ph)\n", __func__,
++				(int)sizeof(reply), reply);
++		return -EIO;
++	}
++
++	return reply[2];
+ }
+ 
+ /*
+@@ -613,24 +744,42 @@ static inline int steam_haptic_pulse(struct steam_device *steam, u8 pad,
+ 				u16 duration, u16 interval, u16 count, u8 gain)
+ {
+ 	int ret;
+-	u8 report[10] = {ID_TRIGGER_HAPTIC_PULSE, 8};
+ 
+ 	/* Left and right are swapped on this report for legacy reasons */
+ 	if (pad < STEAM_PAD_BOTH)
+ 		pad ^= 1;
+ 
+-	report[2] = pad;
+-	report[3] = duration & 0xFF;
+-	report[4] = duration >> 8;
+-	report[5] = interval & 0xFF;
+-	report[6] = interval >> 8;
+-	report[7] = count & 0xFF;
+-	report[8] = count >> 8;
+-	report[9] = gain;
++	if (steam->quirks & STEAM_QUIRK_IBEX) {
++		struct steam_ibex_output_report *report =
++			kzalloc(sizeof(struct steam_ibex_output_report), GFP_KERNEL);
++
++		if (!report)
++			return -ENOMEM;
++
++		report->id = REPORT_ID_HAPTIC_PULSE;
++		report->pulse.side = pad;
++		put_unaligned_le16(duration, &report->pulse.on_us);
++		put_unaligned_le16(interval, &report->pulse.off_us);
++		put_unaligned_le16(count, &report->pulse.repeat_count);
++
++		ret = hid_hw_output_report(steam->hdev, (u8 *)report, 8);
++
++		kfree(report);
++	} else {
++		u8 report[10] = {ID_TRIGGER_HAPTIC_PULSE, 8, pad};
++
++		report[3] = duration & 0xFF;
++		report[4] = duration >> 8;
++		report[5] = interval & 0xFF;
++		report[6] = interval >> 8;
++		report[7] = count & 0xFF;
++		report[8] = count >> 8;
++		report[9] = gain;
++
++		guard(mutex)(&steam->report_mutex);
++		ret = steam_send_report(steam, report, 10);
++	}
+ 
+-	mutex_lock(&steam->report_mutex);
+-	ret = steam_send_report(steam, report, sizeof(report));
+-	mutex_unlock(&steam->report_mutex);
+ 	return ret;
+ }
+ 
+@@ -639,20 +788,39 @@ static inline int steam_haptic_rumble(struct steam_device *steam,
+ 				u8 left_gain, u8 right_gain)
+ {
+ 	int ret;
+-	u8 report[11] = {ID_TRIGGER_RUMBLE_CMD, 9};
+ 
+-	report[3] = intensity & 0xFF;
+-	report[4] = intensity >> 8;
+-	report[5] = left_speed & 0xFF;
+-	report[6] = left_speed >> 8;
+-	report[7] = right_speed & 0xFF;
+-	report[8] = right_speed >> 8;
+-	report[9] = left_gain;
+-	report[10] = right_gain;
++	if (steam->quirks & STEAM_QUIRK_IBEX) {
++		struct steam_ibex_output_report *report =
++			kzalloc(sizeof(struct steam_ibex_output_report), GFP_KERNEL);
+ 
+-	mutex_lock(&steam->report_mutex);
+-	ret = steam_send_report(steam, report, sizeof(report));
+-	mutex_unlock(&steam->report_mutex);
++		if (!report)
++			return -ENOMEM;
++
++		report->id = REPORT_ID_HAPTIC_RUMBLE;
++		put_unaligned_le16(intensity, &report->rumble.intensity);
++		put_unaligned_le16(left_speed, &report->rumble.left.speed);
++		report->rumble.left.gain = left_gain;
++		put_unaligned_le16(right_speed, &report->rumble.right.speed);
++		report->rumble.right.gain = right_gain;
++
++		ret = hid_hw_output_report(steam->hdev, (u8 *)report, 10);
++
++		kfree(report);
++	} else {
++		u8 report[11] = {ID_TRIGGER_RUMBLE_CMD, 9};
++
++		report[3] = intensity & 0xFF;
++		report[4] = intensity >> 8;
++		report[5] = left_speed & 0xFF;
++		report[6] = left_speed >> 8;
++		report[7] = right_speed & 0xFF;
++		report[8] = right_speed >> 8;
++		report[9] = left_gain;
++		report[10] = right_gain;
++
++		guard(mutex)(&steam->report_mutex);
++		ret = steam_send_report(steam, report, sizeof(report));
++	}
+ 	return ret;
+ }
+ 
+@@ -714,20 +882,18 @@ static void steam_set_lizard_mode(struct steam_device *steam, bool enable)
+ 		/* disable esc, enter, cursor */
+ 		steam_send_report_byte(steam, ID_CLEAR_DIGITAL_MAPPINGS);
+ 
+-		if (steam->quirks & STEAM_QUIRK_DECK) {
++		if (steam->quirks & (STEAM_QUIRK_DECK | STEAM_QUIRK_IBEX))
+ 			steam_write_settings(steam,
+-				SETTING_LEFT_TRACKPAD_MODE, TRACKPAD_NONE, /* disable mouse */
+-				SETTING_RIGHT_TRACKPAD_MODE, TRACKPAD_NONE, /* disable mouse */
+-				SETTING_LEFT_TRACKPAD_CLICK_PRESSURE, 0xFFFF, /* disable haptic click */
+-				SETTING_RIGHT_TRACKPAD_CLICK_PRESSURE, 0xFFFF, /* disable haptic click */
+-				SETTING_STEAM_WATCHDOG_ENABLE, 0, /* disable watchdog that tests if Steam is active */
++				/* disable lizard mode */
++				SETTING_LIZARD_MODE, 0,
++				/* disable watchdog that tests if Steam is active */
++				SETTING_STEAM_WATCHDOG_ENABLE, 0,
+ 				0);
+-		} else {
++		else
+ 			steam_write_settings(steam,
+ 				SETTING_LEFT_TRACKPAD_MODE, TRACKPAD_NONE, /* disable mouse */
+ 				SETTING_RIGHT_TRACKPAD_MODE, TRACKPAD_NONE, /* disable mouse */
+ 				0);
+-		}
+ 	}
+ 	mutex_unlock(&steam->report_mutex);
+ }
+@@ -743,7 +909,7 @@ static int steam_input_open(struct input_dev *dev)
+ 	 * Controller. On the Steam Deck, this is toggled manually by holding
+ 	 * the options button instead, handled by steam_mode_switch_cb.
+ 	 */
+-	if (!(steam->quirks & STEAM_QUIRK_DECK)) {
++	if (!(steam->quirks & (STEAM_QUIRK_DECK | STEAM_QUIRK_IBEX))) {
+ 		spin_lock_irqsave(&steam->lock, flags);
+ 		set_lizard_mode = !steam->client_opened && lizard_mode;
+ 		spin_unlock_irqrestore(&steam->lock, flags);
+@@ -760,7 +926,7 @@ static void steam_input_close(struct input_dev *dev)
+ 	unsigned long flags;
+ 	bool set_lizard_mode;
+ 
+-	if (!(steam->quirks & STEAM_QUIRK_DECK)) {
++	if (!(steam->quirks & (STEAM_QUIRK_DECK | STEAM_QUIRK_IBEX))) {
+ 		spin_lock_irqsave(&steam->lock, flags);
+ 		set_lizard_mode = !steam->client_opened && lizard_mode;
+ 		spin_unlock_irqrestore(&steam->lock, flags);
+@@ -818,25 +984,40 @@ static int steam_battery_get_property(struct power_supply *psy,
+ {
+ 	struct steam_device *steam = power_supply_get_drvdata(psy);
+ 	unsigned long flags;
+-	s16 volts;
++	u16 volts;
++	u16 curr;
++	u16 temp;
+ 	u8 batt;
++	u8 status;
+ 	int ret = 0;
+ 
+ 	spin_lock_irqsave(&steam->lock, flags);
+-	volts = steam->voltage;
++	volts = steam->battery_voltage;
++	curr = steam->battery_current;
+ 	batt = steam->battery_charge;
++	temp = steam->battery_temp;
++	status = steam->battery_status;
+ 	spin_unlock_irqrestore(&steam->lock, flags);
+ 
+ 	switch (psp) {
+ 	case POWER_SUPPLY_PROP_PRESENT:
+ 		val->intval = 1;
+ 		break;
++	case POWER_SUPPLY_PROP_STATUS:
++		val->intval = status;
++		break;
+ 	case POWER_SUPPLY_PROP_SCOPE:
+ 		val->intval = POWER_SUPPLY_SCOPE_DEVICE;
+ 		break;
+ 	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
+ 		val->intval = volts * 1000; /* mV -> uV */
+ 		break;
++	case POWER_SUPPLY_PROP_CURRENT_NOW:
++		val->intval = curr * 1000; /* mA -> uA */
++		break;
++	case POWER_SUPPLY_PROP_TEMP:
++		val->intval = temp / 100; /* thousandths °C -> tenths °C */
++		break;
+ 	case POWER_SUPPLY_PROP_CAPACITY:
+ 		val->intval = batt;
+ 		break;
+@@ -847,6 +1028,16 @@ static int steam_battery_get_property(struct power_supply *psy,
+ 	return ret;
+ }
+ 
++static enum power_supply_property steam_ibex_battery_props[] = {
++	POWER_SUPPLY_PROP_PRESENT,
++	POWER_SUPPLY_PROP_STATUS,
++	POWER_SUPPLY_PROP_SCOPE,
++	POWER_SUPPLY_PROP_VOLTAGE_NOW,
++	POWER_SUPPLY_PROP_CURRENT_NOW,
++	POWER_SUPPLY_PROP_CAPACITY,
++	POWER_SUPPLY_PROP_TEMP,
++};
++
+ static int steam_battery_register(struct steam_device *steam)
+ {
+ 	struct power_supply *battery;
+@@ -855,19 +1046,35 @@ static int steam_battery_register(struct steam_device *steam)
+ 	int ret;
+ 
+ 	steam->battery_desc.type = POWER_SUPPLY_TYPE_BATTERY;
+-	steam->battery_desc.properties = steam_battery_props;
+-	steam->battery_desc.num_properties = ARRAY_SIZE(steam_battery_props);
++	if (steam->quirks & STEAM_QUIRK_IBEX) {
++		steam->battery_desc.properties = steam_ibex_battery_props;
++		steam->battery_desc.num_properties = ARRAY_SIZE(steam_ibex_battery_props);
++		/*
++		 * Ibex needs a shorter name as it has a temperature and the
++		 * thermal zone name length limit is 20 characters. It's more
++		 * ambiguous sounding, so let's only use it when needed.
++		 */
++		steam->battery_desc.name = devm_kasprintf(&steam->hdev->dev,
++				GFP_KERNEL, "steam-%s",
++				steam->serial_no);
++	} else {
++		steam->battery_desc.properties = steam_battery_props;
++		steam->battery_desc.num_properties = ARRAY_SIZE(steam_battery_props);
++		steam->battery_desc.name = devm_kasprintf(&steam->hdev->dev,
++				GFP_KERNEL, "steam-controller-%s-battery",
++				steam->serial_no);
++	}
+ 	steam->battery_desc.get_property = steam_battery_get_property;
+-	steam->battery_desc.name = devm_kasprintf(&steam->hdev->dev,
+-			GFP_KERNEL, "steam-controller-%s-battery",
+-			steam->serial_no);
+ 	if (!steam->battery_desc.name)
+ 		return -ENOMEM;
+ 
+ 	/* avoid the warning of 0% battery while waiting for the first info */
+ 	spin_lock_irqsave(&steam->lock, flags);
+-	steam->voltage = 3000;
++	steam->battery_voltage = 3000;
+ 	steam->battery_charge = 100;
++	steam->battery_current = 0;
++	steam->battery_temp = 20000;
++	steam->battery_status = POWER_SUPPLY_STATUS_UNKNOWN;
+ 	spin_unlock_irqrestore(&steam->lock, flags);
+ 
+ 	battery = power_supply_register(&steam->hdev->dev,
+@@ -939,7 +1146,7 @@ static int steam_input_register(struct steam_device *steam)
+ 	input_set_capability(input, EV_KEY, BTN_THUMB2);
+ 	input_set_capability(input, EV_KEY, BTN_GRIPL);
+ 	input_set_capability(input, EV_KEY, BTN_GRIPR);
+-	if (steam->quirks & STEAM_QUIRK_DECK) {
++	if (steam->quirks & (STEAM_QUIRK_DECK | STEAM_QUIRK_IBEX)) {
+ 		input_set_capability(input, EV_KEY, BTN_BASE);
+ 		input_set_capability(input, EV_KEY, BTN_GRIPL2);
+ 		input_set_capability(input, EV_KEY, BTN_GRIPR2);
+@@ -953,7 +1160,7 @@ static int steam_input_register(struct steam_device *steam)
+ 	input_set_abs_params(input, ABS_HAT0Y, -32767, 32767,
+ 			STEAM_PAD_FUZZ, 0);
+ 
+-	if (steam->quirks & STEAM_QUIRK_DECK) {
++	if (steam->quirks & (STEAM_QUIRK_DECK | STEAM_QUIRK_IBEX)) {
+ 		input_set_abs_params(input, ABS_HAT2Y, 0, 32767, 0, 0);
+ 		input_set_abs_params(input, ABS_HAT2X, 0, 32767, 0, 0);
+ 
+@@ -993,7 +1200,7 @@ static int steam_input_register(struct steam_device *steam)
+ 	input_abs_set_res(input, ABS_HAT0Y, STEAM_PAD_RESOLUTION);
+ 
+ #ifdef CONFIG_STEAM_FF
+-	if (steam->quirks & STEAM_QUIRK_DECK) {
++	if (steam->quirks & (STEAM_QUIRK_DECK | STEAM_QUIRK_IBEX)) {
+ 		input_set_capability(input, EV_FF, FF_RUMBLE);
+ 		ret = input_ff_create_memless(input, NULL, steam_play_effect);
+ 		if (ret)
+@@ -1018,6 +1225,7 @@ static int steam_sensors_register(struct steam_device *steam)
+ 	struct hid_device *hdev = steam->hdev;
+ 	struct input_dev *sensors;
+ 	int ret;
++	bool needs_open_close;
+ 
+ 	rcu_read_lock();
+ 	sensors = rcu_dereference(steam->sensors);
+@@ -1033,7 +1241,27 @@ static int steam_sensors_register(struct steam_device *steam)
+ 
+ 	input_set_drvdata(sensors, steam);
+ 	sensors->dev.parent = &hdev->dev;
+-	if (!(steam->quirks & STEAM_QUIRK_DECK)) {
++
++	/*
++	 * The open/close calls are needed in these specific cases:
++	 *
++	 * - Steam Controller (2015): Always
++	 * - Steam Deck: Never
++	 * - Steam Controller (2026): Only when wireless/BLE
++	 */
++	if (steam->quirks & STEAM_QUIRK_DECK)
++		needs_open_close = false;
++	else if (steam->quirks & (STEAM_QUIRK_WIRELESS | STEAM_QUIRK_BLE))
++		/* Both wireless Steam Controller setups */
++		needs_open_close = true;
++	else if (steam->quirks & STEAM_QUIRK_IBEX)
++		/* Wired Steam Controller (2026) */
++		needs_open_close = false;
++	else
++		/* Wired Steam Controller (2015) */
++		needs_open_close = true;
++
++	if (needs_open_close) {
+ 		sensors->open = steam_sensor_open;
+ 		sensors->close = steam_sensor_close;
+ 	}
+@@ -1145,7 +1373,6 @@ static int steam_register(struct steam_device *steam)
+ 	 * This function can be called several times in a row with the
+ 	 * wireless adaptor, without steam_unregister() between them, because
+ 	 * another client send a get_connection_status command, for example.
+-	 * The battery and serial number are set just once per device.
+ 	 */
+ 	if (steam->registered)
+ 		return 0;
+@@ -1168,7 +1395,7 @@ static int steam_register(struct steam_device *steam)
+ 			steam->serial_no);
+ 
+ 	/* ignore battery errors, we can live without it */
+-	if (steam->quirks & STEAM_QUIRK_WIRELESS)
++	if (steam->quirks & (STEAM_QUIRK_WIRELESS | STEAM_QUIRK_IBEX))
+ 		steam_battery_register(steam);
+ 
+ 	steam_set_lizard_mode(steam, lizard_mode);
+@@ -1213,7 +1440,6 @@ static void steam_unregister(struct steam_device *steam)
+ 	mutex_lock(&steam_devices_lock);
+ 	list_del_init(&steam->list);
+ 	mutex_unlock(&steam_devices_lock);
+-	steam->serial_no[0] = 0;
+ }
+ 
+ static void steam_work_connect_cb(struct work_struct *work)
+@@ -1271,21 +1497,46 @@ static void steam_mode_switch_cb(struct work_struct *work)
+ 	}
+ }
+ 
+-static bool steam_is_valve_interface(struct hid_device *hdev)
++static bool steam_is_valve_interface(struct hid_device *hdev, int quirks)
+ {
+ 	struct hid_report_enum *rep_enum;
+ 
+ 	/*
+-	 * The wired device creates 3 interfaces:
++	 * The 2015 wired controller creates 3 interfaces:
+ 	 *  0: emulated mouse.
+ 	 *  1: emulated keyboard.
+ 	 *  2: the real game pad.
+-	 * The wireless device creates 5 interfaces:
++	 * The 2015 wireless adapter creates 5 interfaces:
+ 	 *  0: emulated keyboard.
+-	 *  1-4: slots where up to 4 real game pads will be connected to.
+-	 * We know which one is the real gamepad interface because they are the
+-	 * only ones with a feature report.
++	 *  1-4: slots where up to 4 real controllers will be connected to.
++	 * The Steam Deck creates 5 interfaces:
++	 *  0: emulated mouse.
++	 *  1: emulated keyboard.
++	 *  2: the real game pad.
++	 *  3-4: internal device comms (not HID).
++	 * The 2026 wired controller creates 1 unified interface.
++	 * The 2026 wireless puck creates 7 interfaces:
++	 *  0-1: internal device comms (not HID).
++	 *  2-5: slots where up to 4 real controllers will be connected to.
++	 *  6: basic pogo pin interface.
++	 *
++	 * We know which one is the real controller interface for the pre-2026
++	 * controllers because they are the only ones with a feature report.
++	 *
++	 * The puck's pogo pin interface should be ignored as it's stripped
++	 * down. It has one collection with usage page FF00 with usage ID 2.
+ 	 */
++	if (quirks & STEAM_QUIRK_IBEX) {
++		/* There is only one BLE HID interface */
++		if (quirks & STEAM_QUIRK_BLE)
++			return true;
++
++		if (hdev->maxcollection < 1)
++			return true;
++
++		return hdev->collection[0].usage != 0xFF000002;
++	}
++
+ 	rep_enum = &hdev->report_enum[HID_FEATURE_REPORT];
+ 	return !list_empty(&rep_enum->report_list);
+ }
+@@ -1345,6 +1596,14 @@ static int steam_client_ll_raw_request(struct hid_device *hdev,
+ 			report_type, reqtype);
+ }
+ 
++static int steam_client_ll_output_report(struct hid_device *hdev,
++				u8 *buf, size_t count)
++{
++	struct steam_device *steam = hdev->driver_data;
++
++	return hid_hw_output_report(steam->hdev, buf, count);
++}
++
+ static const struct hid_ll_driver steam_client_ll_driver = {
+ 	.parse = steam_client_ll_parse,
+ 	.start = steam_client_ll_start,
+@@ -1352,6 +1611,7 @@ static const struct hid_ll_driver steam_client_ll_driver = {
+ 	.open = steam_client_ll_open,
+ 	.close = steam_client_ll_close,
+ 	.raw_request = steam_client_ll_raw_request,
++	.output_report = steam_client_ll_output_report,
+ };
+ 
+ static struct hid_device *steam_create_client_hid(struct hid_device *hdev)
+@@ -1406,7 +1666,7 @@ static int steam_probe(struct hid_device *hdev,
+ 	 * The non-valve interfaces (mouse and keyboard emulation) are
+ 	 * connected without changes.
+ 	 */
+-	if (!steam_is_valve_interface(hdev))
++	if (!steam_is_valve_interface(hdev, id->driver_data))
+ 		return hid_hw_start(hdev, HID_CONNECT_DEFAULT);
+ 
+ 	steam = devm_kzalloc(&hdev->dev, sizeof(*steam), GFP_KERNEL);
+@@ -1445,14 +1705,21 @@ static int steam_probe(struct hid_device *hdev,
+ 		goto err_hw_stop;
+ 	}
+ 
++	steam->connected = true;
++
+ 	if (steam->quirks & STEAM_QUIRK_WIRELESS) {
+ 		hid_info(hdev, "Steam wireless receiver connected");
+ 		/* If using a wireless adaptor ask for connection status */
+ 		steam->connected = false;
+-		steam_request_conn_status(steam);
+-	} else {
+-		/* A wired connection is always present */
+-		steam->connected = true;
++		ret = steam_get_conn_status(steam);
++		if (ret < 0)
++			hid_err(hdev,
++				"%s:steam_get_conn_status failed with error %d\n",
++				__func__, ret);
++		else if (ret == WIRELESS_EVENT_CONNECT)
++			steam->connected = true;
++	}
++	if (steam->connected) {
+ 		ret = steam_register(steam);
+ 		if (ret) {
+ 			hid_err(hdev,
+@@ -1963,7 +2230,7 @@ static void steam_do_battery_event(struct steam_device *steam,
+ 	battery = rcu_dereference(steam->battery);
+ 	if (likely(battery)) {
+ 		spin_lock_irqsave(&steam->lock, flags);
+-		steam->voltage = volts;
++		steam->battery_voltage = volts;
+ 		steam->battery_charge = batt;
+ 		spin_unlock_irqrestore(&steam->lock, flags);
+ 		power_supply_changed(battery);
+@@ -1971,6 +2238,216 @@ static void steam_do_battery_event(struct steam_device *steam,
+ 	rcu_read_unlock();
+ }
+ 
++/*
++ * The size for this message payload is 53 in REPORT_ID_INPUT and 45 in REPORT_ID_INPUT2.
++ * The values are:
++ *  (* values only in REPORT_ID_INPUT)
++ *  Offset| Type  | Mapped to |Meaning
++ * -------+-------+-----------+--------------------------
++ *  1     | u8    | --        | sequence number
++ *  2-5   | u32   | see below | buttons
++ *  6-7   | s16   | ABS_HAT2Y | left trigger (uncalibrated)
++ *  8-9   | s16   | ABS_HAT2X | right trigger (uncalibrated)
++ *  10-11 | s16   | ABS_X     | left joystick X
++ *  12-13 | s16   | ABS_Y     | left joystick Y
++ *  14-15 | s16   | ABS_RX    | right joystick X
++ *  16-17 | s16   | ABS_RY    | right joystick Y
++ *  18-19 | s16   | ABS_HAT0X | left-pad X value
++ *  20-21 | s16   | ABS_HAT0Y | left-pad Y value
++ *  22-23 | u16   | --        | left pad pressure
++ *  24-25 | s16   | ABS_HAT1X | right-pad X value
++ *  26-27 | s16   | ABS_HAT1Y | right-pad Y value
++ *  28-29 | u16   | --        | right pad pressure
++ *  30-33 | u32   | IMU MSC_TIMESTAMP | IMU timestamp
++ *  34-35 | s16   | IMU ABS_X | accelerometer X value
++ *  36-37 | s16   | IMU ABS_Z | accelerometer Y value
++ *  38-39 | s16   | IMU ABS_Y | accelerometer Z value
++ *  40-41 | s16   | IMU ABS_RX | gyro X value
++ *  42-43 | s16   | IMU ABS_RZ | gyro Y value
++ *  44-45 | s16   | IMU ABS_RY | gyro Z value
++ *  46-47 | s16   | --        | * quaternion W value
++ *  48-49 | s16   | --        | * quaternion X value
++ *  50-51 | s16   | --        | * quaternion Y value
++ *  52-53 | s16   | --        | * quaternion Z value
++ *
++ * The buttons are:
++ *  Bit  | Mapped to  | Description
++ * ------+------------+--------------------------------
++ *  2.0  | BTN_A      | button A
++ *  2.1  | BTN_B      | button B
++ *  2.2  | BTN_X      | button X
++ *  2.3  | BTN_Y      | button Y
++ *  2.4  | BTN_BASE   | quick access button
++ *  2.5  | BTN_THUMBR | right joystick clicked
++ *  2.6  | BTN_START  | menu
++ *  2.7  | BTN_GRIPR  | right top grip button
++ *  3.0  | BTN_GRIPR2 | right bottom grip button
++ *  3.1  | BTN_TR     | right shoulder
++ *  3.2  | BTN_DPAD_DOWN  | left-pad down
++ *  3.3  | BTN_DPAD_RIGHT | left-pad right
++ *  3.4  | BTN_DPAD_LEFT  | left-pad left
++ *  3.5  | BTN_DPAD_UP    | left-pad up
++ *  3.6  | BTN_SELECT | view
++ *  3.7  | BTN_THUMBL | left joystick clicked
++ *  4.0  | BTN_MODE   | steam logo
++ *  4.1  | BTN_GRIPL  | left top grip button
++ *  4.2  | BTN_GRIPL2 | left bottom grip button
++ *  4.3  | BTN_TL     | left shoulder
++ *  4.4  | --         | right joystick touched
++ *  4.5  | --         | right pad touched
++ *  4.6  | BTN_THUMB2 | right pad pressed
++ *  4.7  | BTN_TR2    | right trigger fully pressed
++ *  5.0  | --         | left joystick touched
++ *  5.1  | --         | left pad touched
++ *  5.2  | BTN_THUMB  | left pad pressed
++ *  5.3  | BTN_TL2    | left trigger fully pressed
++ *  5.4  | --         | right grip touch
++ *  5.5  | --         | left grip touch
++ *  5.6  | --         | unmapped
++ *  5.7  | --         | unmapped
++ */
++
++static const struct steam_button_mapping steam_ibex_button_mappings[] = {
++	{ BTN_A,		2, 0 },
++	{ BTN_B,		2, 1 },
++	{ BTN_X,		2, 2 },
++	{ BTN_Y,		2, 3 },
++	{ BTN_BASE,		2, 4 },
++	{ BTN_THUMBR,		2, 5 },
++	{ BTN_START,		2, 6 },
++	{ BTN_GRIPR,		2, 7 },
++	{ BTN_GRIPR2,		3, 0 },
++	{ BTN_TR,		3, 1 },
++	{ BTN_DPAD_DOWN,	3, 2 },
++	{ BTN_DPAD_RIGHT,	3, 3 },
++	{ BTN_DPAD_LEFT,	3, 4 },
++	{ BTN_DPAD_UP,		3, 5 },
++	{ BTN_SELECT,		3, 6 },
++	{ BTN_THUMBL,		3, 7 },
++	{ BTN_MODE,		4, 0 },
++	{ BTN_GRIPL,		4, 1 },
++	{ BTN_GRIPL2,		4, 2 },
++	{ BTN_TL,		4, 3 },
++	{ BTN_THUMB2,		4, 6 },
++	{ BTN_TR2,		4, 7 },
++	{ BTN_THUMB,		5, 2 },
++	{ BTN_TL2,		5, 3 },
++	{ /* sentinel */ },
++};
++
++static const struct steam_axis_mapping steam_ibex_axis_mappings[] = {
++	{ ABS_X,	 1, 10 },
++	{ ABS_Y,	-1, 12 },
++	{ ABS_RX,	 1, 14 },
++	{ ABS_RY,	-1, 16 },
++	{ ABS_HAT2Y,	 1, 6 },
++	{ ABS_HAT2X,	 1, 8 },
++	{ /* sentinel */ },
++};
++
++static const struct steam_axis_mapping steam_ibex_imu_mappings[] = {
++	{ ABS_X,   1, 34 },
++	{ ABS_Z,  -1, 36 },
++	{ ABS_Y,   1, 38 },
++	{ ABS_RX,  1, 40 },
++	{ ABS_RZ, -1, 42 },
++	{ ABS_RY,  1, 44 },
++	{ /* sentinel */ },
++};
++
++static void steam_do_ibex_input_event(struct steam_device *steam,
++		struct input_dev *input, const u8 *data)
++{
++	bool start_pressed;
++	bool lpad_touched, rpad_touched;
++
++	start_pressed = data[2] & BIT(6);
++
++	if (!start_pressed && steam->did_mode_switch) {
++		steam->did_mode_switch = false;
++		cancel_delayed_work(&steam->mode_switch);
++	} else if (!steam->client_opened && start_pressed && !steam->did_mode_switch) {
++		steam->did_mode_switch = true;
++		schedule_delayed_work(&steam->mode_switch, 45 * HZ / 100);
++	}
++
++	if (!steam->gamepad_mode && lizard_mode)
++		return;
++
++	lpad_touched = data[5] & BIT(1);
++	rpad_touched = data[4] & BIT(5);
++
++	if (lpad_touched) {
++		input_report_abs(input, ABS_HAT0X, steam_le16(data + 18));
++		input_report_abs(input, ABS_HAT0Y, steam_le16(data + 20));
++	} else {
++		input_report_abs(input, ABS_HAT0X, 0);
++		input_report_abs(input, ABS_HAT0Y, 0);
++	}
++
++	if (rpad_touched) {
++		input_report_abs(input, ABS_HAT1X, steam_le16(data + 24));
++		input_report_abs(input, ABS_HAT1Y, steam_le16(data + 26));
++	} else {
++		input_report_abs(input, ABS_HAT1X, 0);
++		input_report_abs(input, ABS_HAT1Y, 0);
++	}
++	steam_map_buttons(input, steam_ibex_button_mappings, data);
++	steam_map_axes(input, steam_ibex_axis_mappings, data);
++
++	input_sync(input);
++}
++
++static void steam_do_ibex_sensors_event(struct steam_device *steam,
++		struct input_dev *sensors, const u8 *data)
++{
++	u32 timestamp;
++
++	if (!steam->gamepad_mode && lizard_mode)
++		return;
++
++	timestamp = (u32) get_unaligned_le32((__le32 *)&data[30]);
++	input_event(sensors, EV_MSC, MSC_TIMESTAMP, timestamp);
++	steam_map_axes(sensors, steam_ibex_imu_mappings, data);
++
++	input_sync(sensors);
++}
++
++static void steam_do_ibex_battery_event(struct steam_device *steam,
++		struct power_supply *battery,
++		const struct steam_ibex_battery_status *data)
++{
++	unsigned long flags;
++
++	/* Creating the battery may have failed */
++	guard(rcu)();
++	battery = rcu_dereference(steam->battery);
++	if (!likely(battery))
++		return;
++
++	spin_lock_irqsave(&steam->lock, flags);
++	steam->battery_voltage = get_unaligned_le16(&data->battery_voltage);
++	steam->battery_current = get_unaligned_le16(&data->battery_current);
++	steam->battery_temp = get_unaligned_le16(&data->temperature);
++	steam->battery_charge = data->battery_level;
++	switch (data->charge_state) {
++	case CHARGE_STATE_CHARGING:
++		steam->battery_status = POWER_SUPPLY_STATUS_CHARGING;
++		break;
++	case CHARGE_STATE_DISCHARGING:
++		steam->battery_status = POWER_SUPPLY_STATUS_DISCHARGING;
++		break;
++	case CHARGE_STATE_CHARGING_DONE:
++		steam->battery_status = POWER_SUPPLY_STATUS_FULL;
++		break;
++	default:
++		steam->battery_status = POWER_SUPPLY_STATUS_UNKNOWN;
++		break;
++	}
++	spin_unlock_irqrestore(&steam->lock, flags);
++	power_supply_changed(battery);
++}
++
+ static int steam_raw_event(struct hid_device *hdev,
+ 			struct hid_report *report, u8 *data,
+ 			int size)
+@@ -1984,8 +2461,84 @@ static int steam_raw_event(struct hid_device *hdev,
+ 		return 0;
+ 
+ 	if (steam->client_opened)
+-		hid_input_report(steam->client_hdev, HID_FEATURE_REPORT,
+-				data, size, 0);
++		hid_input_report(steam->client_hdev, report->type, data, size, 0);
++
++	/* Ibex uses a different report format */
++	if (steam->quirks & STEAM_QUIRK_IBEX) {
++		if (report->type != HID_INPUT_REPORT)
++			return 0;
++
++		switch (report->id) {
++		case REPORT_ID_INPUT:
++			if (size != 54)
++				return 0;
++			if (steam->client_opened)
++				return 0;
++			rcu_read_lock();
++			input = rcu_dereference(steam->input);
++			if (likely(input)) {
++				steam_do_ibex_input_event(steam, input, data);
++			} else {
++				dbg_hid("%s: input data without connect event\n",
++					__func__);
++				steam_do_connect_event(steam, true);
++			}
++			sensors = rcu_dereference(steam->sensors);
++			if (likely(sensors))
++				steam_do_ibex_sensors_event(steam, sensors, data);
++			rcu_read_unlock();
++			break;
++		case REPORT_ID_INPUT2:
++			if (size != 46)
++				return 0;
++			if (steam->client_opened)
++				return 0;
++			rcu_read_lock();
++			input = rcu_dereference(steam->input);
++			if (likely(input)) {
++				steam_do_ibex_input_event(steam, input, data);
++			} else {
++				dbg_hid("%s: input data without connect event\n",
++					__func__);
++				steam_do_connect_event(steam, true);
++			}
++			sensors = rcu_dereference(steam->sensors);
++			if (likely(sensors))
++				steam_do_ibex_sensors_event(steam, sensors, data);
++			rcu_read_unlock();
++			break;
++		case REPORT_ID_BATTERY:
++			if (size != 15)
++				return 0;
++			rcu_read_lock();
++			battery = rcu_dereference(steam->battery);
++			if (likely(battery)) {
++				steam_do_ibex_battery_event(steam, battery,
++					(const struct steam_ibex_battery_status *)&data[1]);
++			} else {
++				dbg_hid("%s: battery data without connect event\n",
++					__func__);
++				steam_do_connect_event(steam, true);
++			}
++			rcu_read_unlock();
++			break;
++		case REPORT_ID_WIRELESS_EVENT:
++			if (size != 2)
++				return 0;
++			switch (data[1]) {
++			case WIRELESS_EVENT_DISCONNECT:
++				steam_do_connect_event(steam, false);
++				break;
++			case WIRELESS_EVENT_CONNECT:
++				steam_do_connect_event(steam, true);
++				break;
++			}
++			break;
++		}
++
++		return 0;
++	}
++
+ 	/*
+ 	 * All messages are size=64, all values little-endian.
+ 	 * The format is:
+@@ -2108,6 +2661,26 @@ static const struct hid_device_id steam_controllers[] = {
+ 		USB_DEVICE_ID_STEAM_DECK),
+ 	  .driver_data = STEAM_QUIRK_DECK
+ 	},
++	{ /* Steam Controller (2026) wired */
++	  HID_USB_DEVICE(USB_VENDOR_ID_VALVE,
++		USB_DEVICE_ID_STEAM_CONTROLLER_IBEX),
++	  .driver_data = STEAM_QUIRK_IBEX
++	},
++	{ /* Steam Controller (2026) BLE */
++	  HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_VALVE,
++		USB_DEVICE_ID_STEAM_CONTROLLER_IBEX_BLE),
++	  .driver_data = STEAM_QUIRK_IBEX | STEAM_QUIRK_BLE
++	},
++	{ /* Steam Controller (2026) Puck */
++	  HID_USB_DEVICE(USB_VENDOR_ID_VALVE,
++		USB_DEVICE_ID_STEAM_CONTROLLER_PROTEUS),
++	  .driver_data = STEAM_QUIRK_IBEX | STEAM_QUIRK_WIRELESS
++	},
++	{ /* Steam Controller (2026) Steam Machine internal receiver */
++	  HID_USB_DEVICE(USB_VENDOR_ID_VALVE,
++		USB_DEVICE_ID_STEAM_CONTROLLER_NEREID),
++	  .driver_data = STEAM_QUIRK_IBEX | STEAM_QUIRK_WIRELESS
++	},
+ 	{}
+ };
+ 
+-- 
+2.54.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Vicki Pfau <vi@endrift.com>
+Date: Tue, 11 Aug 2026 18:13:54 -0700
+Subject: HID: steam: Fix wording of connect/disconnect logs
+
+It always said Controller, even on Deck. Since we special-case other
+instances of Controller vs. Deck in strings, let's be consistent here too.
+
+Signed-off-by: Vicki Pfau <vi@endrift.com>
+---
+ drivers/hid/hid-steam.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/hid/hid-steam.c b/drivers/hid/hid-steam.c
+index 29de32051319..461ebf37171b 100644
+--- a/drivers/hid/hid-steam.c
++++ b/drivers/hid/hid-steam.c
+@@ -1391,7 +1391,8 @@ static int steam_register(struct steam_device *steam)
+ 			"%s:steam_get_attributes failed with error %d\n",
+ 			__func__, ret);
+ 
+-	hid_info(steam->hdev, "Steam Controller '%s' connected",
++	hid_info(steam->hdev, "Steam %s '%s' connected",
++			steam->quirks & STEAM_QUIRK_DECK ? "Deck" : "Controller",
+ 			steam->serial_no);
+ 
+ 	/* ignore battery errors, we can live without it */
+@@ -1428,7 +1429,8 @@ static void steam_unregister(struct steam_device *steam)
+ 	if (!steam->registered)
+ 		return;
+ 
+-	hid_info(steam->hdev, "Steam Controller '%s' disconnected",
++	hid_info(steam->hdev, "Steam %s '%s' disconnected",
++			steam->quirks & STEAM_QUIRK_DECK ? "Deck" : "Controller",
+ 			steam->serial_no);
+ 	steam->registered = false;
+ 	steam_battery_unregister(steam);
+-- 
+2.54.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Vicki Pfau <vi@endrift.com>
+Date: Tue, 11 Aug 2026 18:13:55 -0700
+Subject: HID: steam: Don't set feature reports when disconnecting
+
+When an input device is closed, we set a feature report to reset lizard
+mode and IMU mode. However, if the input device is closed because it was
+removed, then we will necessarily error out when sending this, resulting in
+logged errors. Since an error here is expected, we should just fail
+silently.
+
+Signed-off-by: Vicki Pfau <vi@endrift.com>
+---
+ drivers/hid/hid-steam.c | 14 +++++++++++---
+ 1 file changed, 11 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/hid/hid-steam.c b/drivers/hid/hid-steam.c
+index 461ebf37171b..7226c0681ed1 100644
+--- a/drivers/hid/hid-steam.c
++++ b/drivers/hid/hid-steam.c
+@@ -490,9 +490,13 @@ static int steam_recv_report_id(struct steam_device *steam,
+ 	}
+ 
+ 	kfree(buf);
+-	if (ret < 0)
++	/*
++	 * Don't log if the failure is -ENODEV, as this
++	 * can happen normally on disconnect.
++	 */
++	if (ret < 0 && ret != -ENODEV)
+ 		hid_err(steam->hdev, "%s: error %d\n", __func__, ret);
+-	else
++	else if (ret > 0)
+ 		hid_dbg(steam->hdev, "Received report %*ph\n", size, data);
+ 	if (ret < 0)
+ 		return ret;
+@@ -557,7 +561,11 @@ static int steam_send_report_id(struct steam_device *steam,
+ 	} while (--retries);
+ 
+ 	kfree(buf);
+-	if (ret < 0)
++	/*
++	 * Don't log if the failure is -ENODEV, as this
++	 * can happen normally on disconnect.
++	 */
++	if (ret < 0 && ret != -ENODEV)
+ 		hid_err(steam->hdev, "%s: error %d (%*ph)\n", __func__,
+ 				ret, size, cmd);
+ 	return ret;
+-- 
+2.54.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Vicki Pfau <vi@endrift.com>
+Date: Tue, 11 Aug 2026 18:13:56 -0700
+Subject: HID: steam: Clean up locking
+
+This cleans up several issues with locking behavior, including RCU accesses
+not being guarded behind a lock.
+
+Signed-off-by: Vicki Pfau <vi@endrift.com>
+---
+ drivers/hid/hid-steam.c | 105 +++++++++++++++++++++-------------------
+ 1 file changed, 56 insertions(+), 49 deletions(-)
+
+diff --git a/drivers/hid/hid-steam.c b/drivers/hid/hid-steam.c
+index 7226c0681ed1..7bb892972447 100644
+--- a/drivers/hid/hid-steam.c
++++ b/drivers/hid/hid-steam.c
+@@ -403,6 +403,7 @@ struct steam_device {
+ 	spinlock_t lock;
+ 	struct hid_device *hdev, *client_hdev;
+ 	struct mutex report_mutex;
++	struct mutex registration_mutex;
+ 	unsigned long client_opened;
+ 	struct input_dev __rcu *input;
+ 	struct input_dev __rcu *sensors;
+@@ -620,7 +621,6 @@ static int steam_exchange_report_id(struct steam_device *steam, u8 *cmd, int csi
+ 	unsigned int retries = 5;
+ 	int ret;
+ 
+-	guard(mutex)(&steam->report_mutex);
+ 	do {
+ 		ret = steam_send_report_id(steam, cmd, csize, report_id);
+ 		if (ret < 0)
+@@ -784,7 +784,6 @@ static inline int steam_haptic_pulse(struct steam_device *steam, u8 pad,
+ 		report[8] = count >> 8;
+ 		report[9] = gain;
+ 
+-		guard(mutex)(&steam->report_mutex);
+ 		ret = steam_send_report(steam, report, 10);
+ 	}
+ 
+@@ -826,7 +825,6 @@ static inline int steam_haptic_rumble(struct steam_device *steam,
+ 		report[9] = left_gain;
+ 		report[10] = right_gain;
+ 
+-		guard(mutex)(&steam->report_mutex);
+ 		ret = steam_send_report(steam, report, sizeof(report));
+ 	}
+ 	return ret;
+@@ -837,8 +835,10 @@ static void steam_haptic_rumble_cb(struct work_struct *work)
+ 	struct steam_device *steam = container_of(work, struct steam_device,
+ 							rumble_work);
+ 
++	mutex_lock(&steam->report_mutex);
+ 	steam_haptic_rumble(steam, 0, steam->rumble_left,
+ 		steam->rumble_right, 2, 0);
++	mutex_unlock(&steam->report_mutex);
+ }
+ 
+ static void steam_coalesce_rumble_cb(struct work_struct *work)
+@@ -847,8 +847,10 @@ static void steam_coalesce_rumble_cb(struct work_struct *work)
+ 							struct steam_device,
+ 							coalesce_rumble_work);
+ 
++	mutex_lock(&steam->report_mutex);
+ 	steam_haptic_rumble(steam, 0, steam->rumble_left,
+ 		steam->rumble_right, 2, 0);
++	mutex_unlock(&steam->report_mutex);
+ 
+ 	if (steam->rumble_left || steam->rumble_right)
+ 		schedule_delayed_work(&steam->coalesce_rumble_work, HZ / 20);
+@@ -880,7 +882,6 @@ static void steam_set_lizard_mode(struct steam_device *steam, bool enable)
+ 	if (steam->gamepad_mode)
+ 		enable = false;
+ 
+-	mutex_lock(&steam->report_mutex);
+ 	if (enable) {
+ 		/* enable esc, enter, cursors */
+ 		steam_send_report_byte(steam, ID_SET_DEFAULT_DIGITAL_MAPPINGS);
+@@ -903,14 +904,13 @@ static void steam_set_lizard_mode(struct steam_device *steam, bool enable)
+ 				SETTING_RIGHT_TRACKPAD_MODE, TRACKPAD_NONE, /* disable mouse */
+ 				0);
+ 	}
+-	mutex_unlock(&steam->report_mutex);
+ }
+ 
+ static int steam_input_open(struct input_dev *dev)
+ {
+ 	struct steam_device *steam = input_get_drvdata(dev);
+ 	unsigned long flags;
+-	bool set_lizard_mode;
++	bool client_opened;
+ 
+ 	/*
+ 	 * Disabling lizard mode automatically is only done on the Steam
+@@ -919,9 +919,10 @@ static int steam_input_open(struct input_dev *dev)
+ 	 */
+ 	if (!(steam->quirks & (STEAM_QUIRK_DECK | STEAM_QUIRK_IBEX))) {
+ 		spin_lock_irqsave(&steam->lock, flags);
+-		set_lizard_mode = !steam->client_opened && lizard_mode;
++		client_opened = steam->client_opened;
+ 		spin_unlock_irqrestore(&steam->lock, flags);
+-		if (set_lizard_mode)
++		guard(mutex)(&steam->report_mutex);
++		if (!client_opened && lizard_mode)
+ 			steam_set_lizard_mode(steam, false);
+ 	}
+ 
+@@ -932,13 +933,14 @@ static void steam_input_close(struct input_dev *dev)
+ {
+ 	struct steam_device *steam = input_get_drvdata(dev);
+ 	unsigned long flags;
+-	bool set_lizard_mode;
++	bool client_opened;
+ 
+ 	if (!(steam->quirks & (STEAM_QUIRK_DECK | STEAM_QUIRK_IBEX))) {
+ 		spin_lock_irqsave(&steam->lock, flags);
+-		set_lizard_mode = !steam->client_opened && lizard_mode;
++		client_opened = steam->client_opened;
+ 		spin_unlock_irqrestore(&steam->lock, flags);
+-		if (set_lizard_mode)
++		guard(mutex)(&steam->report_mutex);
++		if (!client_opened && lizard_mode)
+ 			steam_set_lizard_mode(steam, true);
+ 	}
+ }
+@@ -946,14 +948,11 @@ static void steam_input_close(struct input_dev *dev)
+ static int steam_sensor_open(struct input_dev *dev)
+ {
+ 	struct steam_device *steam = input_get_drvdata(dev);
+-	unsigned long flags;
+-	bool client_opened;
+ 
+-	spin_lock_irqsave(&steam->lock, flags);
+-	client_opened = steam->client_opened;
+-	spin_unlock_irqrestore(&steam->lock, flags);
+-	if (client_opened)
+-		return 0;
++	scoped_guard(spinlock_irqsave, &steam->lock) {
++		if (steam->client_opened)
++			return 0;
++	}
+ 
+ 	guard(mutex)(&steam->report_mutex);
+ 	steam_write_settings(steam, SETTING_IMU_MODE,
+@@ -966,14 +965,11 @@ static int steam_sensor_open(struct input_dev *dev)
+ static void steam_sensor_close(struct input_dev *dev)
+ {
+ 	struct steam_device *steam = input_get_drvdata(dev);
+-	unsigned long flags;
+-	bool client_opened;
+ 
+-	spin_lock_irqsave(&steam->lock, flags);
+-	client_opened = steam->client_opened;
+-	spin_unlock_irqrestore(&steam->lock, flags);
+-	if (client_opened)
+-		return;
++	scoped_guard(spinlock_irqsave, &steam->lock) {
++		if (steam->client_opened)
++			return;
++	}
+ 
+ 	guard(mutex)(&steam->report_mutex);
+ 	steam_write_settings(steam, SETTING_IMU_MODE, 0, 0);
+@@ -1377,14 +1373,18 @@ static int steam_register(struct steam_device *steam)
+ {
+ 	int ret;
+ 
++	mutex_lock(&steam->registration_mutex);
+ 	/*
+ 	 * This function can be called several times in a row with the
+ 	 * wireless adaptor, without steam_unregister() between them, because
+ 	 * another client send a get_connection_status command, for example.
+ 	 */
+-	if (steam->registered)
++	if (steam->registered) {
++		mutex_unlock(&steam->registration_mutex);
+ 		return 0;
++	}
+ 
++	mutex_lock(&steam->report_mutex);
+ 	/*
+ 	 * Unlikely, but getting the serial could fail, and it is not so
+ 	 * important, so make up a serial number and go on.
+@@ -1403,11 +1403,13 @@ static int steam_register(struct steam_device *steam)
+ 			steam->quirks & STEAM_QUIRK_DECK ? "Deck" : "Controller",
+ 			steam->serial_no);
+ 
++	steam_set_lizard_mode(steam, lizard_mode);
++	mutex_unlock(&steam->report_mutex);
++
+ 	/* ignore battery errors, we can live without it */
+ 	if (steam->quirks & (STEAM_QUIRK_WIRELESS | STEAM_QUIRK_IBEX))
+ 		steam_battery_register(steam);
+ 
+-	steam_set_lizard_mode(steam, lizard_mode);
+ 	ret = steam_input_register(steam);
+ 	if (ret != 0)
+ 		goto steam_register_input_fail;
+@@ -1416,6 +1418,7 @@ static int steam_register(struct steam_device *steam)
+ 		goto steam_register_sensors_fail;
+ 
+ 	steam->registered = true;
++	mutex_unlock(&steam->registration_mutex);
+ 	mutex_lock(&steam_devices_lock);
+ 	if (list_empty(&steam->list))
+ 		list_add(&steam->list, &steam_devices);
+@@ -1426,6 +1429,7 @@ static int steam_register(struct steam_device *steam)
+ 	steam_input_unregister(steam);
+ steam_register_input_fail:
+ 	steam_battery_unregister(steam);
++	mutex_unlock(&steam->registration_mutex);
+ 	cancel_work_sync(&steam->rumble_work);
+ 	cancel_delayed_work_sync(&steam->mode_switch);
+ 	cancel_delayed_work_sync(&steam->coalesce_rumble_work);
+@@ -1440,10 +1444,12 @@ static void steam_unregister(struct steam_device *steam)
+ 	hid_info(steam->hdev, "Steam %s '%s' disconnected",
+ 			steam->quirks & STEAM_QUIRK_DECK ? "Deck" : "Controller",
+ 			steam->serial_no);
++	mutex_lock(&steam->registration_mutex);
+ 	steam->registered = false;
+ 	steam_battery_unregister(steam);
+ 	steam_sensors_unregister(steam);
+ 	steam_input_unregister(steam);
++	mutex_unlock(&steam->registration_mutex);
+ 	cancel_work_sync(&steam->rumble_work);
+ 	cancel_delayed_work_sync(&steam->mode_switch);
+ 	cancel_delayed_work_sync(&steam->coalesce_rumble_work);
+@@ -1484,23 +1490,26 @@ static void steam_mode_switch_cb(struct work_struct *work)
+ 							struct steam_device, mode_switch);
+ 	unsigned long flags;
+ 	bool client_opened;
++	bool gamepad_mode;
++
+ 	if (!lizard_mode)
+ 		return;
+ 
++	spin_lock_irqsave(&steam->lock, flags);
+ 	steam->gamepad_mode = !steam->gamepad_mode;
+-	hid_dbg(steam->hdev, "%s: switching gamepad mode to %i\n", __func__, steam->gamepad_mode);
+-	if (steam->gamepad_mode)
++	gamepad_mode = steam->gamepad_mode;
++	client_opened = steam->client_opened;
++	spin_unlock_irqrestore(&steam->lock, flags);
++
++	guard(mutex)(&steam->report_mutex);
++	hid_dbg(steam->hdev, "%s: switching gamepad mode to %i\n", __func__, gamepad_mode);
++	if (gamepad_mode)
+ 		steam_set_lizard_mode(steam, false);
+-	else {
+-		spin_lock_irqsave(&steam->lock, flags);
+-		client_opened = steam->client_opened;
+-		spin_unlock_irqrestore(&steam->lock, flags);
+-		if (!client_opened)
+-			steam_set_lizard_mode(steam, lizard_mode);
+-	}
++	else if (!client_opened)
++		steam_set_lizard_mode(steam, lizard_mode);
+ 
+ 	steam_haptic_pulse(steam, STEAM_PAD_RIGHT, 0x190, 0, 1, 0);
+-	if (steam->gamepad_mode) {
++	if (gamepad_mode) {
+ 		steam_haptic_pulse(steam, STEAM_PAD_LEFT, 0x14D, 0x14D, 0x2D, 0);
+ 	} else {
+ 		steam_haptic_pulse(steam, STEAM_PAD_LEFT, 0x1F4, 0x1F4, 0x1E, 0);
+@@ -1687,6 +1696,7 @@ static int steam_probe(struct hid_device *hdev,
+ 	hid_set_drvdata(hdev, steam);
+ 	spin_lock_init(&steam->lock);
+ 	mutex_init(&steam->report_mutex);
++	mutex_init(&steam->registration_mutex);
+ 	steam->quirks = id->driver_data;
+ 	INIT_WORK(&steam->work_connect, steam_work_connect_cb);
+ 	INIT_DELAYED_WORK(&steam->mode_switch, steam_mode_switch_cb);
+@@ -1795,13 +1805,10 @@ static void steam_remove(struct hid_device *hdev)
+ 
+ static void steam_do_connect_event(struct steam_device *steam, bool connected)
+ {
+-	unsigned long flags;
+ 	bool changed;
+ 
+-	spin_lock_irqsave(&steam->lock, flags);
+ 	changed = steam->connected != connected;
+ 	steam->connected = connected;
+-	spin_unlock_irqrestore(&steam->lock, flags);
+ 
+ 	if (changed && schedule_work(&steam->work_connect) == 0)
+ 		dbg_hid("%s: connected=%d event already queued\n",
+@@ -2230,8 +2237,6 @@ static void steam_do_deck_sensors_event(struct steam_device *steam,
+ static void steam_do_battery_event(struct steam_device *steam,
+ 		struct power_supply *battery, u8 *data)
+ {
+-	unsigned long flags;
+-
+ 	s16 volts = steam_le16(data + 12);
+ 	u8 batt = data[14];
+ 
+@@ -2239,10 +2244,8 @@ static void steam_do_battery_event(struct steam_device *steam,
+ 	rcu_read_lock();
+ 	battery = rcu_dereference(steam->battery);
+ 	if (likely(battery)) {
+-		spin_lock_irqsave(&steam->lock, flags);
+ 		steam->battery_voltage = volts;
+ 		steam->battery_charge = batt;
+-		spin_unlock_irqrestore(&steam->lock, flags);
+ 		power_supply_changed(battery);
+ 	}
+ 	rcu_read_unlock();
+@@ -2427,15 +2430,12 @@ static void steam_do_ibex_battery_event(struct steam_device *steam,
+ 		struct power_supply *battery,
+ 		const struct steam_ibex_battery_status *data)
+ {
+-	unsigned long flags;
+-
+ 	/* Creating the battery may have failed */
+ 	guard(rcu)();
+ 	battery = rcu_dereference(steam->battery);
+ 	if (!likely(battery))
+ 		return;
+ 
+-	spin_lock_irqsave(&steam->lock, flags);
+ 	steam->battery_voltage = get_unaligned_le16(&data->battery_voltage);
+ 	steam->battery_current = get_unaligned_le16(&data->battery_current);
+ 	steam->battery_temp = get_unaligned_le16(&data->temperature);
+@@ -2454,7 +2454,6 @@ static void steam_do_ibex_battery_event(struct steam_device *steam,
+ 		steam->battery_status = POWER_SUPPLY_STATUS_UNKNOWN;
+ 		break;
+ 	}
+-	spin_unlock_irqrestore(&steam->lock, flags);
+ 	power_supply_changed(battery);
+ }
+ 
+@@ -2470,6 +2469,7 @@ static int steam_raw_event(struct hid_device *hdev,
+ 	if (!steam)
+ 		return 0;
+ 
++	guard(spinlock_irqsave)(&steam->lock);
+ 	if (steam->client_opened)
+ 		hid_input_report(steam->client_hdev, report->type, data, size, 0);
+ 
+@@ -2633,6 +2633,8 @@ static int steam_param_set_lizard_mode(const char *val,
+ {
+ 	struct steam_device *steam;
+ 	int ret;
++	bool client_opened;
++	unsigned long flags;
+ 
+ 	ret = param_set_bool(val, kp);
+ 	if (ret)
+@@ -2640,8 +2642,13 @@ static int steam_param_set_lizard_mode(const char *val,
+ 
+ 	mutex_lock(&steam_devices_lock);
+ 	list_for_each_entry(steam, &steam_devices, list) {
+-		if (!steam->client_opened)
++		spin_lock_irqsave(&steam->lock, flags);
++		client_opened = steam->client_opened;
++		spin_unlock_irqrestore(&steam->lock, flags);
++		if (!client_opened) {
++			guard(mutex)(&steam->report_mutex);
+ 			steam_set_lizard_mode(steam, lizard_mode);
++		}
+ 	}
+ 	mutex_unlock(&steam_devices_lock);
+ 	return 0;
+-- 
+2.54.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Vicki Pfau <vi@endrift.com>
+Date: Tue, 11 Aug 2026 18:13:57 -0700
+Subject: HID: steam: Zero out inputs when disabling gamepad mode
+
+When gamepad mode is disabled the gamepad input devices will stop receiving
+updates. However, in the case where there are buttons still pressed this
+will appear as an indefinitely-held button. Instead we should zero out the
+inputs to make it look like things are all released. We do the same thing
+for gyroscope inputs to make sure it doesn't look like it's endlessly
+rotating, but we freeze the accelerometer input since zero isn't a neutral
+input on the surface of the Earth.
+
+Signed-off-by: Vicki Pfau <vi@endrift.com>
+---
+ drivers/hid/hid-steam.c | 78 ++++++++++++++++++++++++++++++++++++++---
+ 1 file changed, 74 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/hid/hid-steam.c b/drivers/hid/hid-steam.c
+index 7bb892972447..ac08cb2d0368 100644
+--- a/drivers/hid/hid-steam.c
++++ b/drivers/hid/hid-steam.c
+@@ -1501,13 +1501,83 @@ static void steam_mode_switch_cb(struct work_struct *work)
+ 	client_opened = steam->client_opened;
+ 	spin_unlock_irqrestore(&steam->lock, flags);
+ 
+-	guard(mutex)(&steam->report_mutex);
+ 	hid_dbg(steam->hdev, "%s: switching gamepad mode to %i\n", __func__, gamepad_mode);
+-	if (gamepad_mode)
++	if (gamepad_mode) {
++		guard(mutex)(&steam->report_mutex);
+ 		steam_set_lizard_mode(steam, false);
+-	else if (!client_opened)
+-		steam_set_lizard_mode(steam, lizard_mode);
++	} else {
++		struct input_dev *input;
++		struct input_dev *sensors;
++
++		if (!client_opened) {
++			guard(mutex)(&steam->report_mutex);
++			steam_set_lizard_mode(steam, lizard_mode);
++		}
++
++		/*
++		 * Zero out inputs so it doesn't look like we're holding
++		 * anything indefinitely.
++		 */
++		guard(spinlock_irqsave)(&steam->lock);
++		rcu_read_lock();
++		input = rcu_dereference(steam->input);
++		if (likely(input)) {
++			input_report_key(input, BTN_TR2, 0);
++			input_report_key(input, BTN_TL2, 0);
++			input_report_key(input, BTN_TR, 0);
++			input_report_key(input, BTN_TL, 0);
++			input_report_key(input, BTN_Y, 0);
++			input_report_key(input, BTN_B, 0);
++			input_report_key(input, BTN_X, 0);
++			input_report_key(input, BTN_A, 0);
++			input_report_key(input, BTN_DPAD_UP, 0);
++			input_report_key(input, BTN_DPAD_RIGHT, 0);
++			input_report_key(input, BTN_DPAD_LEFT, 0);
++			input_report_key(input, BTN_DPAD_DOWN, 0);
++			input_report_key(input, BTN_SELECT, 0);
++			input_report_key(input, BTN_MODE, 0);
++			input_report_key(input, BTN_START, 0);
++			input_report_key(input, BTN_THUMBR, 0);
++			input_report_key(input, BTN_THUMBL, 0);
++			input_report_key(input, BTN_THUMB, 0);
++			input_report_key(input, BTN_THUMB2, 0);
++			input_report_key(input, BTN_GRIPL, 0);
++			input_report_key(input, BTN_GRIPR, 0);
++
++			input_report_abs(input, ABS_X, 0);
++			input_report_abs(input, ABS_Y, 0);
++			input_report_abs(input, ABS_RX, 0);
++			input_report_abs(input, ABS_RY, 0);
++			input_report_abs(input, ABS_HAT0X, 0);
++			input_report_abs(input, ABS_HAT0Y, 0);
++			input_report_abs(input, ABS_HAT2Y, 0);
++			input_report_abs(input, ABS_HAT2X, 0);
++
++			if (steam->quirks & (STEAM_QUIRK_DECK | STEAM_QUIRK_IBEX)) {
++				input_report_key(input, BTN_BASE, 0);
++				input_report_key(input, BTN_GRIPL2, 0);
++				input_report_key(input, BTN_GRIPR2, 0);
++
++				input_report_abs(input, ABS_HAT1X, 0);
++				input_report_abs(input, ABS_HAT1Y, 0);
++			}
++
++			input_sync(input);
++		}
++		sensors = rcu_dereference(steam->sensors);
++		if (likely(sensors)) {
++			/* Skip accelerometers since 0 isn't a neutral input */
+ 
++			input_report_abs(sensors, ABS_RX, 0);
++			input_report_abs(sensors, ABS_RY, 0);
++			input_report_abs(sensors, ABS_RZ, 0);
++
++			input_sync(sensors);
++		}
++		rcu_read_unlock();
++	}
++
++	guard(mutex)(&steam->report_mutex);
+ 	steam_haptic_pulse(steam, STEAM_PAD_RIGHT, 0x190, 0, 1, 0);
+ 	if (gamepad_mode) {
+ 		steam_haptic_pulse(steam, STEAM_PAD_LEFT, 0x14D, 0x14D, 0x2D, 0);
+-- 
+2.54.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Thu, 13 Aug 2026 13:13:18 +0200
+Subject: hid: steam: retain controller while steam is open
+
+Currently, when a hidraw reader interacts with hid-steam, the kernel
+driver closes the evdev node for the driver. This eliminates _some_
+potential bugs with games seeing two controllers, although Steam handles
+this perfectly fine for the myriad of other controllers. However, this
+stops other applications from reading controller inputs, such as
+Handheld Daemon, so we can no longer intercept the controller.
+Therefore, remove the muting and unregistering that happens when Steam
+connects to the controller. Keep the gates that controll sensor output
+and lizard mode, such that Steam or another hid client still controls
+device behavior.
+---
+ drivers/hid/hid-steam.c | 15 ++-------------
+ 1 file changed, 2 insertions(+), 13 deletions(-)
+
+diff --git a/drivers/hid/hid-steam.c b/drivers/hid/hid-steam.c
+index ac08cb2d0368..3a7c9d6df172 100644
+--- a/drivers/hid/hid-steam.c
++++ b/drivers/hid/hid-steam.c
+@@ -1465,15 +1465,13 @@ static void steam_work_connect_cb(struct work_struct *work)
+ 
+ 	unsigned long flags;
+ 	bool connected;
+-	bool opened;
+ 	int ret;
+ 
+ 	spin_lock_irqsave(&steam->lock, flags);
+-	opened = steam->client_opened;
+ 	connected = steam->connected;
+ 	spin_unlock_irqrestore(&steam->lock, flags);
+ 
+-	if (connected && !opened) {
++	if (connected) {
+ 		ret = steam_register(steam);
+ 		if (ret)
+ 			hid_err(steam->hdev,
+@@ -2540,8 +2538,7 @@ static int steam_raw_event(struct hid_device *hdev,
+ 		return 0;
+ 
+ 	guard(spinlock_irqsave)(&steam->lock);
+-	if (steam->client_opened)
+-		hid_input_report(steam->client_hdev, report->type, data, size, 0);
++	hid_input_report(steam->client_hdev, report->type, data, size, 0);
+ 
+ 	/* Ibex uses a different report format */
+ 	if (steam->quirks & STEAM_QUIRK_IBEX) {
+@@ -2552,8 +2549,6 @@ static int steam_raw_event(struct hid_device *hdev,
+ 		case REPORT_ID_INPUT:
+ 			if (size != 54)
+ 				return 0;
+-			if (steam->client_opened)
+-				return 0;
+ 			rcu_read_lock();
+ 			input = rcu_dereference(steam->input);
+ 			if (likely(input)) {
+@@ -2571,8 +2566,6 @@ static int steam_raw_event(struct hid_device *hdev,
+ 		case REPORT_ID_INPUT2:
+ 			if (size != 46)
+ 				return 0;
+-			if (steam->client_opened)
+-				return 0;
+ 			rcu_read_lock();
+ 			input = rcu_dereference(steam->input);
+ 			if (likely(input)) {
+@@ -2641,8 +2634,6 @@ static int steam_raw_event(struct hid_device *hdev,
+ 
+ 	switch (data[2]) {
+ 	case ID_CONTROLLER_STATE:
+-		if (steam->client_opened)
+-			return 0;
+ 		rcu_read_lock();
+ 		input = rcu_dereference(steam->input);
+ 		if (likely(input))
+@@ -2653,8 +2644,6 @@ static int steam_raw_event(struct hid_device *hdev,
+ 		rcu_read_unlock();
+ 		break;
+ 	case ID_CONTROLLER_DECK_STATE:
+-		if (steam->client_opened)
+-			return 0;
+ 		rcu_read_lock();
+ 		input = rcu_dereference(steam->input);
+ 		if (likely(input))
+-- 
+2.54.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: NaKyle <nakyle.wright@gmail.com>
+Date: Mon, 23 Dec 2024 20:24:49 -0800
+Subject: [FOR-UPSTREAM] cec: cros_ec buffers messages, read all available
+ rather than just 1.
+
+(cherry picked from commit 2ae417bcf7c0c0818cbdfe053e836790440e8129)
+Signed-off-by: NaKyle <nakyle.wright@gmail.com>
+---
+ .../media/cec/platform/cros-ec/cros-ec-cec.c  | 25 +++++++++++++------
+ 1 file changed, 18 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/media/cec/platform/cros-ec/cros-ec-cec.c b/drivers/media/cec/platform/cros-ec/cros-ec-cec.c
+index 22282578ab99..3433950fccba 100644
+--- a/drivers/media/cec/platform/cros-ec/cros-ec-cec.c
++++ b/drivers/media/cec/platform/cros-ec/cros-ec-cec.c
+@@ -102,17 +102,28 @@ static void cros_ec_cec_read_message(struct cros_ec_cec_port *port)
+ 		.port = port->port_num,
+ 	};
+ 	struct ec_response_cec_read response;
+-	int ret;
++	int ret = 0;
++	int count = 0;
+ 
+-	ret = cros_ec_cmd(cros_ec, 0, EC_CMD_CEC_READ_MSG, &params,
+-			  sizeof(params), &response, sizeof(response));
+-	if (ret < 0) {
++	/* NOTE read as many messages as we can, return value from cros_ec_cmd
++	 *      here should either equal to the bytes transferred or a negative
++	 *      error code, so as long as we get positive integers we are
++	 *      reading messages!
++	 */
++	do {
++		ret = cros_ec_cmd(cros_ec, 0, EC_CMD_CEC_READ_MSG, &params,
++				  sizeof(params), &response, sizeof(response));
++		if (ret > 0) {
++			++count;
++			cros_ec_cec_received_message(port, response.msg, response.msg_len);
++		}
++	}
++	while (ret > 0);
++
++	if (ret < 0 && count == 0) {
+ 		dev_err(cros_ec->dev,
+ 			"error reading CEC message on EC: %d\n", ret);
+-		return;
+ 	}
+-
+-	cros_ec_cec_received_message(port, response.msg, response.msg_len);
+ }
+ 
+ static void handle_cec_event(struct cros_ec_cec *cros_ec_cec)
+-- 
+2.54.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: NaKyle <nakyle.wright@gmail.com>
+Date: Thu, 5 Dec 2024 17:45:18 -0800
+Subject: [FOR-UPSTREAM] cec: cros-ec: update dmi match table to support newer
+ bios releases
+
+Signed-off-by: NaKyle <nakyle.wright@gmail.com>
+---
+ drivers/media/cec/platform/cros-ec/cros-ec-cec.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/drivers/media/cec/platform/cros-ec/cros-ec-cec.c b/drivers/media/cec/platform/cros-ec/cros-ec-cec.c
+index 3433950fccba..a14961939dc6 100644
+--- a/drivers/media/cec/platform/cros-ec/cros-ec-cec.c
++++ b/drivers/media/cec/platform/cros-ec/cros-ec-cec.c
+@@ -314,6 +314,11 @@ static const char *const port_ab_conns[] = { "Port A", "Port B", NULL };
+ static const char *const port_d_conns[] = { "Port D", NULL };
+ 
+ static const struct cec_dmi_match cec_dmi_match_table[] = {
++	/* AMD Lilac */
++	{ "AMD", "Lilac", "0000:03:00.0", port_c_conns },
++	/* Valve Fremont */
++	{ "OEM", "F7F", "0000:03:00.0", port_c_conns },
++	{ "Valve", "Fremont", "0000:03:00.0", port_c_conns },
+ 	/* Google Fizz */
+ 	{ "Google", "Fizz", "0000:00:02.0", port_b_conns },
+ 	/* Google Brask */
+-- 
+2.54.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: NaKyle <nakyle.wright@gmail.com>
+Date: Tue, 2 Dec 2025 14:43:31 -0800
+Subject: [FOR-UPSTREAM] cec: cros-ec: add support for wake enable and set pa
+ host commands
+
+Signed-off-by: NaKyle <nakyle.wright@gmail.com>
+---
+ .../linux/platform_data/cros_ec_commands.h    | 45 ++++++++++++++++++-
+ 1 file changed, 44 insertions(+), 1 deletion(-)
+
+diff --git a/include/linux/platform_data/cros_ec_commands.h b/include/linux/platform_data/cros_ec_commands.h
+index 749d985e9da2..f7e22e034f10 100644
+--- a/include/linux/platform_data/cros_ec_commands.h
++++ b/include/linux/platform_data/cros_ec_commands.h
+@@ -4686,7 +4686,10 @@ struct ec_response_cec_read {
+  * @val: in case cmd is CEC_CMD_ENABLE, this field can be 0 to disable CEC
+  *	or 1 to enable CEC functionality, in case cmd is
+  *	CEC_CMD_LOGICAL_ADDRESS, this field encodes the requested logical
+- *	address between 0 and 15 or 0xff to unregister
++ *	address between 0 and 15 or 0xff to unregister, in case cmd is
++ *	CEC_CMD_WAKE_ENABLE this field can be 0 to disable all CEC wakeups
++ *	or 1 to enable them while leaving all other CEC functionality
++ *	unchanged.
+  */
+ struct ec_params_cec_set {
+ 	uint8_t cmd : 4; /* enum cec_command */
+@@ -4729,12 +4732,52 @@ struct ec_response_cec_port_count {
+ 	uint8_t port_count;
+ } __ec_align1;
+ 
++/* Set the CEC physical address */
++#define EC_CMD_CEC_SET_PA 0x00C2
++
++/**
++ * struct ec_params_cec_set_pa - CEC parameters to set physical address
++ * @cmd: parameter type, can be CEC_CMD_PHYSICAL_ADDRESS
++ * @port: CEC port to set the parameter on
++ * @val: 2 bytes for physical address, ex. 0x1234 -> 1.2.3.4
++ */
++struct ec_params_cec_set_pa {
++	uint8_t cmd : 4; /* enum cec_command */
++	uint8_t port : 4;
++	uint16_t val; /* physical address, 0x1234 -> 1.2.3.4 */
++} __ec_align1;
++
++/* Read the CEC physical address */
++#define EC_CMD_CEC_GET_PA 0x00C3
++
++/**
++ * struct ec_params_cec_get - CEC parameters to get physical address
++ * @cmd: parameter CEC_CMD_PHYSICAL_ADDRESS
++ * @port: CEC port to get the parameter on
++ */
++struct ec_params_cec_get_pa {
++	uint8_t cmd : 4; /* enum cec_command */
++	uint8_t port : 4;
++} __ec_align1;
++
++/**
++ * struct ec_response_cec_get - CEC get physical address response
++ * @val: 2 byte physical address, ex. 0x1234 -> 1.2.3.4
++ */
++struct ec_response_cec_get_pa {
++	uint16_t val; /* physical address, 0x1234 -> 1.2.3.4 */
++} __ec_align1;
++
+ /* CEC parameters command */
+ enum cec_command {
+ 	/* CEC reading, writing and events enable */
+ 	CEC_CMD_ENABLE,
+ 	/* CEC logical address  */
+ 	CEC_CMD_LOGICAL_ADDRESS,
++	/* CEC physical address  */
++	CEC_CMD_PHYSICAL_ADDRESS,
++	/* CEC wake enable  */
++	CEC_CMD_WAKE_ENABLE,
+ };
+ 
+ /* Events from CEC to AP */
+-- 
+2.54.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: NaKyle <nakyle.wright@gmail.com>
+Date: Thu, 4 Dec 2025 14:56:40 -0800
+Subject: [FOR-UPSTREAM] platform/chrome: cros_ec_sysfs: expose CEC wake enable
+ and phys addr settings
+
+Signed-off-by: NaKyle <nakyle.wright@gmail.com>
+---
+ Documentation/ABI/testing/debugfs-cros-ec |  33 +++++
+ drivers/platform/chrome/cros_ec_sysfs.c   | 171 ++++++++++++++++++++++
+ 2 files changed, 204 insertions(+)
+
+diff --git a/Documentation/ABI/testing/debugfs-cros-ec b/Documentation/ABI/testing/debugfs-cros-ec
+index 9a040c6f5e03..0588cc7382c1 100644
+--- a/Documentation/ABI/testing/debugfs-cros-ec
++++ b/Documentation/ABI/testing/debugfs-cros-ec
+@@ -76,3 +76,36 @@ Description:
+ 		hardware line changed and the kernel sent an EC resume command.
+ 
+ 		Output will be in the format: "%u\n".
++
++What:		/sys/kernel/debug/<cros-ec-device>/cec_phys_addr
++Date:		December 2025
++KernelVersion:	6.16
++Description:
++		Some ECs allow for customized CEC wakeup configurations that
++		watch for specific physical addresses. The cec_phys_addr file
++		allows for reading the physical addresses set for each CEC port
++		as well as setting them individually.
++
++		Supply "%d %d\n" where the first decimal is the zero-indexed
++		port number and the second decimal is the desired physical
++		address. For example "0 4096" will set port 0's physical address
++		to "1.0.0.0".
++
++		Output will be in the format: "%d %d\n" with a line for each
++		port.
++
++What:		/sys/kernel/debug/<cros-ec-device>/cec_wake_enable
++Date:		December 2025
++KernelVersion:	6.16
++Description:
++		Some ECs allow us to disable all wakeup operations that would
++		be triggered by CEC messages while leaving the CEC port active
++		for regular use. This file allows for reading back the wake
++		enabled flag for all ports as well as setting them individually.
++
++		Supply "%d %d\n" where the first decimal is the zero-indexed
++		port number and the second decimal is 1 to enable wakeups or 0
++		to disable them.
++
++		Output will be in the format: "%d %d\n" with a line for each
++		port.
+diff --git a/drivers/platform/chrome/cros_ec_sysfs.c b/drivers/platform/chrome/cros_ec_sysfs.c
+index f22e9523da3e..b240ea661bd4 100644
+--- a/drivers/platform/chrome/cros_ec_sysfs.c
++++ b/drivers/platform/chrome/cros_ec_sysfs.c
+@@ -355,6 +355,173 @@ static ssize_t ap_mode_entry_show(struct device *dev,
+ 	return sysfs_emit(buf, "%s\n", ap_driven_altmode ? "yes" : "no");
+ }
+ 
++static ssize_t cec_wake_enable_show(struct device *dev,
++			      struct device_attribute *attr, char *buf)
++{
++	struct cros_ec_dev *ec = to_cros_ec_dev(dev);
++	ssize_t count = 0;
++	struct ec_response_cec_port_count resp_cec_ports;
++	int ret;
++	int i;
++
++	ret = cros_ec_cmd(ec->ec_dev, 0, EC_CMD_CEC_PORT_COUNT, NULL, 0,
++			  &resp_cec_ports, sizeof(resp_cec_ports));
++	if (ret < 0)
++		return -EIO;
++
++	for (i = 0; i < resp_cec_ports.port_count; i++) {
++		struct ec_response_cec_get resp;
++		struct ec_params_cec_get req = {
++			.cmd = CEC_CMD_WAKE_ENABLE,
++			.port = i,
++		};
++
++		ret = cros_ec_cmd(ec->ec_dev, 0, EC_CMD_CEC_GET,
++			  &req, sizeof(req), &resp, sizeof(resp));
++		if (ret >= 0) {
++			count += sysfs_emit_at(buf, count, "%d %d\n", i, resp.val);
++		}
++	}
++
++	return count ? : -EIO;
++}
++
++static ssize_t cec_wake_enable_store(struct device *dev,
++				   struct device_attribute *attr,
++				   const char *buf, size_t count)
++{
++	struct cros_ec_dev *ec = to_cros_ec_dev(dev);
++	struct ec_params_cec_set params = {
++		.cmd = CEC_CMD_WAKE_ENABLE,
++	};
++	char *mut, *port_token, *val_token;
++	u8 port, val;
++	int ret;
++
++	mut = kstrdup(buf, GFP_KERNEL);
++	if (!mut)
++		return -ENOMEM;
++
++	val_token = mut;
++	port_token = strsep(&val_token, " ");
++	if (!port_token || !*port_token) {
++		ret = -EINVAL;
++		goto exit;
++	}
++	ret = kstrtou8(port_token, 0, &port);
++	if (ret)
++		goto exit;
++	if (port >= EC_CEC_MAX_PORTS) {
++		ret = -EINVAL;
++		goto exit;
++	}
++	params.port = port;
++
++	ret = kstrtou8(val_token, 0, &val);
++	if (ret)
++		goto exit;
++	if (val > 1) {
++		ret = -EINVAL;
++		goto exit;
++	}
++	params.val = val;
++
++	ret = cros_ec_cmd(ec->ec_dev, 0, EC_CMD_CEC_SET, &params, sizeof(params),
++			  NULL, 0);
++	if (ret < 0) {
++		ret = -EIO;
++		goto exit;
++	}
++
++exit:
++	kfree(mut);
++	return ret != 0 ? ret : count;
++}
++
++static ssize_t cec_phys_addr_show(struct device *dev,
++			      struct device_attribute *attr, char *buf)
++{
++	struct cros_ec_dev *ec = to_cros_ec_dev(dev);
++	ssize_t count = 0;
++	struct ec_response_cec_port_count resp_cec_ports;
++	int ret;
++	int i;
++
++	ret = cros_ec_cmd(ec->ec_dev, 0, EC_CMD_CEC_PORT_COUNT, NULL, 0,
++			  &resp_cec_ports, sizeof(resp_cec_ports));
++	if (ret < 0)
++		return -EIO;
++
++	for (i = 0; i < resp_cec_ports.port_count; i++) {
++		struct ec_response_cec_get_pa resp;
++		struct ec_params_cec_get_pa req = {
++			.cmd = CEC_CMD_PHYSICAL_ADDRESS,
++			.port = i,
++		};
++
++		ret = cros_ec_cmd(ec->ec_dev, 0, EC_CMD_CEC_GET_PA,
++			  &req, sizeof(req), &resp, sizeof(resp));
++		if (ret >= 0) {
++			count += sysfs_emit_at(buf, count, "%d %d\n", i, resp.val);
++		}
++	}
++
++	return count ? : -EIO;
++}
++
++static ssize_t cec_phys_addr_store(struct device *dev,
++				   struct device_attribute *attr,
++				   const char *buf, size_t count)
++{
++	struct cros_ec_dev *ec = to_cros_ec_dev(dev);
++	struct ec_params_cec_set_pa params = {
++		.cmd = CEC_CMD_PHYSICAL_ADDRESS,
++	};
++	char *mut, *port_token, *val_token;
++	u8 port;
++	u16 val;
++	int ret;
++
++	mut = kstrdup(buf, GFP_KERNEL);
++	if (!mut)
++		return -ENOMEM;
++
++	val_token = mut;
++	port_token = strsep(&val_token, " ");
++	if (!port_token || !*port_token) {
++		ret = -EINVAL;
++		goto exit;
++	}
++	ret = kstrtou8(port_token, 0, &port);
++	if (ret)
++		goto exit;
++	if (port >= EC_CEC_MAX_PORTS) {
++		ret = -EINVAL;
++		goto exit;
++	}
++	params.port = port;
++
++	ret = kstrtou16(val_token, 0, &val);
++	if (ret)
++		goto exit;
++	if (val > 0xFFFF) {
++		ret = -EINVAL;
++		goto exit;
++	}
++	params.val = val;
++
++	ret = cros_ec_cmd(ec->ec_dev, 0, EC_CMD_CEC_SET_PA, &params, sizeof(params),
++			  NULL, 0);
++	if (ret < 0) {
++		ret = -EIO;
++		goto exit;
++	}
++
++exit:
++	kfree(mut);
++	return ret != 0 ? ret : count;
++}
++
+ /* Module initialization */
+ 
+ static DEVICE_ATTR_RW(reboot);
+@@ -363,6 +530,8 @@ static DEVICE_ATTR_RO(flashinfo);
+ static DEVICE_ATTR_RW(kb_wake_angle);
+ static DEVICE_ATTR_RO(usbpdmuxinfo);
+ static DEVICE_ATTR_RO(ap_mode_entry);
++static DEVICE_ATTR_RW(cec_wake_enable);
++static DEVICE_ATTR_RW(cec_phys_addr);
+ 
+ static struct attribute *__ec_attrs[] = {
+ 	&dev_attr_kb_wake_angle.attr,
+@@ -371,6 +540,8 @@ static struct attribute *__ec_attrs[] = {
+ 	&dev_attr_flashinfo.attr,
+ 	&dev_attr_usbpdmuxinfo.attr,
+ 	&dev_attr_ap_mode_entry.attr,
++	&dev_attr_cec_wake_enable.attr,
++	&dev_attr_cec_phys_addr.attr,
+ 	NULL,
+ };
+ 
+-- 
+2.54.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Robert Beckett <bob.beckett@collabora.com>
+Date: Thu, 21 Aug 2025 19:03:06 +0100
+Subject: [FOR-UPSTREAM] leds: rgb: add leds-valve driver
+
+Add initial support for Valve LED strip
+
+Fix CnP error breaking enabled_store (non-final version of patch was
+inadvertently pushed)
+
+Fix caching OFF as the bootup state resulting in `enable` node not
+working (select a explicit effect still works)
+
+Fix comment style
+
+`delay range` indicate the valid range of values for the `delay` attribute.
+
+Signed-off-by: Robert Beckett <bob.beckett@collabora.com>
+(cherry picked from commit 50e3efc58b078a31c357ed91231ec15f7541e2f7)
+Signed-off-by: John Schoenick <johns@valvesoftware.com>
+---
+ drivers/leds/rgb/Kconfig      |   9 +
+ drivers/leds/rgb/Makefile     |   1 +
+ drivers/leds/rgb/leds-valve.c | 439 ++++++++++++++++++++++++++++++++++
+ 3 files changed, 449 insertions(+)
+ create mode 100644 drivers/leds/rgb/leds-valve.c
+
+diff --git a/drivers/leds/rgb/Kconfig b/drivers/leds/rgb/Kconfig
+index 28ef4c487367..a764918356c1 100644
+--- a/drivers/leds/rgb/Kconfig
++++ b/drivers/leds/rgb/Kconfig
+@@ -88,4 +88,13 @@ config LEDS_MT6370_RGB
+ 	  This driver can also be built as a module. If so, the module
+ 	  will be called "leds-mt6370-rgb".
+ 
++config LEDS_VALVE
++	tristate "LED Support for Valve Freemont"
++	help
++	  Say Y here to enable support for Valve Freemont LED strip device.
++	  It is a strip LED controller with 17 RGB LEDs.
++
++	  This driver can also be built as a module. If so, the module
++	  will be called "leds-valve".
++
+ endif # LEDS_CLASS_MULTICOLOR
+diff --git a/drivers/leds/rgb/Makefile b/drivers/leds/rgb/Makefile
+index be45991f63f5..945c82acb029 100644
+--- a/drivers/leds/rgb/Makefile
++++ b/drivers/leds/rgb/Makefile
+@@ -7,3 +7,4 @@ obj-$(CONFIG_LEDS_NCP5623)		+= leds-ncp5623.o
+ obj-$(CONFIG_LEDS_PWM_MULTICOLOR)	+= leds-pwm-multicolor.o
+ obj-$(CONFIG_LEDS_QCOM_LPG)		+= leds-qcom-lpg.o
+ obj-$(CONFIG_LEDS_MT6370_RGB)		+= leds-mt6370-rgb.o
++obj-$(CONFIG_LEDS_VALVE)		+= leds-valve.o
+diff --git a/drivers/leds/rgb/leds-valve.c b/drivers/leds/rgb/leds-valve.c
+new file mode 100644
+index 000000000000..5683f833fc77
+--- /dev/null
++++ b/drivers/leds/rgb/leds-valve.c
+@@ -0,0 +1,439 @@
++// SPDX-License-Identifier: GPL-2.0+
++
++/*
++ * Valve LEDs driver
++ *
++ * Copyright (C) 2025 Valve Corporation
++ *
++ */
++
++#include <linux/device.h>
++#include <linux/dmi.h>
++#include <linux/io.h>
++#include <linux/ioport.h>
++#include <linux/kstrtox.h>
++#include <linux/led-class-multicolor.h>
++#include <linux/platform_device.h>
++#include <linux/regmap.h>
++#include <linux/string.h>
++#include <linux/sysfs.h>
++
++#define DRVNAME "valve-leds"
++
++#define VALVE_NUM_LEDS 17
++#define VALVE_NUM_COMPONENTS 3
++#define VALVE_BRIGHTNESS_DEFAULT 255
++#define VALVE_BRIGHTNESS_MAX 255
++#define VALVE_INTENSITY_DEFAULT 255
++#define VALVE_DELAY_RANGE_MIN 0
++#define VALVE_DELAY_RANGE_MAX 20
++
++#define VALVE_PORT_BASE          0xe39
++#define VALVE_PORT_STRIDE        3
++#define VALVE_PORT_MODE          (0xe6c - VALVE_PORT_BASE)
++#define VALVE_PORT_DELAY         (0xe6e - VALVE_PORT_BASE)
++#define VALVE_PORT_BREATH_OFFSET (0xe6f - VALVE_PORT_BASE)
++#define VALVE_PORT_BREATH_LEVEL  (0xe70 - VALVE_PORT_BASE)
++#define VALVE_PORT_PATROL_NUM    (0xe71 - VALVE_PORT_BASE)
++#define VALVE_PORT_COLOR_SHIFT   (0xe75 - VALVE_PORT_BASE)
++#define VALVE_NR_PORTS           (VALVE_PORT_COLOR_SHIFT + 1)
++
++#define VALVE_LED_PORT(n) (n * VALVE_PORT_STRIDE)
++
++static bool test_interface;
++module_param(test_interface, bool, 0644);
++MODULE_PARM_DESC(test_interface, "Just test the interface, don't write LEDs");
++
++static int test_reg_write(void *ctx, unsigned int reg, unsigned int val)
++{
++	pr_info(DRVNAME " %s(): 0x%03x=0x%x\n", __func__, VALVE_PORT_BASE + reg, val);
++	return 0;
++}
++
++static int test_raw_write(void *ctx, const void *data, size_t count)
++{
++	int i;
++	const u8 *bytes = data;
++
++	pr_info(DRVNAME " %s(): 0x%03x: ", __func__, VALVE_PORT_BASE + bytes[0]);
++	for (i = 1; i < count; i++)
++		pr_cont("%02x ", bytes[i]);
++	pr_cont("\n");
++
++	return 0;
++}
++
++static int test_reg_read(void *ctx, unsigned int reg, unsigned int *val)
++{
++	*val = 0;
++	pr_info(DRVNAME " %s(): 0x%03x\n", __func__, VALVE_PORT_BASE + reg);
++	return 0;
++}
++
++static int test_raw_read(void *ctx, const void *reg_buf, size_t reg_size, void *val_buf, size_t val_size)
++{
++	int i;
++	const u8 *regs = reg_buf;
++
++	pr_info(DRVNAME " %s(): ", __func__);
++	for (i = 0; i < reg_size; i++)
++		pr_cont("%03x ", VALVE_PORT_BASE + regs[i]);
++	pr_cont("\n");
++
++	return 0;
++}
++
++static const struct regmap_bus test_bus = {
++	.reg_write = test_reg_write,
++	.write = test_raw_write,
++	.reg_read = test_reg_read,
++	.read = test_raw_read,
++};
++
++struct valve_leds {
++	struct platform_device *pdev;
++	struct regmap *regmap;
++	struct valve_led {
++		struct led_classdev_mc mcdev;
++		struct mc_subled rgb[VALVE_NUM_COMPONENTS];
++		int index;
++	} leds[VALVE_NUM_LEDS];
++
++	/* cached so we can restore state on `enabled` toggle */
++	int effect_index;
++};
++
++static struct platform_device *pdev;
++
++/* Index that corresponds to off and normal states for `enabled` cycling */
++#define VALVE_INDEX_DISABLED 4
++#define VALVE_INDEX_NORMAL   3
++static const char *const effect_names[] = {
++	"patrol",
++	"breath",
++	"factory",
++	"normal",
++	"off",
++	"rainbow",
++	"demo",
++	"manual",
++};
++
++static ssize_t enabled_show(struct device *dev, struct device_attribute *attr, char *buf)
++{
++	struct valve_leds *leds = dev_get_drvdata(dev->parent);
++	unsigned int mode;
++	ssize_t len = 0;
++	int ret;
++
++	ret = regmap_read(leds->regmap, VALVE_PORT_MODE, &mode);
++	if (ret)
++		return ret;
++
++	len = sysfs_emit(buf, "%d\n", (mode != VALVE_INDEX_DISABLED));
++
++	return len;
++}
++
++static ssize_t enabled_store(struct device *dev, struct device_attribute *attr,
++	const char *buf, size_t count)
++{
++	struct valve_leds *leds = dev_get_drvdata(dev->parent);
++	int mode, ret;
++	bool enabled;
++
++	ret = kstrtobool(buf, &enabled);
++	if (ret < 0)
++		return ret;
++
++	mode = enabled ? leds->effect_index : VALVE_INDEX_DISABLED;
++	ret = regmap_write(leds->regmap, VALVE_PORT_MODE, mode);
++	if (ret)
++		return ret;
++
++	return count;
++}
++
++static ssize_t effect_show(struct device *dev, struct device_attribute *attr, char *buf)
++{
++	struct valve_leds *leds = dev_get_drvdata(dev->parent);
++	unsigned int mode;
++	ssize_t len = 0;
++	int ret;
++
++	ret = regmap_read(leds->regmap, VALVE_PORT_MODE, &mode);
++	if (ret)
++		return ret;
++
++	if (mode >= 0 && mode < ARRAY_SIZE(effect_names))
++		len = sysfs_emit(buf, "%s\n", effect_names[mode]);
++
++	return len;
++}
++
++static ssize_t effect_store(struct device *dev, struct device_attribute *attr,
++	const char *buf, size_t count)
++{
++	struct valve_leds *leds = dev_get_drvdata(dev->parent);
++	int mode, ret;
++
++	mode = __sysfs_match_string(effect_names, ARRAY_SIZE(effect_names), buf);
++	if (mode < 0)
++		return mode;
++
++	ret = regmap_write(leds->regmap, VALVE_PORT_MODE, mode);
++	if (ret)
++		return ret;
++
++	/* cache last enabled mode for enabled node to restore */
++	if (mode != VALVE_INDEX_DISABLED)
++		leds->effect_index = mode;
++
++	return count;
++}
++
++static ssize_t effect_index_show(struct device *dev, struct device_attribute *attr, char *buf)
++{
++	ssize_t len = 0;
++	unsigned int i;
++
++	for (i = 0; i < ARRAY_SIZE(effect_names); i++)
++		len += sysfs_emit_at(buf, len, "%s ", effect_names[i]);
++
++	buf[len - 1] = '\n';
++
++	return len;
++}
++
++static ssize_t delay_range_show(struct device *dev, struct device_attribute *attr,
++    char *buf)
++{
++    const ssize_t len = sysfs_emit(buf, "%d-%d ", VALVE_DELAY_RANGE_MIN,
++        VALVE_DELAY_RANGE_MAX);
++
++    buf[len - 1] = '\n';
++
++    return len;
++}
++
++static DEVICE_ATTR_RW(enabled);
++static DEVICE_ATTR_RW(effect);
++static DEVICE_ATTR_RO(effect_index);
++static DEVICE_ATTR_RO(delay_range);
++
++static ssize_t byte_reg_show(struct device *dev, struct device_attribute *attr, char *buf)
++{
++	struct valve_leds *leds = dev_get_drvdata(dev->parent);
++	struct dev_ext_attribute *ext = container_of(attr, typeof(*ext), attr);
++	unsigned int port = (long)ext->var;
++	unsigned int val;
++	int ret;
++
++	ret = regmap_read(leds->regmap, port, &val);
++	if (ret)
++		return ret;
++
++	return sysfs_emit(buf, "0x%02x\n", val);
++}
++
++static ssize_t byte_reg_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t size)
++{
++	struct valve_leds *leds = dev_get_drvdata(dev->parent);
++	struct dev_ext_attribute *ext = container_of(attr, typeof(*ext), attr);
++	unsigned int port = (long)ext->var;
++	unsigned int val;
++	int ret;
++
++	ret = kstrtouint(buf, 0, &val);
++	if (ret)
++		return ret;
++
++	ret = regmap_write(leds->regmap, port, val);
++	if (ret)
++		return ret;
++
++	return size;
++}
++
++#define VALVE_LEDS_BYTE_ATTR(_name, _mode, _port) \
++	struct dev_ext_attribute dev_attr_##_name = \
++		{ __ATTR(_name, _mode, byte_reg_show, byte_reg_store), ((void *)_port) }
++
++VALVE_LEDS_BYTE_ATTR(delay, 0644, VALVE_PORT_DELAY);
++VALVE_LEDS_BYTE_ATTR(breath_offset, 0644, VALVE_PORT_BREATH_OFFSET);
++VALVE_LEDS_BYTE_ATTR(breath_level, 0644, VALVE_PORT_BREATH_LEVEL);
++VALVE_LEDS_BYTE_ATTR(patrol_num, 0644, VALVE_PORT_PATROL_NUM);
++VALVE_LEDS_BYTE_ATTR(color_shift, 0644, VALVE_PORT_COLOR_SHIFT);
++
++static struct attribute *valve_leds_attrs[] = {
++	&dev_attr_effect.attr,
++	&dev_attr_effect_index.attr,
++	&dev_attr_enabled.attr,
++	&dev_attr_delay.attr.attr,
++	&dev_attr_delay_range.attr,
++	&dev_attr_breath_offset.attr.attr,
++	&dev_attr_breath_level.attr.attr,
++	&dev_attr_patrol_num.attr.attr,
++	&dev_attr_color_shift.attr.attr,
++	NULL,
++};
++static const struct attribute_group valve_leds_attr_group = {
++	.attrs = valve_leds_attrs,
++};
++
++
++static int valve_leds_set_brightness(struct led_classdev *led_cdev, enum led_brightness brightness)
++{
++	struct valve_leds *leds = dev_get_drvdata(led_cdev->dev->parent);
++	struct led_classdev_mc *mcdev = lcdev_to_mccdev(led_cdev);
++	struct valve_led *led = container_of(mcdev, typeof(*led), mcdev);
++	char rgb[3];
++	int ret;
++
++	led_mc_calc_color_components(mcdev, brightness);
++
++	rgb[0] = led->rgb[0].brightness;
++	rgb[1] = led->rgb[1].brightness;
++	rgb[2] = led->rgb[2].brightness;
++
++	ret = regmap_bulk_write(leds->regmap, VALVE_LED_PORT(led->index), rgb, 3);
++	return ret;
++}
++
++
++static const struct dmi_system_id valve_leds_dmi_table[] = {
++	{
++		.matches = {
++			DMI_EXACT_MATCH(DMI_SYS_VENDOR, "OEM"),
++			DMI_EXACT_MATCH(DMI_PRODUCT_NAME, "F7F"),
++		},
++	},
++	{
++		.matches = {
++			DMI_EXACT_MATCH(DMI_SYS_VENDOR, "Valve"),
++			DMI_EXACT_MATCH(DMI_PRODUCT_NAME, "Fremont"),
++		},
++	},
++	{}
++};
++
++static int valve_leds_probe(struct platform_device *pdev)
++{
++	struct valve_leds *vleds;
++	int i, c;
++	int ret;
++	void __iomem *ports;
++
++	static const struct regmap_config cfg = {
++		.name = DRVNAME,
++		.reg_bits = 8,
++		.val_bits = 8,
++		.io_port = true,
++	};
++
++	if (!test_interface && !dmi_check_system(valve_leds_dmi_table))
++		return -ENODEV;
++
++	vleds = devm_kzalloc(&pdev->dev, sizeof(*vleds), GFP_KERNEL);
++	if (!vleds)
++		return -ENOMEM;
++
++	platform_set_drvdata(pdev, vleds);
++
++	if (test_interface) {
++		vleds->regmap = devm_regmap_init(&pdev->dev, &test_bus, NULL, &cfg);
++	} else {
++		if (!devm_request_region(&pdev->dev, VALVE_PORT_BASE, VALVE_NR_PORTS, DRVNAME))
++			return -EBUSY;
++
++		ports = devm_ioport_map(&pdev->dev, VALVE_PORT_BASE, VALVE_NR_PORTS);
++		if (!ports)
++			return -ENOMEM;
++
++		vleds->regmap = devm_regmap_init_mmio(&pdev->dev, ports, &cfg);
++	}
++
++	if (IS_ERR(vleds->regmap))
++		return PTR_ERR(vleds->regmap);
++
++	/* Read current state at load time
++	   Cached for `enabled` node but also serves as a self-test */
++	ret = regmap_read(vleds->regmap, VALVE_PORT_MODE, &vleds->effect_index);
++	if (ret) {
++		pr_err("%s(): Failed to read led state: %ld\n", __func__, PTR_ERR(pdev));
++		return ret;
++	}
++
++	/* If the initial state is disabled use the normal state as default */
++	if (vleds->effect_index == VALVE_INDEX_DISABLED)
++		vleds->effect_index = VALVE_INDEX_NORMAL;
++
++	vleds->pdev = pdev;
++	for (i = 0; i < VALVE_NUM_LEDS; i++) {
++		for (c = 0; c < VALVE_NUM_COMPONENTS; c++) {
++			vleds->leds[i].rgb[c].color_index = LED_COLOR_ID_RED + c;
++			vleds->leds[i].rgb[c].brightness = VALVE_BRIGHTNESS_DEFAULT;
++			vleds->leds[i].rgb[c].intensity = VALVE_INTENSITY_DEFAULT;
++			vleds->leds[i].rgb[c].channel = c;
++		}
++
++		vleds->leds[i].index = i;
++		vleds->leds[i].mcdev.led_cdev.name = devm_kasprintf(&pdev->dev, GFP_KERNEL, "%s[%d]", DRVNAME, i);
++		vleds->leds[i].mcdev.led_cdev.brightness = VALVE_BRIGHTNESS_DEFAULT;
++		vleds->leds[i].mcdev.led_cdev.max_brightness = VALVE_BRIGHTNESS_MAX;
++		vleds->leds[i].mcdev.num_colors = VALVE_NUM_COMPONENTS;
++		vleds->leds[i].mcdev.subled_info = vleds->leds[i].rgb;
++		vleds->leds[i].mcdev.led_cdev.brightness_set_blocking = valve_leds_set_brightness;
++
++		ret = devm_led_classdev_multicolor_register(&pdev->dev, &vleds->leds[i].mcdev);
++		if (ret)
++			return ret;
++
++		ret = devm_device_add_group(vleds->leds[i].mcdev.led_cdev.dev, &valve_leds_attr_group);
++		if (ret)
++			return ret;
++	}
++
++	return 0;
++}
++
++static struct platform_driver valve_leds_driver = {
++	.probe = valve_leds_probe,
++	.driver = {
++		.name = DRVNAME,
++	},
++};
++
++static int __init valve_leds_init(void)
++{
++	int ret;
++
++	ret = platform_driver_register(&valve_leds_driver);
++	if (ret < 0) {
++		pr_err("%s(): Failed to register driver: %d\n", __func__, ret);
++		return ret;
++	}
++
++	pdev = platform_device_register_simple(DRVNAME, -1, NULL, 0);
++	if (IS_ERR(pdev)) {
++		pr_err("%s(): Failed to register device: %ld\n", __func__, PTR_ERR(pdev));
++		platform_driver_unregister(&valve_leds_driver);
++		return PTR_ERR(pdev);
++	}
++
++	return 0;
++}
++
++static void __exit valve_leds_exit(void)
++{
++	platform_device_unregister(pdev);
++	platform_driver_unregister(&valve_leds_driver);
++}
++
++module_init(valve_leds_init);
++module_exit(valve_leds_exit);
++
++MODULE_DEVICE_TABLE(dmi, valve_leds_dmi_table);
++MODULE_AUTHOR("Robert Beckett <bob.beckett@collabora.com>");
++MODULE_DESCRIPTION("Valve LEDs driver");
++MODULE_LICENSE("GPL");
+-- 
+2.54.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Florian Zitzelsberger <florianz@valvesoftware.com>
+Date: Mon, 20 Apr 2026 10:19:46 -0700
+Subject: [FOR-UPSTREAM] Expose additional brightness controls in firmware.
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Adds a `brightness_scale` sysfs node for controlling the brightness of
+the entire strip, as opposed to the multiplexed per-LED brightness.
+
+Also adds `brightness_startup` which controls the brightness of the
+entire LED strip during power-on and boot. This value persists across
+power cycles.
+
+Signed-off-by: Florian Zitzelsberger <florianz@valvesoftware.com>
+Signed-off-by: Nícolas F. R. A. Prado <nfraprado@collabora.com>
+---
+ drivers/leds/rgb/leds-valve.c | 203 ++++++++++++++++++++++++++++------
+ 1 file changed, 172 insertions(+), 31 deletions(-)
+
+diff --git a/drivers/leds/rgb/leds-valve.c b/drivers/leds/rgb/leds-valve.c
+index 5683f833fc77..ae099ff1b451 100644
+--- a/drivers/leds/rgb/leds-valve.c
++++ b/drivers/leds/rgb/leds-valve.c
+@@ -20,25 +20,38 @@
+ 
+ #define DRVNAME "valve-leds"
+ 
+-#define VALVE_NUM_LEDS 17
+-#define VALVE_NUM_COMPONENTS 3
+-#define VALVE_BRIGHTNESS_DEFAULT 255
+-#define VALVE_BRIGHTNESS_MAX 255
+-#define VALVE_INTENSITY_DEFAULT 255
+-#define VALVE_DELAY_RANGE_MIN 0
+-#define VALVE_DELAY_RANGE_MAX 20
+-
+-#define VALVE_PORT_BASE          0xe39
+-#define VALVE_PORT_STRIDE        3
+-#define VALVE_PORT_MODE          (0xe6c - VALVE_PORT_BASE)
+-#define VALVE_PORT_DELAY         (0xe6e - VALVE_PORT_BASE)
+-#define VALVE_PORT_BREATH_OFFSET (0xe6f - VALVE_PORT_BASE)
+-#define VALVE_PORT_BREATH_LEVEL  (0xe70 - VALVE_PORT_BASE)
+-#define VALVE_PORT_PATROL_NUM    (0xe71 - VALVE_PORT_BASE)
+-#define VALVE_PORT_COLOR_SHIFT   (0xe75 - VALVE_PORT_BASE)
+-#define VALVE_NR_PORTS           (VALVE_PORT_COLOR_SHIFT + 1)
+-
+-#define VALVE_LED_PORT(n) (n * VALVE_PORT_STRIDE)
++#define VALVE_NUM_LEDS                   17
++#define VALVE_NUM_COMPONENTS             3
++#define VALVE_BRIGHTNESS_DEFAULT         255
++#define VALVE_BRIGHTNESS_HALF            56 /* Gamma 2.2 */
++#define VALVE_BRIGHTNESS_MAX             255
++#define VALVE_INTENSITY_DEFAULT          255
++#define VALVE_DELAY_RANGE_MIN            0
++#define VALVE_DELAY_RANGE_MAX            20
++#define VALVE_BIOS_CTRL_ENABLE_BIT       BIT(0)
++#define VALVE_BRIGHTNESS_CTRL_SCALE_BIT  BIT(0)
++#define VALVE_BRIGHTNESS_CTRL_PWRBTN_BIT BIT(1)
++
++#define VALVE_PORT_EC_CMD                0x6c
++#define VALVE_EC_CMD_COMMIT_SETTINGS     0xc6
++
++#define VALVE_PORT_BASE                  0xde8
++#define VALVE_PORT_BIOS_LED_CTRL         (0xde8 - VALVE_PORT_BASE)
++#define VALVE_PORT_BRIGHTNESS_STARTUP    (0xdec - VALVE_PORT_BASE)
++#define VALVE_PORT_INTENSITY             (0xe39 - VALVE_PORT_BASE)
++#define VALVE_PORT_MODE                  (0xe6c - VALVE_PORT_BASE)
++#define VALVE_PORT_DELAY                 (0xe6e - VALVE_PORT_BASE)
++#define VALVE_PORT_BREATH_OFFSET         (0xe6f - VALVE_PORT_BASE)
++#define VALVE_PORT_BREATH_LEVEL          (0xe70 - VALVE_PORT_BASE)
++#define VALVE_PORT_PATROL_NUM            (0xe71 - VALVE_PORT_BASE)
++#define VALVE_PORT_COLOR_SHIFT           (0xe75 - VALVE_PORT_BASE)
++#define VALVE_PORT_BRIGHTNESS_CTRL       (0xe78 - VALVE_PORT_BASE)
++#define VALVE_PORT_BRIGHTNESS_SCALE      (0xe79 - VALVE_PORT_BASE)
++#define VALVE_PORT_BRIGHTNESS_PWRBTN     (0xe7a - VALVE_PORT_BASE)
++#define VALVE_NR_PORTS                   (VALVE_PORT_BRIGHTNESS_PWRBTN + 1)
++
++#define VALVE_PORT_STRIDE                3
++#define VALVE_LED_PORT(n) (VALVE_PORT_INTENSITY + n * VALVE_PORT_STRIDE)
+ 
+ static bool test_interface;
+ module_param(test_interface, bool, 0644);
+@@ -119,6 +132,11 @@ static const char *const effect_names[] = {
+ 	"manual",
+ };
+ 
++static void valve_leds_send_ec_cmd(unsigned char cmd)
++{
++	outb(cmd, VALVE_PORT_EC_CMD);
++}
++
+ static ssize_t enabled_show(struct device *dev, struct device_attribute *attr, char *buf)
+ {
+ 	struct valve_leds *leds = dev_get_drvdata(dev->parent);
+@@ -136,7 +154,7 @@ static ssize_t enabled_show(struct device *dev, struct device_attribute *attr, c
+ }
+ 
+ static ssize_t enabled_store(struct device *dev, struct device_attribute *attr,
+-	const char *buf, size_t count)
++			     const char *buf, size_t count)
+ {
+ 	struct valve_leds *leds = dev_get_drvdata(dev->parent);
+ 	int mode, ret;
+@@ -172,7 +190,7 @@ static ssize_t effect_show(struct device *dev, struct device_attribute *attr, ch
+ }
+ 
+ static ssize_t effect_store(struct device *dev, struct device_attribute *attr,
+-	const char *buf, size_t count)
++			    const char *buf, size_t count)
+ {
+ 	struct valve_leds *leds = dev_get_drvdata(dev->parent);
+ 	int mode, ret;
+@@ -206,20 +224,83 @@ static ssize_t effect_index_show(struct device *dev, struct device_attribute *at
+ }
+ 
+ static ssize_t delay_range_show(struct device *dev, struct device_attribute *attr,
+-    char *buf)
++	                        char *buf)
++{
++	const ssize_t len = sysfs_emit(buf, "%d-%d ", VALVE_DELAY_RANGE_MIN,
++		VALVE_DELAY_RANGE_MAX);
++
++	buf[len - 1] = '\n';
++
++	return len;
++}
++
++static ssize_t brightness_startup_show(struct device *dev, struct device_attribute *attr, char *buf)
++{
++	struct valve_leds *leds = dev_get_drvdata(dev->parent);
++	unsigned int val;
++	int ret;
++
++	/*
++	 * Read the LED control register, and if persistent BIOS control is enabled
++	 * return the startup brightness register value.
++	 * Otherwise return the default value, which is half brightness.
++	 */
++	ret = regmap_read(leds->regmap, VALVE_PORT_BIOS_LED_CTRL, &val);
++	if (ret)
++		return ret;
++
++	if ((val & VALVE_BIOS_CTRL_ENABLE_BIT) != 0) {
++		ret = regmap_read(leds->regmap, VALVE_PORT_BRIGHTNESS_STARTUP, &val);
++		if (ret)
++			return ret;
++	} else {
++		val = VALVE_BRIGHTNESS_HALF;
++	}
++
++	return sysfs_emit(buf, "0x%02x\n", val);
++}
++
++static ssize_t brightness_startup_store(struct device *dev, struct device_attribute *attr,
++	                                const char *buf, size_t count)
+ {
+-    const ssize_t len = sysfs_emit(buf, "%d-%d ", VALVE_DELAY_RANGE_MIN,
+-        VALVE_DELAY_RANGE_MAX);
++	struct valve_leds *leds = dev_get_drvdata(dev->parent);
++	unsigned int ctrl, val;
++	int ret;
++
++	ret = kstrtouint(buf, 0, &val);
++	if (ret)
++		return ret;
++
++	/* Read the LED control register. */
++	ret = regmap_read(leds->regmap, VALVE_PORT_BIOS_LED_CTRL, &ctrl);
++	if (ret)
++		return ret;
++
++	/* Ensure that persistent BIOS control is enabled. */
++	if ((ctrl & VALVE_BIOS_CTRL_ENABLE_BIT) == 0) {
++		ret = regmap_write(leds->regmap, VALVE_PORT_BIOS_LED_CTRL, ctrl | VALVE_BIOS_CTRL_ENABLE_BIT);
++		if (ret) {
++			dev_err(dev, "Failed to enable persistent LED control\n");
++			return ret;
++		}
++	}
+ 
+-    buf[len - 1] = '\n';
++	/* Write the persistent startup brightness value. */
++	ret = regmap_write(leds->regmap, VALVE_PORT_BRIGHTNESS_STARTUP, val);
++	if (ret)
++		return ret;
+ 
+-    return len;
++	/* Command the EC to commit the new brightness value to non-volatile storage. */
++	valve_leds_send_ec_cmd(VALVE_EC_CMD_COMMIT_SETTINGS);
++
++	return count;
+ }
+ 
+ static DEVICE_ATTR_RW(enabled);
+ static DEVICE_ATTR_RW(effect);
+ static DEVICE_ATTR_RO(effect_index);
+ static DEVICE_ATTR_RO(delay_range);
++static DEVICE_ATTR_RW(brightness_startup);
+ 
+ static ssize_t byte_reg_show(struct device *dev, struct device_attribute *attr, char *buf)
+ {
+@@ -264,6 +345,7 @@ VALVE_LEDS_BYTE_ATTR(breath_offset, 0644, VALVE_PORT_BREATH_OFFSET);
+ VALVE_LEDS_BYTE_ATTR(breath_level, 0644, VALVE_PORT_BREATH_LEVEL);
+ VALVE_LEDS_BYTE_ATTR(patrol_num, 0644, VALVE_PORT_PATROL_NUM);
+ VALVE_LEDS_BYTE_ATTR(color_shift, 0644, VALVE_PORT_COLOR_SHIFT);
++VALVE_LEDS_BYTE_ATTR(brightness_scale, 0644, VALVE_PORT_BRIGHTNESS_SCALE);
+ 
+ static struct attribute *valve_leds_attrs[] = {
+ 	&dev_attr_effect.attr,
+@@ -275,12 +357,50 @@ static struct attribute *valve_leds_attrs[] = {
+ 	&dev_attr_breath_level.attr.attr,
+ 	&dev_attr_patrol_num.attr.attr,
+ 	&dev_attr_color_shift.attr.attr,
++	&dev_attr_brightness_scale.attr.attr,
++	&dev_attr_brightness_startup.attr,
+ 	NULL,
+ };
+ static const struct attribute_group valve_leds_attr_group = {
+ 	.attrs = valve_leds_attrs,
+ };
+ 
++static int valve_leds_init_brightness_control(struct platform_device *pdev, struct valve_leds *leds)
++{
++	unsigned int initval = VALVE_BRIGHTNESS_HALF;
++	unsigned int val;
++	int ret;
++
++	/*
++	 * Read the default brightness from BIOS settings, if BIOS control is enabled.
++	 * If BIOS control is not enabled, fall back to half brightness.
++	 */
++	ret = regmap_read(leds->regmap, VALVE_PORT_BIOS_LED_CTRL, &val);
++	if (ret)
++		return ret;
++
++	if ((val & VALVE_BIOS_CTRL_ENABLE_BIT) != 0) {
++		ret = regmap_read(leds->regmap, VALVE_PORT_BRIGHTNESS_STARTUP, &val);
++		if (ret)
++			return ret;
++
++		initval = val;
++
++		dev_info(&pdev->dev, "Init with BIOS set brightness: %u\n", initval);
++	} else {
++		dev_info(&pdev->dev, "No BIOS set brightness. Falling back to: %u\n", initval);
++	}
++
++	/* Set the control bit to enable brightness control. */
++	ret = regmap_write(leds->regmap, VALVE_PORT_BRIGHTNESS_CTRL, VALVE_BRIGHTNESS_CTRL_SCALE_BIT);
++	if (ret)
++		return ret;
++
++	/* Initialize with the default brightness value. */
++	ret = regmap_write(leds->regmap, VALVE_PORT_BRIGHTNESS_SCALE, initval);
++
++	return ret;
++}
+ 
+ static int valve_leds_set_brightness(struct led_classdev *led_cdev, enum led_brightness brightness)
+ {
+@@ -325,7 +445,7 @@ static int valve_leds_probe(struct platform_device *pdev)
+ 	void __iomem *ports;
+ 
+ 	static const struct regmap_config cfg = {
+-		.name = DRVNAME,
++		.name = "leds",
+ 		.reg_bits = 8,
+ 		.val_bits = 8,
+ 		.io_port = true,
+@@ -351,16 +471,26 @@ static int valve_leds_probe(struct platform_device *pdev)
+ 			return -ENOMEM;
+ 
+ 		vleds->regmap = devm_regmap_init_mmio(&pdev->dev, ports, &cfg);
++
++		/* Request the EC command I/O port. */
++		if (!devm_request_region(&pdev->dev, VALVE_PORT_EC_CMD, 1, DRVNAME)) {
++			dev_err(&pdev->dev, "Failed to request EC cmd i/o port\n");
++			return -EBUSY;
++		}
+ 	}
+ 
+-	if (IS_ERR(vleds->regmap))
++	if (IS_ERR(vleds->regmap)) {
++		dev_err(&pdev->dev, "Failed to init regmap\n");
+ 		return PTR_ERR(vleds->regmap);
++	}
+ 
+-	/* Read current state at load time
+-	   Cached for `enabled` node but also serves as a self-test */
++	/* 
++	 * Read current state at load time
++	 * Cached for `enabled` node but also serves as a self-test
++	 */
+ 	ret = regmap_read(vleds->regmap, VALVE_PORT_MODE, &vleds->effect_index);
+ 	if (ret) {
+-		pr_err("%s(): Failed to read led state: %ld\n", __func__, PTR_ERR(pdev));
++		dev_err(&pdev->dev, "Failed to read led state\n");
+ 		return ret;
+ 	}
+ 
+@@ -394,6 +524,17 @@ static int valve_leds_probe(struct platform_device *pdev)
+ 			return ret;
+ 	}
+ 
++	/*
++	 * The driver takes control of LED brightness. Enable the brightness control
++	 * that affects the entire LED strip, and initialize it with the default
++	 * brightness value set in BIOS.
++	 */
++	ret = valve_leds_init_brightness_control(pdev, vleds);
++	if (ret) {
++		dev_err(&pdev->dev, "Failed to init brightness control\n");
++		return ret;
++	}
++
+ 	return 0;
+ }
+ 
+-- 
+2.54.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Robert Beckett <bob.beckett@collabora.com>
+Date: Wed, 1 Apr 2026 18:41:24 +0100
+Subject: [FOR-UPSTREAM] leds: leds-valve: Add suspend/resume support
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+save and restore setting across suspend
+
+Signed-off-by: Robert Beckett <bob.beckett@collabora.com>
+Signed-off-by: Nícolas F. R. A. Prado <nfraprado@collabora.com>
+---
+ drivers/leds/rgb/leds-valve.c | 115 +++++++++++++++++++++++++++++++---
+ 1 file changed, 106 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/leds/rgb/leds-valve.c b/drivers/leds/rgb/leds-valve.c
+index ae099ff1b451..2c52046d237d 100644
+--- a/drivers/leds/rgb/leds-valve.c
++++ b/drivers/leds/rgb/leds-valve.c
+@@ -7,6 +7,7 @@
+  *
+  */
+ 
++#include <linux/stringify.h>
+ #include <linux/device.h>
+ #include <linux/dmi.h>
+ #include <linux/io.h>
+@@ -112,8 +113,14 @@ struct valve_leds {
+ 		int index;
+ 	} leds[VALVE_NUM_LEDS];
+ 
+-	/* cached so we can restore state on `enabled` toggle */
+ 	int effect_index;
++	int delay;
++	int breath_offset;
++	int breath_level;
++	int patrol_num;
++	int color_shift;
++	int brightness_ctrl;
++	int brightness_scale;
+ };
+ 
+ static struct platform_device *pdev;
+@@ -421,6 +428,98 @@ static int valve_leds_set_brightness(struct led_classdev *led_cdev, enum led_bri
+ }
+ 
+ 
++#define VALVE_REG_SYNC_FROM_HW(leds, reg, store) do { \
++	int val; \
++	int ret = regmap_read(leds->regmap, reg, &val); \
++	if (ret) { \
++		dev_err(&leds->pdev->dev, "Failed to sync %s from hw: %d\n", __stringify(reg), ret); \
++		return ret; \
++	} \
++	store = val; \
++} while (0)
++
++static int valve_leds_sync_from_hw(struct valve_leds *leds)
++{
++	u8 rgb[VALVE_NUM_LEDS * VALVE_PORT_STRIDE];
++	u8 *port;
++	int ret;
++	int led, comp;
++
++	ret = regmap_bulk_read(leds->regmap, VALVE_LED_PORT(0), rgb, ARRAY_SIZE(rgb));
++	if (ret) {
++		dev_err(&leds->pdev->dev, "Failed to sync from hw: %d\n", ret);
++		return ret;
++	}
++
++	VALVE_REG_SYNC_FROM_HW(leds, VALVE_PORT_MODE, leds->effect_index);
++	VALVE_REG_SYNC_FROM_HW(leds, VALVE_PORT_DELAY, leds->delay);
++	VALVE_REG_SYNC_FROM_HW(leds, VALVE_PORT_BREATH_OFFSET, leds->breath_offset);
++	VALVE_REG_SYNC_FROM_HW(leds, VALVE_PORT_BREATH_LEVEL, leds->breath_level);
++	VALVE_REG_SYNC_FROM_HW(leds, VALVE_PORT_PATROL_NUM, leds->patrol_num);
++	VALVE_REG_SYNC_FROM_HW(leds, VALVE_PORT_COLOR_SHIFT, leds->color_shift);
++	VALVE_REG_SYNC_FROM_HW(leds, VALVE_PORT_BRIGHTNESS_CTRL, leds->brightness_ctrl);
++	VALVE_REG_SYNC_FROM_HW(leds, VALVE_PORT_BRIGHTNESS_SCALE, leds->brightness_scale);
++
++	port = rgb;
++	for (led = 0; led < VALVE_NUM_LEDS; led++)
++		for (comp = 0; comp < VALVE_NUM_COMPONENTS; comp++)
++			leds->leds[led].rgb[comp].intensity = *port++;
++
++	return 0;
++}
++
++#define VALVE_REG_SYNC_TO_HW(leds, reg, val) do { \
++	int ret = regmap_write(leds->regmap, reg, val); \
++	if (ret) { \
++		dev_err(&leds->pdev->dev, "Failed to sync %s to hw: %d\n", __stringify(reg), ret); \
++		return ret; \
++	} \
++} while (0)
++
++static int valve_leds_sync_to_hw(struct valve_leds *leds)
++{
++	u8 rgb[VALVE_NUM_LEDS * VALVE_PORT_STRIDE];
++	u8 *port;
++	int ret;
++	int led, comp;
++
++	port = &rgb[0];
++	for (led = 0; led < VALVE_NUM_LEDS; led++)
++		for (comp = 0; comp < VALVE_NUM_COMPONENTS; comp++)
++			*port++ = leds->leds[led].rgb[comp].intensity;
++
++	ret = regmap_bulk_write(leds->regmap, VALVE_LED_PORT(0), rgb, ARRAY_SIZE(rgb));
++	if (ret) {
++		dev_err(&leds->pdev->dev, "Failed to sync to hw: %d\n", ret);
++		return ret;
++	}
++
++	VALVE_REG_SYNC_TO_HW(leds, VALVE_PORT_DELAY, leds->delay);
++	VALVE_REG_SYNC_TO_HW(leds, VALVE_PORT_BREATH_OFFSET, leds->breath_offset);
++	VALVE_REG_SYNC_TO_HW(leds, VALVE_PORT_BREATH_LEVEL, leds->breath_level);
++	VALVE_REG_SYNC_TO_HW(leds, VALVE_PORT_PATROL_NUM, leds->patrol_num);
++	VALVE_REG_SYNC_TO_HW(leds, VALVE_PORT_COLOR_SHIFT, leds->color_shift);
++	VALVE_REG_SYNC_TO_HW(leds, VALVE_PORT_BRIGHTNESS_CTRL, leds->brightness_ctrl);
++	VALVE_REG_SYNC_TO_HW(leds, VALVE_PORT_BRIGHTNESS_SCALE, leds->brightness_scale);
++	VALVE_REG_SYNC_TO_HW(leds, VALVE_PORT_MODE, leds->effect_index);
++
++	return 0;
++}
++
++static int valve_leds_suspend(struct platform_device *pdev, pm_message_t state)
++{
++	struct valve_leds *leds = platform_get_drvdata(pdev);
++
++	return valve_leds_sync_from_hw(leds);
++}
++
++static int valve_leds_resume(struct platform_device *pdev)
++{
++	struct valve_leds *leds = platform_get_drvdata(pdev);
++
++	return valve_leds_sync_to_hw(leds);
++}
++
+ static const struct dmi_system_id valve_leds_dmi_table[] = {
+ 	{
+ 		.matches = {
+@@ -484,13 +583,11 @@ static int valve_leds_probe(struct platform_device *pdev)
+ 		return PTR_ERR(vleds->regmap);
+ 	}
+ 
+-	/* 
+-	 * Read current state at load time
+-	 * Cached for `enabled` node but also serves as a self-test
+-	 */
+-	ret = regmap_read(vleds->regmap, VALVE_PORT_MODE, &vleds->effect_index);
++	vleds->pdev = pdev;
++
++	ret = valve_leds_sync_from_hw(vleds);
+ 	if (ret) {
+-		dev_err(&pdev->dev, "Failed to read led state\n");
++		dev_err(&pdev->dev, "%s(): Failed to read led state: %d\n", __func__, ret);
+ 		return ret;
+ 	}
+ 
+@@ -498,12 +595,10 @@ static int valve_leds_probe(struct platform_device *pdev)
+ 	if (vleds->effect_index == VALVE_INDEX_DISABLED)
+ 		vleds->effect_index = VALVE_INDEX_NORMAL;
+ 
+-	vleds->pdev = pdev;
+ 	for (i = 0; i < VALVE_NUM_LEDS; i++) {
+ 		for (c = 0; c < VALVE_NUM_COMPONENTS; c++) {
+ 			vleds->leds[i].rgb[c].color_index = LED_COLOR_ID_RED + c;
+ 			vleds->leds[i].rgb[c].brightness = VALVE_BRIGHTNESS_DEFAULT;
+-			vleds->leds[i].rgb[c].intensity = VALVE_INTENSITY_DEFAULT;
+ 			vleds->leds[i].rgb[c].channel = c;
+ 		}
+ 
+@@ -540,6 +635,8 @@ static int valve_leds_probe(struct platform_device *pdev)
+ 
+ static struct platform_driver valve_leds_driver = {
+ 	.probe = valve_leds_probe,
++	.suspend = valve_leds_suspend,
++	.resume = valve_leds_resume,
+ 	.driver = {
+ 		.name = DRVNAME,
+ 	},
+-- 
+2.54.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Florian Zitzelsberger <florianz@valvesoftware.com>
+Date: Wed, 29 Apr 2026 15:12:25 -0700
+Subject: [FOR-UPSTREAM] Fixes two issues with the LED driver.
+
+1. Use a separate port to enable/disable the strip as opposed to
+   entangling enablement with mode selection.
+
+2. After changing modes, re-write the colors. Some effects animate
+   colors, clobbering previously applied state.
+
+Signed-off-by: Florian Zitzelsberger <florianz@valvesoftware.com>
+---
+ drivers/leds/rgb/leds-valve.c | 39 ++++++++++++++++++++---------------
+ 1 file changed, 22 insertions(+), 17 deletions(-)
+
+diff --git a/drivers/leds/rgb/leds-valve.c b/drivers/leds/rgb/leds-valve.c
+index 2c52046d237d..d90ec18a9337 100644
+--- a/drivers/leds/rgb/leds-valve.c
++++ b/drivers/leds/rgb/leds-valve.c
+@@ -39,6 +39,7 @@
+ #define VALVE_PORT_BASE                  0xde8
+ #define VALVE_PORT_BIOS_LED_CTRL         (0xde8 - VALVE_PORT_BASE)
+ #define VALVE_PORT_BRIGHTNESS_STARTUP    (0xdec - VALVE_PORT_BASE)
++#define VALVE_PORT_STRIP_ENABLE          (0xdef - VALVE_PORT_BASE)
+ #define VALVE_PORT_INTENSITY             (0xe39 - VALVE_PORT_BASE)
+ #define VALVE_PORT_MODE                  (0xe6c - VALVE_PORT_BASE)
+ #define VALVE_PORT_DELAY                 (0xe6e - VALVE_PORT_BASE)
+@@ -113,6 +114,7 @@ struct valve_leds {
+ 		int index;
+ 	} leds[VALVE_NUM_LEDS];
+ 
++	int enabled;
+ 	int effect_index;
+ 	int delay;
+ 	int breath_offset;
+@@ -125,9 +127,6 @@ struct valve_leds {
+ 
+ static struct platform_device *pdev;
+ 
+-/* Index that corresponds to off and normal states for `enabled` cycling */
+-#define VALVE_INDEX_DISABLED 4
+-#define VALVE_INDEX_NORMAL   3
+ static const char *const effect_names[] = {
+ 	"patrol",
+ 	"breath",
+@@ -147,15 +146,15 @@ static void valve_leds_send_ec_cmd(unsigned char cmd)
+ static ssize_t enabled_show(struct device *dev, struct device_attribute *attr, char *buf)
+ {
+ 	struct valve_leds *leds = dev_get_drvdata(dev->parent);
+-	unsigned int mode;
++	unsigned int val;
+ 	ssize_t len = 0;
+ 	int ret;
+ 
+-	ret = regmap_read(leds->regmap, VALVE_PORT_MODE, &mode);
++	ret = regmap_read(leds->regmap, VALVE_PORT_STRIP_ENABLE, &val);
+ 	if (ret)
+ 		return ret;
+ 
+-	len = sysfs_emit(buf, "%d\n", (mode != VALVE_INDEX_DISABLED));
++	len = sysfs_emit(buf, "%d\n", val);
+ 
+ 	return len;
+ }
+@@ -164,15 +163,14 @@ static ssize_t enabled_store(struct device *dev, struct device_attribute *attr,
+ 			     const char *buf, size_t count)
+ {
+ 	struct valve_leds *leds = dev_get_drvdata(dev->parent);
+-	int mode, ret;
++	int ret;
+ 	bool enabled;
+ 
+ 	ret = kstrtobool(buf, &enabled);
+ 	if (ret < 0)
+ 		return ret;
+ 
+-	mode = enabled ? leds->effect_index : VALVE_INDEX_DISABLED;
+-	ret = regmap_write(leds->regmap, VALVE_PORT_MODE, mode);
++	ret = regmap_write(leds->regmap, VALVE_PORT_STRIP_ENABLE, (int)enabled);
+ 	if (ret)
+ 		return ret;
+ 
+@@ -200,7 +198,8 @@ static ssize_t effect_store(struct device *dev, struct device_attribute *attr,
+ 			    const char *buf, size_t count)
+ {
+ 	struct valve_leds *leds = dev_get_drvdata(dev->parent);
+-	int mode, ret;
++	u8 rgb[VALVE_NUM_LEDS * VALVE_PORT_STRIDE];
++	int led, comp, mode, ret;
+ 
+ 	mode = __sysfs_match_string(effect_names, ARRAY_SIZE(effect_names), buf);
+ 	if (mode < 0)
+@@ -210,9 +209,17 @@ static ssize_t effect_store(struct device *dev, struct device_attribute *attr,
+ 	if (ret)
+ 		return ret;
+ 
+-	/* cache last enabled mode for enabled node to restore */
+-	if (mode != VALVE_INDEX_DISABLED)
+-		leds->effect_index = mode;
++	/*
++	 * Some effects animate and clobber colors, thus re-write colors after
++	 * setting the mode.
++	 */
++	for (led = 0; led < VALVE_NUM_LEDS; led++)
++		for (comp = 0; comp < VALVE_NUM_COMPONENTS; comp++)
++			rgb[led * VALVE_NUM_COMPONENTS + comp] = leds->leds[led].rgb[comp].intensity;
++
++	ret = regmap_bulk_write(leds->regmap, VALVE_LED_PORT(0), rgb, ARRAY_SIZE(rgb));
++	if (ret)
++		return ret;
+ 
+ 	return count;
+ }
+@@ -451,6 +458,7 @@ static int valve_leds_sync_from_hw(struct valve_leds *leds)
+ 		return ret;
+ 	}
+ 
++	VALVE_REG_SYNC_FROM_HW(leds, VALVE_PORT_STRIP_ENABLE, leds->enabled);
+ 	VALVE_REG_SYNC_FROM_HW(leds, VALVE_PORT_MODE, leds->effect_index);
+ 	VALVE_REG_SYNC_FROM_HW(leds, VALVE_PORT_DELAY, leds->delay);
+ 	VALVE_REG_SYNC_FROM_HW(leds, VALVE_PORT_BREATH_OFFSET, leds->breath_offset);
+@@ -502,6 +510,7 @@ static int valve_leds_sync_to_hw(struct valve_leds *leds)
+ 	VALVE_REG_SYNC_TO_HW(leds, VALVE_PORT_BRIGHTNESS_CTRL, leds->brightness_ctrl);
+ 	VALVE_REG_SYNC_TO_HW(leds, VALVE_PORT_BRIGHTNESS_SCALE, leds->brightness_scale);
+ 	VALVE_REG_SYNC_TO_HW(leds, VALVE_PORT_MODE, leds->effect_index);
++	VALVE_REG_SYNC_TO_HW(leds, VALVE_PORT_STRIP_ENABLE, leds->enabled);
+ 
+ 	return 0;
+ }
+@@ -591,10 +600,6 @@ static int valve_leds_probe(struct platform_device *pdev)
+ 		return ret;
+ 	}
+ 
+-	/* If the initial state is disabled use the normal state as default */
+-	if (vleds->effect_index == VALVE_INDEX_DISABLED)
+-		vleds->effect_index = VALVE_INDEX_NORMAL;
+-
+ 	for (i = 0; i < VALVE_NUM_LEDS; i++) {
+ 		for (c = 0; c < VALVE_NUM_COMPONENTS; c++) {
+ 			vleds->leds[i].rgb[c].color_index = LED_COLOR_ID_RED + c;
+-- 
+2.54.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Florian Zitzelsberger <florianz@valvesoftware.com>
+Date: Wed, 6 May 2026 16:09:17 -0700
+Subject: [FOR-UPSTREAM] Expose control over the boot animation color.
+
+Adds a new sysfs node called `multi_intensity_startup`, which allows for setting the intensity of the RGB LED components at startup of the device. This allows for controlling the color of the startup animation.
+
+Values written to `multi_intensity_startup` persist across power cycles, and are expected to be in the same format as values written to `multi_intensity`, i.e. three space-separated integer values in the range 0-255 representing the R, G, and B components of the color.
+
+Signed-off-by: Florian Zitzelsberger <florianz@valvesoftware.com>
+---
+ drivers/leds/rgb/leds-valve.c | 121 +++++++++++++++++++++++++++++-----
+ 1 file changed, 105 insertions(+), 16 deletions(-)
+
+diff --git a/drivers/leds/rgb/leds-valve.c b/drivers/leds/rgb/leds-valve.c
+index d90ec18a9337..af5205ce37e2 100644
+--- a/drivers/leds/rgb/leds-valve.c
++++ b/drivers/leds/rgb/leds-valve.c
+@@ -38,6 +38,7 @@
+ 
+ #define VALVE_PORT_BASE                  0xde8
+ #define VALVE_PORT_BIOS_LED_CTRL         (0xde8 - VALVE_PORT_BASE)
++#define VALVE_PORT_INTENSITY_STARTUP     (0xde9 - VALVE_PORT_BASE)
+ #define VALVE_PORT_BRIGHTNESS_STARTUP    (0xdec - VALVE_PORT_BASE)
+ #define VALVE_PORT_STRIP_ENABLE          (0xdef - VALVE_PORT_BASE)
+ #define VALVE_PORT_INTENSITY             (0xe39 - VALVE_PORT_BASE)
+@@ -143,6 +144,48 @@ static void valve_leds_send_ec_cmd(unsigned char cmd)
+ 	outb(cmd, VALVE_PORT_EC_CMD);
+ }
+ 
++static int valve_leds_has_persistence(struct valve_leds *leds, bool *out)
++{
++	unsigned int val;
++	int ret;
++
++	/*
++	 * Read the LED control register, and determine if persistent BIOS control
++	 * is enabled.
++	 */
++	ret = regmap_read(leds->regmap, VALVE_PORT_BIOS_LED_CTRL, &val);
++	if (ret)
++		return ret;
++
++	*out = (val & VALVE_BIOS_CTRL_ENABLE_BIT) != 0;
++
++	return 0;
++}
++
++static int valve_leds_ensure_persistence(struct device *dev)
++{
++	struct valve_leds *leds = dev_get_drvdata(dev->parent);
++	unsigned int val;
++	int ret;
++
++	/* Read the LED control register. */
++	ret = regmap_read(leds->regmap, VALVE_PORT_BIOS_LED_CTRL, &val);
++	if (ret)
++		return ret;
++
++	/* Ensure that persistent BIOS control is enabled. */
++	if ((val & VALVE_BIOS_CTRL_ENABLE_BIT) == 0) {
++		ret = regmap_write(leds->regmap, VALVE_PORT_BIOS_LED_CTRL, val | VALVE_BIOS_CTRL_ENABLE_BIT);
++		if (ret) {
++			dev_err(dev, "Failed to enable persistent LED control\n");
++			return ret;
++		}
++	}
++
++	/* Success. */
++	return 0;
++}
++
+ static ssize_t enabled_show(struct device *dev, struct device_attribute *attr, char *buf)
+ {
+ 	struct valve_leds *leds = dev_get_drvdata(dev->parent);
+@@ -252,18 +295,19 @@ static ssize_t brightness_startup_show(struct device *dev, struct device_attribu
+ {
+ 	struct valve_leds *leds = dev_get_drvdata(dev->parent);
+ 	unsigned int val;
++	bool enabled;
+ 	int ret;
+ 
+ 	/*
+-	 * Read the LED control register, and if persistent BIOS control is enabled
+-	 * return the startup brightness register value.
++	 * If persistent BIOS control is enabled return the startup brightness
++	 * register value.
+ 	 * Otherwise return the default value, which is half brightness.
+ 	 */
+-	ret = regmap_read(leds->regmap, VALVE_PORT_BIOS_LED_CTRL, &val);
++	ret = valve_leds_has_persistence(leds, &enabled);
+ 	if (ret)
+ 		return ret;
+ 
+-	if ((val & VALVE_BIOS_CTRL_ENABLE_BIT) != 0) {
++	if (enabled) {
+ 		ret = regmap_read(leds->regmap, VALVE_PORT_BRIGHTNESS_STARTUP, &val);
+ 		if (ret)
+ 			return ret;
+@@ -278,27 +322,18 @@ static ssize_t brightness_startup_store(struct device *dev, struct device_attrib
+ 	                                const char *buf, size_t count)
+ {
+ 	struct valve_leds *leds = dev_get_drvdata(dev->parent);
+-	unsigned int ctrl, val;
++	unsigned int val;
+ 	int ret;
+ 
+ 	ret = kstrtouint(buf, 0, &val);
+ 	if (ret)
+ 		return ret;
+ 
+-	/* Read the LED control register. */
+-	ret = regmap_read(leds->regmap, VALVE_PORT_BIOS_LED_CTRL, &ctrl);
++	/* Ensure that persistence is enabled. */
++	ret = valve_leds_ensure_persistence(dev);
+ 	if (ret)
+ 		return ret;
+ 
+-	/* Ensure that persistent BIOS control is enabled. */
+-	if ((ctrl & VALVE_BIOS_CTRL_ENABLE_BIT) == 0) {
+-		ret = regmap_write(leds->regmap, VALVE_PORT_BIOS_LED_CTRL, ctrl | VALVE_BIOS_CTRL_ENABLE_BIT);
+-		if (ret) {
+-			dev_err(dev, "Failed to enable persistent LED control\n");
+-			return ret;
+-		}
+-	}
+-
+ 	/* Write the persistent startup brightness value. */
+ 	ret = regmap_write(leds->regmap, VALVE_PORT_BRIGHTNESS_STARTUP, val);
+ 	if (ret)
+@@ -310,11 +345,64 @@ static ssize_t brightness_startup_store(struct device *dev, struct device_attrib
+ 	return count;
+ }
+ 
++static ssize_t multi_intensity_startup_show(struct device *dev, struct device_attribute *attr, char *buf)
++{
++	struct valve_leds *leds = dev_get_drvdata(dev->parent);
++	bool enabled;
++	u8 rgb[VALVE_NUM_COMPONENTS] = { 0, 0, 255 }; /* pure blue by default */
++	int ret;
++
++	/*
++	 * If persistent BIOS control is enabled return the startup color register
++	 * values.
++	 * Otherwise return the default values.
++	 */
++	ret = valve_leds_has_persistence(leds, &enabled);
++	if (ret)
++		return ret;
++
++	if (enabled) {
++		ret = regmap_bulk_read(leds->regmap, VALVE_PORT_INTENSITY_STARTUP, rgb, ARRAY_SIZE(rgb));
++		if (ret)
++			return ret;
++	}
++
++	return sysfs_emit(buf, "%hhu %hhu %hhu\n", rgb[0], rgb[1], rgb[2]);
++}
++
++static ssize_t multi_intensity_startup_store(struct device *dev, struct device_attribute *attr,
++	                                const char *buf, size_t count)
++{
++	struct valve_leds *leds = dev_get_drvdata(dev->parent);
++	u8 rgb[VALVE_NUM_COMPONENTS];
++	int ret;
++
++	ret = sscanf(buf, "%hhu %hhu %hhu", &rgb[0], &rgb[1], &rgb[2]);
++	if (ret != 3)
++		return -EINVAL;
++
++	/* Ensure that persistence is enabled. */
++	ret = valve_leds_ensure_persistence(dev);
++	if (ret)
++		return ret;
++
++	/* Write the persistent startup color values. */
++	ret = regmap_bulk_write(leds->regmap, VALVE_PORT_INTENSITY_STARTUP, rgb, VALVE_NUM_COMPONENTS);
++	if (ret)
++		return ret;
++
++	/* Command the EC to commit the new values to non-volatile storage. */
++	valve_leds_send_ec_cmd(VALVE_EC_CMD_COMMIT_SETTINGS);
++
++	return count;
++}
++
+ static DEVICE_ATTR_RW(enabled);
+ static DEVICE_ATTR_RW(effect);
+ static DEVICE_ATTR_RO(effect_index);
+ static DEVICE_ATTR_RO(delay_range);
+ static DEVICE_ATTR_RW(brightness_startup);
++static DEVICE_ATTR_RW(multi_intensity_startup);
+ 
+ static ssize_t byte_reg_show(struct device *dev, struct device_attribute *attr, char *buf)
+ {
+@@ -373,6 +461,7 @@ static struct attribute *valve_leds_attrs[] = {
+ 	&dev_attr_color_shift.attr.attr,
+ 	&dev_attr_brightness_scale.attr.attr,
+ 	&dev_attr_brightness_startup.attr,
++	&dev_attr_multi_intensity_startup.attr,
+ 	NULL,
+ };
+ static const struct attribute_group valve_leds_attr_group = {
+-- 
+2.54.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Antheas Kapenekakis <lkml@antheas.dev>
 Date: Sun, 23 Feb 2025 22:39:04 +0100
 Subject: drm/amd: Lower logging level of overdrive warning to err
@@ -32256,88 +37603,6 @@ index 834f65f4b59a..dc0f0112a995 100644
  		watchdog_ping(wdd);
  	}
  
--- 
-2.54.0
-
-
-From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
-From: Antheas Kapenekakis <lkml@antheas.dev>
-Date: Thu, 17 Jul 2025 23:12:32 +0200
-Subject: HID: hid-steam: keep evdev connected while steam is active
-
-Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
----
- drivers/hid/hid-steam.c | 18 +++++-------------
- 1 file changed, 5 insertions(+), 13 deletions(-)
-
-diff --git a/drivers/hid/hid-steam.c b/drivers/hid/hid-steam.c
-index 197126d6e081..09abb62f7f0f 100644
---- a/drivers/hid/hid-steam.c
-+++ b/drivers/hid/hid-steam.c
-@@ -983,11 +983,11 @@ static int steam_register(struct steam_device *steam)
- 	client_opened = steam->client_opened;
- 	spin_unlock_irqrestore(&steam->lock, flags);
- 
-+	ret = steam_input_register(steam);
-+	if (ret != 0)
-+		goto steam_register_input_fail;
- 	if (!client_opened) {
- 		steam_set_lizard_mode(steam, lizard_mode);
--		ret = steam_input_register(steam);
--		if (ret != 0)
--			goto steam_register_input_fail;
- 		ret = steam_sensors_register(steam);
- 		if (ret != 0)
- 			goto steam_register_sensors_fail;
-@@ -1081,12 +1081,11 @@ static void steam_work_unregister_cb(struct work_struct *work)
- 	spin_unlock_irqrestore(&steam->lock, flags);
- 
- 	if (connected) {
-+		steam_input_register(steam);
- 		if (opened) {
- 			steam_sensors_unregister(steam);
--			steam_input_unregister(steam);
- 		} else {
- 			steam_set_lizard_mode(steam, lizard_mode);
--			steam_input_register(steam);
- 			steam_sensors_register(steam);
- 		}
- 	}
-@@ -1615,9 +1614,6 @@ static void steam_do_deck_input_event(struct steam_device *steam,
- 		schedule_delayed_work(&steam->mode_switch, 45 * HZ / 100);
- 	}
- 
--	if (!steam->gamepad_mode && lizard_mode)
--		return;
--
- 	lpad_touched = b10 & BIT(3);
- 	rpad_touched = b10 & BIT(4);
- 
-@@ -1767,8 +1763,6 @@ static int steam_raw_event(struct hid_device *hdev,
- 
- 	switch (data[2]) {
- 	case ID_CONTROLLER_STATE:
--		if (steam->client_opened)
--			return 0;
- 		rcu_read_lock();
- 		input = rcu_dereference(steam->input);
- 		if (likely(input))
-@@ -1776,14 +1770,12 @@ static int steam_raw_event(struct hid_device *hdev,
- 		rcu_read_unlock();
- 		break;
- 	case ID_CONTROLLER_DECK_STATE:
--		if (steam->client_opened)
--			return 0;
- 		rcu_read_lock();
- 		input = rcu_dereference(steam->input);
- 		if (likely(input))
- 			steam_do_deck_input_event(steam, input, data);
- 		sensors = rcu_dereference(steam->sensors);
--		if (likely(sensors))
-+		if (!steam->client_opened && likely(sensors))
- 			steam_do_deck_sensors_event(steam, sensors, data);
- 		rcu_read_unlock();
- 		break;
 -- 
 2.54.0
 
@@ -32957,170 +38222,6 @@ index 9be55d1d20ec..acbb2fcbb632 100644
  	charge_end_threshold = 100;
  
  	return 0;
--- 
-2.54.0
-
-
-From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
-From: Antheas Kapenekakis <lkml@antheas.dev>
-Date: Wed, 12 Nov 2025 23:20:48 +0100
-Subject: Revert "Input: xpad - change buttons the D-Pad gets mapped as to
- BTN_DPAD_*"
-
-This reverts commit a43a503df996739ae34f179f6b73b0ae91000c5c.
----
- drivers/input/joystick/xpad.c | 28 ++++++++++++++--------------
- 1 file changed, 14 insertions(+), 14 deletions(-)
-
-diff --git a/drivers/input/joystick/xpad.c b/drivers/input/joystick/xpad.c
-index 6e87126de59a..0bef56d8f06f 100644
---- a/drivers/input/joystick/xpad.c
-+++ b/drivers/input/joystick/xpad.c
-@@ -455,8 +455,8 @@ static const signed short xpad_btn[] = {
- 
- /* used when dpad is mapped to buttons */
- static const signed short xpad_btn_pad[] = {
--	BTN_DPAD_LEFT, BTN_DPAD_RIGHT,	/* d-pad left, right */
--	BTN_DPAD_UP, BTN_DPAD_DOWN,	/* d-pad up, down */
-+	BTN_TRIGGER_HAPPY1, BTN_TRIGGER_HAPPY2,		/* d-pad left, right */
-+	BTN_TRIGGER_HAPPY3, BTN_TRIGGER_HAPPY4,		/* d-pad up, down */
- 	-1				/* terminating entry */
- };
- 
-@@ -858,10 +858,10 @@ static void xpad_process_packet(struct usb_xpad *xpad, u16 cmd, unsigned char *d
- 	/* digital pad */
- 	if (xpad->mapping & MAP_DPAD_TO_BUTTONS) {
- 		/* dpad as buttons (left, right, up, down) */
--		input_report_key(dev, BTN_DPAD_LEFT, data[2] & BIT(2));
--		input_report_key(dev, BTN_DPAD_RIGHT, data[2] & BIT(3));
--		input_report_key(dev, BTN_DPAD_UP, data[2] & BIT(0));
--		input_report_key(dev, BTN_DPAD_DOWN, data[2] & BIT(1));
-+		input_report_key(dev, BTN_TRIGGER_HAPPY1, data[2] & BIT(2));
-+		input_report_key(dev, BTN_TRIGGER_HAPPY2, data[2] & BIT(3));
-+		input_report_key(dev, BTN_TRIGGER_HAPPY3, data[2] & BIT(0));
-+		input_report_key(dev, BTN_TRIGGER_HAPPY4, data[2] & BIT(1));
- 	} else {
- 		input_report_abs(dev, ABS_HAT0X,
- 				 !!(data[2] & 0x08) - !!(data[2] & 0x04));
-@@ -909,10 +909,10 @@ static void xpad360_process_packet(struct usb_xpad *xpad, struct input_dev *dev,
- 	/* digital pad */
- 	if (xpad->mapping & MAP_DPAD_TO_BUTTONS) {
- 		/* dpad as buttons (left, right, up, down) */
--		input_report_key(dev, BTN_DPAD_LEFT, data[2] & BIT(2));
--		input_report_key(dev, BTN_DPAD_RIGHT, data[2] & BIT(3));
--		input_report_key(dev, BTN_DPAD_UP, data[2] & BIT(0));
--		input_report_key(dev, BTN_DPAD_DOWN, data[2] & BIT(1));
-+		input_report_key(dev, BTN_TRIGGER_HAPPY1, data[2] & BIT(2));
-+		input_report_key(dev, BTN_TRIGGER_HAPPY2, data[2] & BIT(3));
-+		input_report_key(dev, BTN_TRIGGER_HAPPY3, data[2] & BIT(0));
-+		input_report_key(dev, BTN_TRIGGER_HAPPY4, data[2] & BIT(1));
- 	}
- 
- 	/*
-@@ -1131,10 +1131,10 @@ static void xpadone_process_packet(struct usb_xpad *xpad, u16 cmd, unsigned char
- 		/* digital pad */
- 		if (xpad->mapping & MAP_DPAD_TO_BUTTONS) {
- 			/* dpad as buttons (left, right, up, down) */
--			input_report_key(dev, BTN_DPAD_LEFT, data[5] & BIT(2));
--			input_report_key(dev, BTN_DPAD_RIGHT, data[5] & BIT(3));
--			input_report_key(dev, BTN_DPAD_UP, data[5] & BIT(0));
--			input_report_key(dev, BTN_DPAD_DOWN, data[5] & BIT(1));
-+			input_report_key(dev, BTN_TRIGGER_HAPPY1, data[5] & BIT(2));
-+			input_report_key(dev, BTN_TRIGGER_HAPPY2, data[5] & BIT(3));
-+			input_report_key(dev, BTN_TRIGGER_HAPPY3, data[5] & BIT(0));
-+			input_report_key(dev, BTN_TRIGGER_HAPPY4, data[5] & BIT(1));
- 		} else {
- 			input_report_abs(dev, ABS_HAT0X,
- 					!!(data[5] & 0x08) - !!(data[5] & 0x04));
--- 
-2.54.0
-
-
-From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
-From: Antheas Kapenekakis <lkml@antheas.dev>
-Date: Wed, 12 Nov 2025 23:20:52 +0100
-Subject: Revert "Input: xpad - use new BTN_GRIP* buttons"
-
-This reverts commit e7412ba919f625438c570d8b4fbf16c5f31b583d.
----
- drivers/input/joystick/xpad.c | 36 +++++++++++++++++------------------
- 1 file changed, 18 insertions(+), 18 deletions(-)
-
-diff --git a/drivers/input/joystick/xpad.c b/drivers/input/joystick/xpad.c
-index 0bef56d8f06f..dfdd87851200 100644
---- a/drivers/input/joystick/xpad.c
-+++ b/drivers/input/joystick/xpad.c
-@@ -492,8 +492,8 @@ static const signed short xpad_abs_triggers[] = {
- 
- /* used when the controller has extra paddle buttons */
- static const signed short xpad_btn_paddles[] = {
--	BTN_GRIPR, BTN_GRIPR2, /* paddle upper right, lower right */
--	BTN_GRIPL, BTN_GRIPL2, /* paddle upper left, lower left */
-+	BTN_TRIGGER_HAPPY5, BTN_TRIGGER_HAPPY6, /* paddle upper right, lower right */
-+	BTN_TRIGGER_HAPPY7, BTN_TRIGGER_HAPPY8, /* paddle upper left, lower left */
- 	-1						/* terminating entry */
- };
- 
-@@ -1093,10 +1093,10 @@ static void xpadone_process_packet(struct usb_xpad *xpad, u16 cmd, unsigned char
- 				data[18] = 0;
- 
- 			/* Elite Series 2 split packet paddle bits */
--			input_report_key(dev, BTN_GRIPR, data[18] & BIT(0));
--			input_report_key(dev, BTN_GRIPR2, data[18] & BIT(1));
--			input_report_key(dev, BTN_GRIPL, data[18] & BIT(2));
--			input_report_key(dev, BTN_GRIPL2, data[18] & BIT(3));
-+			input_report_key(dev, BTN_TRIGGER_HAPPY5, data[18] & BIT(0));
-+			input_report_key(dev, BTN_TRIGGER_HAPPY6, data[18] & BIT(1));
-+			input_report_key(dev, BTN_TRIGGER_HAPPY7, data[18] & BIT(2));
-+			input_report_key(dev, BTN_TRIGGER_HAPPY8, data[18] & BIT(3));
- 
- 			do_sync = true;
- 		}
-@@ -1193,10 +1193,10 @@ static void xpadone_process_packet(struct usb_xpad *xpad, u16 cmd, unsigned char
- 					data[32] = 0;
- 
- 				/* OG Elite Series Controller paddle bits */
--				input_report_key(dev, BTN_GRIPR, data[32] & BIT(1));
--				input_report_key(dev, BTN_GRIPR2, data[32] & BIT(3));
--				input_report_key(dev, BTN_GRIPL, data[32] & BIT(0));
--				input_report_key(dev, BTN_GRIPL2, data[32] & BIT(2));
-+				input_report_key(dev, BTN_TRIGGER_HAPPY5, data[32] & BIT(1));
-+				input_report_key(dev, BTN_TRIGGER_HAPPY6, data[32] & BIT(3));
-+				input_report_key(dev, BTN_TRIGGER_HAPPY7, data[32] & BIT(0));
-+				input_report_key(dev, BTN_TRIGGER_HAPPY8, data[32] & BIT(2));
- 			} else if (xpad->packet_type == PKT_XBE2_FW_OLD) {
- 				/* Mute paddles if controller has a custom mapping applied.
- 				 * Checked by comparing the current mapping
-@@ -1206,10 +1206,10 @@ static void xpadone_process_packet(struct usb_xpad *xpad, u16 cmd, unsigned char
- 					data[18] = 0;
- 
- 				/* Elite Series 2 4.x firmware paddle bits */
--				input_report_key(dev, BTN_GRIPR, data[18] & BIT(0));
--				input_report_key(dev, BTN_GRIPR2, data[18] & BIT(1));
--				input_report_key(dev, BTN_GRIPL, data[18] & BIT(2));
--				input_report_key(dev, BTN_GRIPL2, data[18] & BIT(3));
-+				input_report_key(dev, BTN_TRIGGER_HAPPY5, data[18] & BIT(0));
-+				input_report_key(dev, BTN_TRIGGER_HAPPY6, data[18] & BIT(1));
-+				input_report_key(dev, BTN_TRIGGER_HAPPY7, data[18] & BIT(2));
-+				input_report_key(dev, BTN_TRIGGER_HAPPY8, data[18] & BIT(3));
- 			} else if (xpad->packet_type == PKT_XBE2_FW_5_EARLY) {
- 				/* Mute paddles if controller has a custom mapping applied.
- 				 * Checked by comparing the current mapping
-@@ -1221,10 +1221,10 @@ static void xpadone_process_packet(struct usb_xpad *xpad, u16 cmd, unsigned char
- 				/* Elite Series 2 5.x firmware paddle bits
- 				 * (before the packet was split)
- 				 */
--				input_report_key(dev, BTN_GRIPR, data[22] & BIT(0));
--				input_report_key(dev, BTN_GRIPR2, data[22] & BIT(1));
--				input_report_key(dev, BTN_GRIPL, data[22] & BIT(2));
--				input_report_key(dev, BTN_GRIPL2, data[22] & BIT(3));
-+				input_report_key(dev, BTN_TRIGGER_HAPPY5, data[22] & BIT(0));
-+				input_report_key(dev, BTN_TRIGGER_HAPPY6, data[22] & BIT(1));
-+				input_report_key(dev, BTN_TRIGGER_HAPPY7, data[22] & BIT(2));
-+				input_report_key(dev, BTN_TRIGGER_HAPPY8, data[22] & BIT(3));
- 			}
- 		}
- 
 -- 
 2.54.0
 
@@ -34024,10 +39125,10 @@ index 000000000000..7acac398e74f
 +Method 1 reads the current status for a lighting ID and method 2 writes a
 +three-byte lighting ID, state and brightness tuple.
 diff --git a/MAINTAINERS b/MAINTAINERS
-index ffe23de642ce..1b49a0a15d87 100644
+index f338f04edb47..071a4bcd888b 100644
 --- a/MAINTAINERS
 +++ b/MAINTAINERS
-@@ -14509,6 +14509,7 @@ M:	Derek J. Clark <derekjohn.clark@gmail.com>
+@@ -14515,6 +14515,7 @@ M:	Derek J. Clark <derekjohn.clark@gmail.com>
  L:	platform-driver-x86@vger.kernel.org
  S:	Maintained
  F:	Documentation/wmi/devices/lenovo-wmi-gamezone.rst
@@ -35127,6 +40228,65 @@ index fb166662bc0d..8cb1e234b22f 100644
  	char arg[20];
  	int i, ret;
  
+-- 
+2.54.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Thu, 13 Aug 2026 13:35:51 +0200
+Subject: lower tdp for ai max devices
+
+60 is too high for battery. Go for 45, a nice middle ground, until we do AC/DC
+---
+ drivers/platform/x86/amd/dptc.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/platform/x86/amd/dptc.c b/drivers/platform/x86/amd/dptc.c
+index b2820f8652f1..6aafff33d060 100644
+--- a/drivers/platform/x86/amd/dptc.c
++++ b/drivers/platform/x86/amd/dptc.c
+@@ -172,7 +172,7 @@ static const struct dptc_device_limits limits_maxhh = {
+ 	.profiles = {
+ 		[PLATFORM_PROFILE_LOW_POWER]   = { .vals = { 15, 15, 25, 0 } },
+ 		[PLATFORM_PROFILE_BALANCED]    = { .vals = { 25, 27, 40, 0 } },
+-		[PLATFORM_PROFILE_PERFORMANCE] = { .vals = { 60, 63, 85, 0 } },
++		[PLATFORM_PROFILE_PERFORMANCE] = { .vals = { 45, 50, 60, 0 } },
+ 	},
+ };
+ 
+-- 
+2.54.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Thu, 13 Aug 2026 13:37:24 +0200
+Subject: add x2mini pro to dptc
+
+---
+ drivers/platform/x86/amd/dptc.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/drivers/platform/x86/amd/dptc.c b/drivers/platform/x86/amd/dptc.c
+index 6aafff33d060..84cfd0df0a5e 100644
+--- a/drivers/platform/x86/amd/dptc.c
++++ b/drivers/platform/x86/amd/dptc.c
+@@ -397,6 +397,14 @@ static const struct dmi_system_id dptc_dmi_table[] = {
+ 		},
+ 		.driver_data = (void *)&limits_30w,
+ 	},
++	{
++		.ident = "ONEXPLAYER X2Mini PRO",
++		.matches = {
++			DMI_MATCH(DMI_BOARD_VENDOR, "ONE-NETBOOK"),
++			DMI_EXACT_MATCH(DMI_BOARD_NAME, "ONEXPLAYER X2Mini PRO"),
++		},
++		.driver_data = (void *)&limits_maxhh,
++	},
+ 	{
+ 		.ident = "ONEXPLAYER G1 A",
+ 		.matches = {
 -- 
 2.54.0
 
