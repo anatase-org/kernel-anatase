@@ -40265,17 +40265,18 @@ Date: Thu, 13 Aug 2026 13:37:24 +0200
 Subject: add x2mini pro to dptc
 
 ---
- drivers/platform/x86/amd/dptc.c | 8 ++++++++
- 1 file changed, 8 insertions(+)
+ drivers/platform/x86/amd/dptc.c | 17 +++++++++++++++++
+ 1 file changed, 17 insertions(+)
 
 diff --git a/drivers/platform/x86/amd/dptc.c b/drivers/platform/x86/amd/dptc.c
-index 6aafff33d060..84cfd0df0a5e 100644
+index 6aafff33d060..4b486f30ca86 100644
 --- a/drivers/platform/x86/amd/dptc.c
 +++ b/drivers/platform/x86/amd/dptc.c
-@@ -397,6 +397,14 @@ static const struct dmi_system_id dptc_dmi_table[] = {
+@@ -405,6 +405,23 @@ static const struct dmi_system_id dptc_dmi_table[] = {
  		},
  		.driver_data = (void *)&limits_30w,
  	},
++	/* OneXPlayer AI MAX handhelds */
 +	{
 +		.ident = "ONEXPLAYER X2Mini PRO",
 +		.matches = {
@@ -40284,9 +40285,42 @@ index 6aafff33d060..84cfd0df0a5e 100644
 +		},
 +		.driver_data = (void *)&limits_maxhh,
 +	},
++	{
++		.ident = "ONEXPLAYER APEX",
++		.matches = {
++			DMI_MATCH(DMI_BOARD_VENDOR, "ONE-NETBOOK"),
++			DMI_EXACT_MATCH(DMI_BOARD_NAME, "ONEXPLAYER APEX"),
++		},
++		.driver_data = (void *)&limits_maxhh,
++	},
+ 	/* AYANEO - 15W */
  	{
- 		.ident = "ONEXPLAYER G1 A",
- 		.matches = {
+ 		.ident = "AYANEO AIR",
+-- 
+2.54.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Thu, 13 Aug 2026 19:16:36 +0200
+Subject: add ai max 388
+
+---
+ drivers/platform/x86/amd/dptc.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/platform/x86/amd/dptc.c b/drivers/platform/x86/amd/dptc.c
+index 4b486f30ca86..b069878f7ee8 100644
+--- a/drivers/platform/x86/amd/dptc.c
++++ b/drivers/platform/x86/amd/dptc.c
+@@ -180,6 +180,7 @@ static const struct dptc_device_limits limits_maxhh = {
+ static const char * const dptc_soc_table[] = {
+ 	/* AI MAX */
+ 	"AMD RYZEN AI MAX+ 395",
++	"AMD RYZEN AI MAX+ 388",
+ 	"AMD RYZEN AI MAX+ 385",
+ 	"AMD RYZEN AI MAX 380",
+ 	/* Ryzen AI */
 -- 
 2.54.0
 
