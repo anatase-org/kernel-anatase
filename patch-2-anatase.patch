@@ -40324,3 +40324,66 @@ index 4b486f30ca86..b069878f7ee8 100644
 -- 
 2.54.0
 
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Thu, 13 Aug 2026 20:30:14 +0200
+Subject: disable the iommu in apex and x2mini pro for now
+
+Valve disables it on steamos so they don't have to fix these issues (it's for "performance").
+---
+ drivers/iommu/amd/init.c | 24 ++++++++++++++++++++++++
+ 1 file changed, 24 insertions(+)
+
+diff --git a/drivers/iommu/amd/init.c b/drivers/iommu/amd/init.c
+index f3fd7f39efb4..eae93bf28726 100644
+--- a/drivers/iommu/amd/init.c
++++ b/drivers/iommu/amd/init.c
+@@ -20,6 +20,7 @@
+ #include <linux/export.h>
+ #include <linux/kmemleak.h>
+ #include <linux/cc_platform.h>
++#include <linux/dmi.h>
+ #include <linux/iopoll.h>
+ #include <asm/pci-direct.h>
+ #include <asm/iommu.h>
+@@ -3317,6 +3318,24 @@ static int amd_iommu_enable_interrupts(void)
+ 	return ret;
+ }
+ 
++static const struct dmi_system_id amd_iommu_disabled_dmi_table[] __initconst = {
++	{
++		.ident = "OneXPlayer APEX",
++		.matches = {
++			DMI_MATCH(DMI_BOARD_VENDOR, "ONE-NETBOOK"),
++			DMI_EXACT_MATCH(DMI_BOARD_NAME, "ONEXPLAYER APEX"),
++		},
++	},
++	{
++		.ident = "OneXPlayer X2 Mini Pro",
++		.matches = {
++			DMI_MATCH(DMI_BOARD_VENDOR, "ONE-NETBOOK"),
++			DMI_EXACT_MATCH(DMI_BOARD_NAME, "ONEXPLAYER X2Mini PRO"),
++		},
++	},
++	{}
++};
++
+ static bool __init detect_ivrs(void)
+ {
+ 	struct acpi_table_header *ivrs_base;
+@@ -3337,6 +3356,11 @@ static bool __init detect_ivrs(void)
+ 	if (amd_iommu_force_enable)
+ 		goto out;
+ 
++	if (dmi_check_system(amd_iommu_disabled_dmi_table)) {
++		pr_info("Disabled on this platform due to a firmware issue\n");
++		return false;
++	}
++
+ 	/* Don't use IOMMU if there is Stoney Ridge graphics */
+ 	for (i = 0; i < 32; i++) {
+ 		u32 pci_id;
+-- 
+2.54.0
+
