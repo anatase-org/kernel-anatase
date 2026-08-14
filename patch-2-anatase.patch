@@ -392,7 +392,7 @@ index 000000000000..8058c285a8c7
 +EOF
 \ No newline at end of file
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -1036,7 +1036,7 @@ index c3bc801d8b2d..92bf689487c7 100644
  
  	for (sym = info.symtab_start; sym < info.symtab_stop; sym++) {
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -1227,7 +1227,7 @@ index 000000000000..0e504b3c2796
 +MODULE_DESCRIPTION("Steam Deck EC MFD core driver");
 +MODULE_LICENSE("GPL");
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -1281,7 +1281,7 @@ index 0e504b3c2796..a60fa7db9141 100644
  };
  
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -1410,7 +1410,7 @@ index 000000000000..686500b8de73
 +MODULE_DESCRIPTION("Steam Deck LEDs driver");
 +MODULE_LICENSE("GPL");
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -1497,7 +1497,7 @@ index 686500b8de73..ada9fffc0a42 100644
  	ret = devm_led_classdev_register(dev, &sd->cdev);
  	if (ret) {
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -1727,7 +1727,7 @@ index 000000000000..74f190adc8ea
 +MODULE_DESCRIPTION("Steam Deck extcon driver");
 +MODULE_LICENSE("GPL");
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -2012,7 +2012,7 @@ index 000000000000..fab9e9460bd4
 +MODULE_DESCRIPTION("Steam Deck EC sensors driver");
 +MODULE_LICENSE("GPL");
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -2120,7 +2120,7 @@ index fab9e9460bd4..9d0a5471b181 100644
  		dev_err(dev, "Failed to register HWMON device");
  		return PTR_ERR(hwmon);
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -2154,7 +2154,7 @@ index 6c1cbb722ca8..1d1ecf1380a0 100644
  };
  
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -2191,7 +2191,7 @@ index 1d1ecf1380a0..7a4eeb5ad2b7 100644
  	PROPERTY_ENTRY_STRING("linux,extcon-name", "VLV0100:00"),
  	{}
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -2219,7 +2219,7 @@ index 7a4eeb5ad2b7..ae66f4d2267b 100644
  };
  
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -2259,7 +2259,7 @@ index 419b9a7abcce..22282578ab99 100644
  
  static struct device *cros_ec_cec_find_hdmi_dev(struct device *dev,
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -2367,7 +2367,7 @@ index 076f15a9867e..42f1e0b7f38a 100644
  
  	return 0;
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -2481,7 +2481,7 @@ index de5bd6b637b2..2a65606c848b 100644
  
  unlock:
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -2508,7 +2508,7 @@ index e4c6b81c7c68..03e826cf28de 100644
  };
  MODULE_DEVICE_TABLE(acpi, qca_bluetooth_acpi_match);
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -2546,7 +2546,7 @@ index 8a92fec9d9e3..18441d825335 100644
  			/* Set state to BT_RUNNING so resume doesn't notify */
  			hdev->suspend_state = BT_RUNNING;
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -2609,7 +2609,7 @@ index 18441d825335..7d1e6f8b3077 100644
  	}
  
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -2757,7 +2757,7 @@ index 62f9d4df3a4f..1a81c6828b1a 100644
  MODULE_DESCRIPTION("Bluetooth support for Realtek devices ver " VERSION);
  MODULE_VERSION(VERSION);
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -2809,7 +2809,7 @@ index 7177d3fd9619..c6779beb7ba1 100644
  
  enum cpu_endpoints {
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -2842,7 +2842,7 @@ index ffb526de0021..0bab1c8bfd7b 100644
  	return 0;
  }
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -2882,7 +2882,7 @@ index 699a756bbc40..12e02d0c00fa 100644
  	/*
  	 * Add the logic to extract BOTH power up and power down sequences
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -2970,7 +2970,7 @@ index 9dc4750296af..b4b6df2def9d 100644
  #define MMC_QUIRK_BLKSZ_FOR_BYTE_MODE (1<<1)	/* use func->cur_blksize */
  						/* for byte mode */
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -3029,7 +3029,7 @@ index 12e02d0c00fa..395af02b8108 100644
  
  	// Check seamless boot support
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -3059,7 +3059,7 @@ index b2c020071cbf..a8d456d01909 100644
  	unsigned long long enter_timestamp;
  	unsigned long long finish_timestamp;
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -3101,7 +3101,7 @@ index acdc162de535..53b7ea0daba4 100644
  
  	/* TODO: DYNAMIC_VALIDATION needs to be implemented */
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -3145,7 +3145,7 @@ index 6bb1c62124bb..cbc66f1d49d8 100644
  	dc->caps.post_blend_color_processing = true;
  	dc->caps.force_dp_tps4_for_cp2520 = true;
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -3178,7 +3178,7 @@ index feebaa8cd9b1..14505b6fe054 100644
  
  		drm_info(adev_to_drm(adev), "use_doorbell being set to: [%s]\n",
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -3208,7 +3208,7 @@ index 0aee65503642..d0962a89673f 100644
  	else if (drm_mode_is_420_also(info, mode_in)
  			&& aconnector
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -3253,7 +3253,7 @@ index d0962a89673f..ec0248cec5e4 100644
  		amdgpu_dm_connector_add_freesync_modes(connector, drm_edid);
  	}
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -3295,7 +3295,7 @@ index a22d0bbb6e63..6cc186a80c4e 100644
  }
  
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -3413,7 +3413,7 @@ index 918aca7c4db4..4a482de2e55d 100644
  	acpi_os_printf(ACPI_MSG_ERROR);
  
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -3545,7 +3545,7 @@ index 7eaec37ae1c7..6fa054be9326 100644
  	 * @vics: Array of vics_len VICs. Internal to EDID parsing.
  	 */
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -3605,7 +3605,7 @@ index bddb16bb76d4..0fdae7282ce8 100644
  };
  
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -3634,7 +3634,7 @@ index ec77be217eaf..0569d8674eba 100644
  	return NULL;
  }
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -3787,7 +3787,7 @@ index c9e677e3af1d..84d4fa142830 100644
  #define UI_BEGIN_FF_UPLOAD	_IOWR(UINPUT_IOCTL_BASE, 200, struct uinput_ff_upload)
  #define UI_END_FF_UPLOAD	_IOW(UINPUT_IOCTL_BASE, 201, struct uinput_ff_upload)
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -3940,7 +3940,7 @@ index a1f5fe8e583f..90120446aa1e 100644
  };
  
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -3993,7 +3993,7 @@ index 90120446aa1e..03d2f6486e25 100644
  	if (!pci_is_pcie(dev) ||
  		pci_find_ext_capability(dev, PCI_EXT_CAP_ID_ACS))
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -4129,7 +4129,7 @@ index f6c72e3a2be1..593047d1f651 100644
  	/*
  	 * Modern (>=Nehalem) Intel systems use ACPI via intel_idle,
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -4159,7 +4159,7 @@ index 3a218fb592ce..734a49b9fdcf 100644
  		.matches = {
  		  DMI_EXACT_MATCH(DMI_SYS_VENDOR, "AYADEVICE"),
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -4189,7 +4189,7 @@ index 734a49b9fdcf..aae1634f52ee 100644
  		.matches = {
  		  DMI_EXACT_MATCH(DMI_SYS_VENDOR, "AYADEVICE"),
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -4236,7 +4236,7 @@ index aae1634f52ee..a32017d18474 100644
  		.matches = {
  		  DMI_EXACT_MATCH(DMI_SYS_VENDOR, "OrangePi"),
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -4271,7 +4271,7 @@ index a32017d18474..3c86f9be5e83 100644
  		.matches = {
  		  DMI_EXACT_MATCH(DMI_SYS_VENDOR, "OrangePi"),
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -4302,7 +4302,7 @@ index 3c86f9be5e83..5dffb1bdc5e2 100644
  		.matches = {
  		  DMI_EXACT_MATCH(DMI_SYS_VENDOR, "OrangePi"),
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -4344,7 +4344,7 @@ index 5dffb1bdc5e2..fd159709d00e 100644
  		.matches = {
  		  DMI_EXACT_MATCH(DMI_SYS_VENDOR, "OrangePi"),
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -4388,7 +4388,7 @@ index e824c793f669..167626c86be1 100644
  };
  
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -4422,7 +4422,7 @@ index fd159709d00e..b06ab3cd0fd5 100644
  		.matches = {
  		  DMI_EXACT_MATCH(DMI_SYS_VENDOR, "OrangePi"),
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -4462,7 +4462,7 @@ index b06ab3cd0fd5..3ec26fadec93 100644
  		.matches = {
  		  DMI_EXACT_MATCH(DMI_SYS_VENDOR, "ZOTAC"),
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -4502,7 +4502,7 @@ index 3ec26fadec93..96f2c435e970 100644
  		.matches = {
  		  DMI_EXACT_MATCH(DMI_SYS_VENDOR, "ZOTAC"),
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -4535,7 +4535,7 @@ index 96f2c435e970..05b1c993c645 100644
  		 * GPD Pocket, note that the DMI data is less generic then
  		 * it seems, devices with a board-vendor of "AMI Corporation"
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -4609,7 +4609,7 @@ index 05b1c993c645..79d89b17b12a 100644
  		.matches = {
  		  DMI_EXACT_MATCH(DMI_SYS_VENDOR, "Valve"),
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -4647,7 +4647,7 @@ index 79d89b17b12a..7590b804d805 100644
  		.matches = {
  			DMI_EXACT_MATCH(DMI_SYS_VENDOR, "AYANEO"),
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -4678,7 +4678,7 @@ index 7590b804d805..f508ffbd6d20 100644
  		.matches = {
  		  DMI_EXACT_MATCH(DMI_SYS_VENDOR, "Valve"),
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -4711,7 +4711,7 @@ index f508ffbd6d20..ed1901de4a8e 100644
  		.matches = {
  		  DMI_EXACT_MATCH(DMI_SYS_VENDOR, "ONE-NETBOOK"),
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -4746,7 +4746,7 @@ index ed1901de4a8e..15820d1ecab3 100644
  		.matches = {
  		 DMI_MATCH(DMI_SYS_VENDOR, "RWC CO.,LTD"),
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -4777,7 +4777,7 @@ index 15820d1ecab3..24741dfc594a 100644
  		.matches = {
  		  DMI_EXACT_MATCH(DMI_SYS_VENDOR, "ONE-NETBOOK"),
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -4808,7 +4808,7 @@ index 24741dfc594a..7deff55b076c 100644
  		.matches = {
  		  DMI_EXACT_MATCH(DMI_SYS_VENDOR, "ASUSTeK COMPUTER INC."),
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -4834,7 +4834,7 @@ index f8798d11ec03..7fd600e2104e 100644
  };
  MODULE_DEVICE_TABLE(i2c, goodix_ts_id);
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -25202,7 +25202,7 @@ index 000000000000..27baeb96ce7c
 +
 +#endif
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -25291,7 +25291,7 @@ index 837a60deab9d..3d732400e449 100644
  
  	INIT_DELAYED_WORK(&aw87xxx->fw_load_work, aw87xxx_fw_load_work_routine);
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -25347,7 +25347,7 @@ index 04064ffd820c..21824c1bbe00 100644
  	{.id = ALC283_FIXUP_INT_MIC, .name = "alc283-int-mic"},
  	{.id = ALC290_FIXUP_MONO_SPEAKERS_HSJACK, .name = "mono-speakers"},
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -25450,7 +25450,7 @@ index 21824c1bbe00..671f9cbab1df 100644
  	SND_PCI_QUIRK(0x1f66, 0x0105, "Ayaneo Portable Game Player", ALC287_FIXUP_CS35L41_I2C_2),
  	SND_PCI_QUIRK(0x2014, 0x800a, "Positivo ARN50", ALC269_FIXUP_LIMIT_INT_MIC_BOOST),
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -25482,7 +25482,7 @@ index b92da4e0776f..fc2c69dcf2cd 100644
  };
  MODULE_DEVICE_TABLE(acpi, bmi270_acpi_match);
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -25787,7 +25787,7 @@ index b2332efabeb5..f2315aedcf82 100644
  		USB_VENDOR_ID_ASUSTEK, USB_DEVICE_ID_ASUSTEK_T101HA_KEYBOARD) },
  	{ }
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -25847,7 +25847,7 @@ index 6785b3c2e030..2ca076c3fca3 100644
  #define USB_VENDOR_ID_ATEN		0x0557
  #define USB_DEVICE_ID_ATEN_UC100KM	0x2004
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -25907,7 +25907,7 @@ index 5cd4392b964e..73710ae9a591 100644
  	enum asus_wmi_tablet_switch_mode tablet_switch_mode;
  	int wapf;
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -26090,7 +26090,7 @@ index b6b1dd76a06b..61a044b59776 100644
  }
  
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -26235,7 +26235,7 @@ index 61a044b59776..f5aefba8b191 100644
  
  void __init acpi_s2idle_setup(void)
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -26313,7 +26313,7 @@ index 4d2f0bed7a06..a416e5c5798a 100644
  #if defined(CONFIG_SUSPEND) && defined(CONFIG_X86)
  int acpi_register_lps0_dev(struct acpi_s2idle_dev_ops *arg);
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -26470,7 +26470,7 @@ index 73710ae9a591..00b6b54abdda 100644
  
  struct asus_wmi_driver {
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -26661,7 +26661,7 @@ index 97fcff33f6f4..86f95ef9b897 100644
  	    USB_DEVICE_ID_ASUSTEK_XGM_2022),
  	},
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -26913,7 +26913,7 @@ index 554f41b827e1..938a27c6f66e 100644
  {
  	return -ENODEV;
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -27019,7 +27019,7 @@ index 000000000000..9d6ec956ebb4
 +
 +		RW
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -27433,7 +27433,7 @@ index 000000000000..56686691442c
 +
 +#endif  /*_HINT_H_*/
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -27751,7 +27751,7 @@ index 8b48f999e0e9..357d6f9406dc 100644
  
  static const struct platform_s2idle_ops acpi_s2idle_ops_lps0 = {
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -27825,7 +27825,7 @@ index 357d6f9406dc..06f08b5a21fd 100644
  	return acpi_s2idle_begin();
  }
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -27934,7 +27934,7 @@ index 132a9df98471..f754fa1c1540 100644
  	if (acpi_sci_irq_valid()) {
  		acpi_ec_set_gpe_wake_mask(ACPI_GPE_DISABLE);
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -27967,7 +27967,7 @@ index 86f95ef9b897..44ce46586e11 100644
  	    USB_DEVICE_ID_ASUSTEK_XGM_2022),
  	},
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -28048,7 +28048,7 @@ index 16d5ea77192f..1997c1aaaafd 100644
  	{ "CSC3551", "104318D3", generic_dsd_config },
  	{ "CSC3551", "10431A63", missing_speaker_id_gpio2 },
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -28218,7 +28218,7 @@ index e912fcc12d12..8d0f9328c95f 100644
  
  	return 0;
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -28293,7 +28293,7 @@ index 8d0f9328c95f..94236214c3c0 100644
  					   u32 attr, int channel)
  {
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -28402,7 +28402,7 @@ index 94236214c3c0..626d284d7324 100644
  	if (ret < 0)
  		return ret;
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -28893,7 +28893,7 @@ index 626d284d7324..9d5564319adf 100644
  	return PTR_ERR_OR_ZERO(hdev);
  }
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -29104,7 +29104,7 @@ index 9d5564319adf..f363a82ab04e 100644
  }
  
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -29577,7 +29577,7 @@ index f363a82ab04e..f4afeab94c4c 100644
  
  	msi_wmi_platform_profile_setup(data);
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -29796,7 +29796,7 @@ index f4afeab94c4c..7cd967f57a0a 100644
  };
  
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -29890,7 +29890,7 @@ index 7cd967f57a0a..8ef2a831822f 100644
  	return PTR_ERR_OR_ZERO(hdev);
  }
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -29924,7 +29924,7 @@ index 8ef2a831822f..51452a680d3e 100644
  
  #define pr_format(fmt) KBUILD_MODNAME ": " fmt
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -30142,7 +30142,7 @@ index 51452a680d3e..2dbaa3c1f55c 100644
  
  static const struct wmi_device_id msi_wmi_platform_id_table[] = {
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -30168,7 +30168,7 @@ index 2dbaa3c1f55c..fc6569791ef9 100644
  
  static int msi_wmi_platform_parse_buffer(union acpi_object *obj, u8 *output, size_t length)
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -30251,7 +30251,7 @@ index 2713efa509b4..e0b43b14fa19 100644
  What:		/sys/class/firmware-attributes/*/attributes/debug_cmd
  Date:		July 2021
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -31083,7 +31083,7 @@ index 000000000000..b884cdfa3f82
 +MODULE_DESCRIPTION("AMD DPTCi ACPI Driver");
 +MODULE_LICENSE("GPL");
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -31310,7 +31310,7 @@ index b884cdfa3f82..f4db95affb1b 100644
  }
  
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -31788,7 +31788,7 @@ index f4db95affb1b..b2820f8652f1 100644
  };
  MODULE_DEVICE_TABLE(dmi, dptc_dmi_table);
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -31824,7 +31824,7 @@ index 1729729b135f..6ee7e6bf3531 100644
  		// GPD Win 4 with Ryzen 7840U
  		.matches = {
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -31912,7 +31912,7 @@ index 197126d6e081..a854d6360a0e 100644
  		USB_DEVICE_ID_STEAM_CONTROLLER_WIRELESS),
  	  .driver_data = STEAM_QUIRK_WIRELESS
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -32233,7 +32233,7 @@ index a854d6360a0e..75d6be0be0a2 100644
  	input_sync(sensors);
  }
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -32286,7 +32286,7 @@ index 75d6be0be0a2..983d18d1de4f 100644
  
  /* Trackpad modes */
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -32639,7 +32639,7 @@ index 983d18d1de4f..1ceb044e170b 100644
  		break;
  	case ID_CONTROLLER_DECK_STATE:
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -32734,7 +32734,7 @@ index 1ceb044e170b..87b3817a2f69 100644
  	steam->client_hdev = NULL;
  	steam->client_opened = 0;
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -32946,7 +32946,7 @@ index 87b3817a2f69..12203d61922f 100644
  	steam->client_opened = 0;
  	if (steam->quirks & STEAM_QUIRK_WIRELESS) {
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -33013,7 +33013,7 @@ index 12203d61922f..663fda8a86fd 100644
  
  static void steam_do_connect_event(struct steam_device *steam, bool connected)
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -33158,7 +33158,7 @@ index 663fda8a86fd..222b5751040a 100644
  		schedule_delayed_work(&steam->mode_switch, 45 * HZ / 100);
  	}
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -33199,7 +33199,7 @@ index 222b5751040a..ddd439dd069b 100644
  	return ret;
  }
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -33276,7 +33276,7 @@ index ddd439dd069b..3b4a588c20ad 100644
  
  static int steam_send_report(struct steam_device *steam,
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -33377,7 +33377,7 @@ index 3b4a588c20ad..6199f67f3c4c 100644
  				(int)sizeof(reply), reply);
  		return -EIO;
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -33530,7 +33530,7 @@ index 6199f67f3c4c..d4ebc1efc01e 100644
  	steam_sensors_unregister(steam);
  	steam_input_unregister(steam);
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -34729,7 +34729,7 @@ index d4ebc1efc01e..29de32051319 100644
  };
  
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -34770,7 +34770,7 @@ index 29de32051319..461ebf37171b 100644
  	steam->registered = false;
  	steam_battery_unregister(steam);
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -34823,7 +34823,7 @@ index 461ebf37171b..7226c0681ed1 100644
  				ret, size, cmd);
  	return ret;
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -35190,7 +35190,7 @@ index 7226c0681ed1..7bb892972447 100644
  	mutex_unlock(&steam_devices_lock);
  	return 0;
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -35304,7 +35304,7 @@ index 7bb892972447..ac08cb2d0368 100644
  	if (gamepad_mode) {
  		steam_haptic_pulse(steam, STEAM_PAD_LEFT, 0x14D, 0x14D, 0x2D, 0);
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -35394,7 +35394,7 @@ index ac08cb2d0368..3a7c9d6df172 100644
  		input = rcu_dereference(steam->input);
  		if (likely(input))
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -35450,7 +35450,7 @@ index 22282578ab99..3433950fccba 100644
  
  static void handle_cec_event(struct cros_ec_cec *cros_ec_cec)
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -35481,7 +35481,7 @@ index 3433950fccba..a14961939dc6 100644
  	{ "Google", "Fizz", "0000:00:02.0", port_b_conns },
  	/* Google Brask */
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -35565,7 +35565,7 @@ index 749d985e9da2..f7e22e034f10 100644
  
  /* Events from CEC to AP */
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -35818,7 +35818,7 @@ index f22e9523da3e..b240ea661bd4 100644
  };
  
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -36321,7 +36321,7 @@ index 000000000000..5683f833fc77
 +MODULE_DESCRIPTION("Valve LEDs driver");
 +MODULE_LICENSE("GPL");
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -36644,7 +36644,7 @@ index 5683f833fc77..ae099ff1b451 100644
  }
  
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -36831,7 +36831,7 @@ index ae099ff1b451..2c52046d237d 100644
  		.name = DRVNAME,
  	},
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -36976,7 +36976,7 @@ index 2c52046d237d..d90ec18a9337 100644
  		for (c = 0; c < VALVE_NUM_COMPONENTS; c++) {
  			vleds->leds[i].rgb[c].color_index = LED_COLOR_ID_RED + c;
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -37183,7 +37183,7 @@ index d90ec18a9337..af5205ce37e2 100644
  };
  static const struct attribute_group valve_leds_attr_group = {
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -37215,7 +37215,7 @@ index c91638e65174..8c84aee9237b 100644
  	}
  
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -37362,7 +37362,7 @@ index 57c44268698f..344dbb559938 100644
  }
  
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -37417,7 +37417,7 @@ index 2ec69fa05cb1..b42bd414e7d1 100644
  	case PM_POST_HIBERNATION:
  		adev->in_s4 = false;
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -37577,7 +37577,7 @@ index 7d7cb0593a63..ef4dd65d15af 100644
  
  int input_open_device(struct input_handle *);
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -37604,7 +37604,7 @@ index 834f65f4b59a..dc0f0112a995 100644
  	}
  
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -37640,7 +37640,7 @@ index 2d94bae5c4d1..ac4508c65122 100644
  		// TUXEDO InfinityBook Pro AMD Gen9
  		.matches = {
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -37674,7 +37674,7 @@ index 4e70308a455e..1a354f8ddd89 100644
  /* unit: mV */
  #define CYAN_SKILLFISH_VDDC_MIN			700
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -37779,7 +37779,7 @@ index 127207e18dcb..255859a814c8 100644
  #else
  	res = dm_plane_init_colorops(plane);
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -37806,7 +37806,7 @@ index f71220152d71..5f5001aac0ac 100644
  		return;
  
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -37838,7 +37838,7 @@ index 41a24e091248..28cb09fe8491 100644
  };
  
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -37900,7 +37900,7 @@ index 4a7ac85c4db4..20de3173ecca 100644
  		}
  
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -37927,7 +37927,7 @@ index cae3fcafd4d7..79870f371beb 100644
  	/* Dump the IdleMask before we add to the STB */
  	amd_pmc_idlemask_read(pdev, pdev->dev, NULL);
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -37955,7 +37955,7 @@ index b42bd414e7d1..4da1e72c48f5 100644
  		adev->pm.pp_feature &= ~PP_GFXOFF_MASK;
  	if (amdgpu_sriov_vf(adev) && adev->asic_type == CHIP_SIENNA_CICHLID)
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -38156,7 +38156,7 @@ index 58d12073f7b7..fd5f48aa0a78 100644
  		if (ret)
  			return ret;
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -38187,7 +38187,7 @@ index 7deff55b076c..6e7dac6f8e70 100644
  		.matches = {
  		  DMI_EXACT_MATCH(DMI_SYS_VENDOR, "ONE-NETBOOK"),
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -38223,7 +38223,7 @@ index 9be55d1d20ec..acbb2fcbb632 100644
  
  	return 0;
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -38256,7 +38256,7 @@ index 820fee2658c6..c2249c172277 100644
  }
  
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -38414,7 +38414,7 @@ index 6c154a4d94b9..89c556553f2e 100644
  			return rc;
  	}
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -38649,7 +38649,7 @@ index d1cab4d5787a..5775ef6a3af7 100644
  	for (unsigned int i = 0; i < ARRAY_SIZE(cd01_attr_groups) - 1; i++)
  		sysfs_remove_group(&priv->fw_attr_kset->kobj,
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -39041,7 +39041,7 @@ index 000000000000..20353a4b110c
 +MODULE_DESCRIPTION("Lenovo GameZone Fan WMI Driver");
 +MODULE_LICENSE("GPL");
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -39449,7 +39449,7 @@ index 000000000000..74b47b287f4c
 +MODULE_DESCRIPTION("Lenovo Lighting WMI Driver");
 +MODULE_LICENSE("GPL");
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -39775,7 +39775,7 @@ index 5775ef6a3af7..07db524c475b 100644
  	component_unbind_all(dev, NULL);
  }
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -39837,7 +39837,7 @@ index 4560d92d76fe..1ec6ff1cc191 100644
  		/*
  		 * W/A - seems to solve weird behavior. We need to remove this
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -39874,7 +39874,7 @@ index 6d4a53a2ed60..0806e5653f7c 100644
  };
  
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -40003,7 +40003,7 @@ index 0806e5653f7c..00a5e64b2001 100644
  		ret = read_from_ec(OXP_SENSOR_PWM_REG, 1, val);
  		if (ret)
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -40202,7 +40202,7 @@ index 00a5e64b2001..5680c3bcd604 100644
  	platform_driver_unregister(&oxp_platform_driver);
  }
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -40229,7 +40229,7 @@ index fb166662bc0d..8cb1e234b22f 100644
  	int i, ret;
  
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -40256,7 +40256,7 @@ index b2820f8652f1..6aafff33d060 100644
  };
  
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -40297,7 +40297,7 @@ index 6aafff33d060..4b486f30ca86 100644
  	{
  		.ident = "AYANEO AIR",
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -40322,7 +40322,7 @@ index 4b486f30ca86..b069878f7ee8 100644
  	"AMD RYZEN AI MAX 380",
  	/* Ryzen AI */
 -- 
-2.54.0
+2.55.0
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
@@ -40385,5 +40385,82 @@ index f3fd7f39efb4..eae93bf28726 100644
  	for (i = 0; i < 32; i++) {
  		u32 pci_id;
 -- 
-2.54.0
+2.55.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Fri, 14 Aug 2026 15:08:27 +0200
+Subject: oxpec: add s2idle quirk for Apex / X2Mini Pro
+
+---
+ drivers/platform/x86/oxpec.c | 37 ++++++++++++++++++++++++++++++++++++
+ 1 file changed, 37 insertions(+)
+
+diff --git a/drivers/platform/x86/oxpec.c b/drivers/platform/x86/oxpec.c
+index 5680c3bcd604..80653796d6dc 100644
+--- a/drivers/platform/x86/oxpec.c
++++ b/drivers/platform/x86/oxpec.c
+@@ -304,6 +304,28 @@ static const struct dmi_system_id dmi_table[] = {
+ 	{},
+ };
+ 
++static const struct dmi_system_id oxp_lps0_delay_quirks[] = {
++	{
++		.matches = {
++			DMI_MATCH(DMI_BOARD_VENDOR, "ONE-NETBOOK"),
++			DMI_EXACT_MATCH(DMI_BOARD_NAME, "ONEXPLAYER APEX"),
++		},
++	},
++	{
++		.matches = {
++			DMI_MATCH(DMI_BOARD_VENDOR, "ONE-NETBOOK"),
++			DMI_EXACT_MATCH(DMI_BOARD_NAME, "ONEXPLAYER X2Mini PRO"),
++		},
++	},
++	{}
++};
++
++static struct acpi_s2idle_dev_ops oxp_s2idle_dev_ops = {
++	.begin_delay = 500,
++};
++
++static bool oxp_lps0_dev_registered;
++
+ #define OXP_KEYBOARD_VID_QINHENG	0x1a86
+ #define OXP_KEYBOARD_PID_K2445		0x1305
+ #define OXP_KEYBOARD_VID_HAILUCK	0x258a
+@@ -1072,15 +1094,30 @@ static int oxp_platform_probe(struct platform_device *pdev)
+ 		break;
+ 	}
+ 
++	if (dmi_check_system(oxp_lps0_delay_quirks)) {
++		ret = acpi_register_lps0_dev(&oxp_s2idle_dev_ops);
++		if (!ret)
++			oxp_lps0_dev_registered = true;
++	}
++
+ 	return 0;
+ }
+ 
++static void oxp_platform_remove(struct platform_device *pdev)
++{
++	if (oxp_lps0_dev_registered) {
++		acpi_unregister_lps0_dev(&oxp_s2idle_dev_ops);
++		oxp_lps0_dev_registered = false;
++	}
++}
++
+ static struct platform_driver oxp_platform_driver = {
+ 	.driver = {
+ 		.name = "oxp-platform",
+ 		.dev_groups = oxp_ec_groups,
+ 	},
+ 	.probe = oxp_platform_probe,
++	.remove = oxp_platform_remove,
+ };
+ 
+ static struct platform_device *oxp_platform_device;
+-- 
+2.55.0
 
