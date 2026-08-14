@@ -190,13 +190,13 @@ Summary: The Linux kernel
 %define specrpmversion 7.0.12
 %define specversion 7.0.12
 %define patchversion 7.0
-%define pkgrelease an12
+%define pkgrelease an13
 %define kversion 7
 %define tarfile_release 7.0.12
 # This is needed to do merge window version magic
 %define patchlevel 0
 # This allows pkg_release to have configurable %%{?dist} tag
-%define specrelease an12%{?buildid}%{?dist}
+%define specrelease an13%{?buildid}%{?dist}
 # This defines the kabi tarball version
 %define kabiversion 7.0.12
 
@@ -4947,7 +4947,7 @@ fi\
 #
 #
 %changelog
-* Fri Aug 14 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.0.12-an12]
+* Fri Aug 14 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.0.12-an13]
 - oxpec: add s2idle quirk for Apex / X2Mini Pro (Antheas Kapenekakis)
 - disable the iommu in apex and x2mini pro for now (Antheas Kapenekakis)
 - add ai max 388 (Antheas Kapenekakis)

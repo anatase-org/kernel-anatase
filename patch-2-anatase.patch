@@ -40398,7 +40398,7 @@ Subject: oxpec: add s2idle quirk for Apex / X2Mini Pro
  1 file changed, 37 insertions(+)
 
 diff --git a/drivers/platform/x86/oxpec.c b/drivers/platform/x86/oxpec.c
-index 5680c3bcd604..80653796d6dc 100644
+index 5680c3bcd604..014036027391 100644
 --- a/drivers/platform/x86/oxpec.c
 +++ b/drivers/platform/x86/oxpec.c
 @@ -304,6 +304,28 @@ static const struct dmi_system_id dmi_table[] = {
@@ -40422,7 +40422,7 @@ index 5680c3bcd604..80653796d6dc 100644
 +};
 +
 +static struct acpi_s2idle_dev_ops oxp_s2idle_dev_ops = {
-+	.begin_delay = 500,
++	.begin_delay = 1000,
 +};
 +
 +static bool oxp_lps0_dev_registered;
