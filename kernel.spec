@@ -4595,7 +4595,6 @@ fi\
 %endif
 
 %files common
-/usr/lib/modules-load.d/20-akmods.conf
 /usr/lib/modprobe.d/20-akmods.conf
 /usr/lib/udev/rules.d/70-razer.rules
 /usr/lib/udev/razer_mount
