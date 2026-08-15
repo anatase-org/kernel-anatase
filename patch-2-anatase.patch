@@ -35309,7 +35309,7 @@ index 7bb892972447..ac08cb2d0368 100644
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Antheas Kapenekakis <lkml@antheas.dev>
-Date: Thu, 13 Aug 2026 13:13:18 +0200
+Date: Sat, 15 Aug 2026 20:10:02 +0200
 Subject: hid: steam: retain controller while steam is open
 
 Currently, when a hidraw reader interacts with hid-steam, the kernel
@@ -35323,11 +35323,11 @@ connects to the controller. Keep the gates that controll sensor output
 and lizard mode, such that Steam or another hid client still controls
 device behavior.
 ---
- drivers/hid/hid-steam.c | 15 ++-------------
- 1 file changed, 2 insertions(+), 13 deletions(-)
+ drivers/hid/hid-steam.c | 19 ++++---------------
+ 1 file changed, 4 insertions(+), 15 deletions(-)
 
 diff --git a/drivers/hid/hid-steam.c b/drivers/hid/hid-steam.c
-index ac08cb2d0368..3a7c9d6df172 100644
+index ac08cb2d0368..e30bc59db15e 100644
 --- a/drivers/hid/hid-steam.c
 +++ b/drivers/hid/hid-steam.c
 @@ -1465,15 +1465,13 @@ static void steam_work_connect_cb(struct work_struct *work)
@@ -35347,6 +35347,24 @@ index ac08cb2d0368..3a7c9d6df172 100644
  		ret = steam_register(steam);
  		if (ret)
  			hid_err(steam->hdev,
+@@ -2252,7 +2250,7 @@ static void steam_do_deck_input_event(struct steam_device *steam,
+ 		schedule_delayed_work(&steam->mode_switch, 45 * HZ / 100);
+ 	}
+ 
+-	if (!steam->gamepad_mode && lizard_mode)
++	if (!steam->client_opened && !steam->gamepad_mode && lizard_mode)
+ 		return;
+ 
+ 	lpad_touched = data[10] & BIT(3);
+@@ -2285,7 +2283,7 @@ static void steam_do_deck_sensors_event(struct steam_device *steam,
+ {
+ 	steam->sensor_timestamp_us += steam->sensor_update_rate_us;
+ 
+-	if (!steam->gamepad_mode && lizard_mode)
++	if (!steam->client_opened && !steam->gamepad_mode && lizard_mode)
+ 		return;
+ 
+ 	input_event(sensors, EV_MSC, MSC_TIMESTAMP, steam->sensor_timestamp_us);
 @@ -2540,8 +2538,7 @@ static int steam_raw_event(struct hid_device *hdev,
  		return 0;
  
