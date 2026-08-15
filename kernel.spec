@@ -190,13 +190,13 @@ Summary: The Linux kernel
 %define specrpmversion 7.0.12
 %define specversion 7.0.12
 %define patchversion 7.0
-%define pkgrelease an16
+%define pkgrelease an17
 %define kversion 7
 %define tarfile_release 7.0.12
 # This is needed to do merge window version magic
 %define patchlevel 0
 # This allows pkg_release to have configurable %%{?dist} tag
-%define specrelease an16%{?buildid}%{?dist}
+%define specrelease an17%{?buildid}%{?dist}
 # This defines the kabi tarball version
 %define kabiversion 7.0.12
 
@@ -4947,7 +4947,7 @@ fi\
 #
 #
 %changelog
-* Sat Aug 15 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.0.12-an16]
+* Sat Aug 15 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.0.12-an17]
 - amdgpu: Add CH7218 PCON to the VRR whitelist (Tomasz Pakuła)
 - drm/amd/display: Adjust freesync pcon whitelist (Wayne Lin)
 - oxpec: add s2idle quirk for Apex / X2Mini Pro (Antheas Kapenekakis)
