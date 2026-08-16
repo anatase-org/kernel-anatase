@@ -40553,3 +40553,250 @@ index 53210e3aa0e0..c5776ae6d4cb 100644
 -- 
 2.55.0
 
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Lizhi Hou <lizhi.hou@amd.com>
+Date: Tue, 16 Jun 2026 14:24:29 -0700
+Subject: accel/amdxdna: Prevent PM resume deadlock in hwctx_sync_debug_bo()
+
+amdxdna_hwctx_sync_debug_bo() invokes the hardware hwctx_sync_debug_bo()
+callback while holding xdna->dev_lock.
+
+The callback may call amdxdna_cmd_submit(), which in turn calls
+amdxdna_pm_resume_get(). If the device is suspended,
+amdxdna_pm_resume_get() may synchronously execute amdxdna_pm_resume(),
+which also acquires xdna->dev_lock, resulting in a deadlock.
+
+Avoid the deadlock by calling amdxdna_pm_resume_get() before holding
+xdna->dev_lock in both amdxdna_hwctx_sync_debug_bo() and
+amdxdna_drm_config_hwctx_ioctl()
+
+Fixes: 7ea046838021 ("accel/amdxdna: Support firmware debug buffer")
+Reviewed-by: Max Zhen <max.zhen@amd.com>
+Signed-off-by: Lizhi Hou <lizhi.hou@amd.com>
+Link: https://patch.msgid.link/20260616212429.3620645-1-lizhi.hou@amd.com
+---
+ drivers/accel/amdxdna/aie2_ctx.c    |  2 +-
+ drivers/accel/amdxdna/amdxdna_ctx.c | 26 ++++++++++++++++++++++----
+ 2 files changed, 23 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/accel/amdxdna/aie2_ctx.c b/drivers/accel/amdxdna/aie2_ctx.c
+index c0d348884f74..ace99555680a 100644
+--- a/drivers/accel/amdxdna/aie2_ctx.c
++++ b/drivers/accel/amdxdna/aie2_ctx.c
+@@ -747,7 +747,7 @@ static int aie2_hwctx_cu_config(struct amdxdna_hwctx *hwctx, void *buf, u32 size
+ 	if (!hwctx->cus)
+ 		return -ENOMEM;
+ 
+-	ret = amdxdna_pm_resume_get_locked(xdna);
++	ret = amdxdna_pm_resume_get(xdna);
+ 	if (ret)
+ 		goto free_cus;
+ 
+diff --git a/drivers/accel/amdxdna/amdxdna_ctx.c b/drivers/accel/amdxdna/amdxdna_ctx.c
+index 838430903a3e..3f960ddbddb2 100644
+--- a/drivers/accel/amdxdna/amdxdna_ctx.c
++++ b/drivers/accel/amdxdna/amdxdna_ctx.c
+@@ -341,16 +341,25 @@ int amdxdna_drm_config_hwctx_ioctl(struct drm_device *dev, void *data, struct dr
+ 		return -EINVAL;
+ 	}
+ 
+-	guard(mutex)(&xdna->dev_lock);
++	ret = amdxdna_pm_resume_get(xdna);
++	if (ret) {
++		XDNA_ERR(xdna, "Resume failed, ret %d", ret);
++		goto free_buf;
++	}
++
++	mutex_lock(&xdna->dev_lock);
+ 	hwctx = xa_load(&client->hwctx_xa, args->handle);
+ 	if (!hwctx) {
+ 		XDNA_DBG(xdna, "PID %d failed to get hwctx %d", client->pid, args->handle);
+ 		ret = -EINVAL;
+-		goto free_buf;
++		goto unlock;
+ 	}
+ 
+ 	ret = xdna->dev_info->ops->hwctx_config(hwctx, args->param_type, val, buf, buf_size);
+ 
++unlock:
++	mutex_unlock(&xdna->dev_lock);
++	amdxdna_pm_suspend_put(xdna);
+ free_buf:
+ 	kfree(buf);
+ 	return ret;
+@@ -371,16 +380,25 @@ int amdxdna_hwctx_sync_debug_bo(struct amdxdna_client *client, u32 debug_bo_hdl)
+ 	if (!gobj)
+ 		return -EINVAL;
+ 
++	ret = amdxdna_pm_resume_get(xdna);
++	if (ret) {
++		XDNA_ERR(xdna, "Resume failed, ret %d", ret);
++		goto put_obj;
++	}
++
+ 	abo = to_xdna_obj(gobj);
+-	guard(mutex)(&xdna->dev_lock);
++	mutex_lock(&xdna->dev_lock);
+ 	hwctx = xa_load(&client->hwctx_xa, abo->assigned_hwctx);
+ 	if (!hwctx) {
+ 		ret = -EINVAL;
+-		goto put_obj;
++		goto unlock;
+ 	}
+ 
+ 	ret = xdna->dev_info->ops->hwctx_sync_debug_bo(hwctx, debug_bo_hdl);
+ 
++unlock:
++	mutex_unlock(&xdna->dev_lock);
++	amdxdna_pm_suspend_put(xdna);
+ put_obj:
+ 	drm_gem_object_put(gobj);
+ 	return ret;
+-- 
+2.55.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Lizhi Hou <lizhi.hou@amd.com>
+Date: Thu, 26 Feb 2026 10:25:45 -0800
+Subject: PCI: Avoid FLR for AMD NPU device
+
+The AMD NPU device (PCI Device IDs 0x1502 and 0x17f0) advertises FLR
+support. However, triggering an FLR causes the device to hang.
+
+Signed-off-by: Lizhi Hou <lizhi.hou@amd.com>
+Signed-off-by: Bjorn Helgaas <bhelgaas@google.com>
+Link: https://patch.msgid.link/20260226182545.3057330-1-lizhi.hou@amd.com
+---
+ drivers/pci/quirks.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c
+index 03d2f6486e25..3b0b0ef06d9c 100644
+--- a/drivers/pci/quirks.c
++++ b/drivers/pci/quirks.c
+@@ -5737,6 +5737,7 @@ DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_INTEL, 0x443, quirk_intel_qat_vf_cap);
+  * AMD Starship/Matisse HD Audio Controller 0x1487
+  * AMD Starship USB 3.0 Host Controller 0x148c
+  * AMD Matisse USB 3.0 Host Controller 0x149c
++ * AMD Neural Processing Unit 0x1502 0x17f0
+  * Intel 82579LM Gigabit Ethernet Controller 0x1502
+  * Intel 82579V Gigabit Ethernet Controller 0x1503
+  * Mediatek MT7922 802.11ax PCI Express Wireless Network Adapter
+@@ -5749,6 +5750,8 @@ DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_AMD, 0x1487, quirk_no_flr);
+ DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_AMD, 0x148c, quirk_no_flr);
+ DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_AMD, 0x149c, quirk_no_flr);
+ DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_AMD, 0x7901, quirk_no_flr);
++DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_AMD, 0x1502, quirk_no_flr);
++DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_AMD, 0x17f0, quirk_no_flr);
+ DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_INTEL, 0x1502, quirk_no_flr);
+ DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_INTEL, 0x1503, quirk_no_flr);
+ DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_MEDIATEK, 0x0616, quirk_no_flr);
+-- 
+2.55.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Lizhi Hou <lizhi.hou@amd.com>
+Date: Mon, 6 Jul 2026 22:57:32 -0700
+Subject: accel/amdxdna: Fix deadlock on debug BO command timeout
+
+Both amdxdna_hwctx_sync_debug_bo() and amdxdna_drm_config_hwctx_ioctl()
+hold xdna->dev_lock while invoking backend operations. If the hardware
+hangs, aie2_cmd_wait() blocks waiting for a firmware response. When the
+DRM scheduler timeout expires, aie2_sched_job_timedout() is invoked to
+reset the hardware. However, the timeout handler also attempts to acquire
+dev_lock, resulting in a deadlock.
+
+Avoid this by releasing dev_lock before waiting for the firmware
+response and reacquiring it after the wait completes. This allows the
+timeout handler to proceed with device recovery when a debug BO command
+times out.
+
+Fixes: 7ea046838021 ("accel/amdxdna: Support firmware debug buffer")
+Reviewed-by: Max Zhen <max.zhen@amd.com>
+Signed-off-by: Lizhi Hou <lizhi.hou@amd.com>
+Link: https://patch.msgid.link/20260707055732.479103-1-lizhi.hou@amd.com
+---
+ drivers/accel/amdxdna/aie2_ctx.c    | 5 ++++-
+ drivers/accel/amdxdna/amdxdna_ctx.c | 6 ++++++
+ 2 files changed, 10 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/accel/amdxdna/aie2_ctx.c b/drivers/accel/amdxdna/aie2_ctx.c
+index ace99555680a..9d413ccd6229 100644
+--- a/drivers/accel/amdxdna/aie2_ctx.c
++++ b/drivers/accel/amdxdna/aie2_ctx.c
+@@ -772,13 +772,16 @@ static int aie2_hwctx_cu_config(struct amdxdna_hwctx *hwctx, void *buf, u32 size
+ static void aie2_cmd_wait(struct amdxdna_hwctx *hwctx, u64 seq)
+ {
+ 	struct dma_fence *out_fence = aie2_cmd_get_out_fence(hwctx, seq);
++	struct amdxdna_dev *xdna = hwctx->client->xdna;
+ 
+ 	if (!out_fence) {
+-		XDNA_ERR(hwctx->client->xdna, "Failed to get fence");
++		XDNA_ERR(xdna, "Failed to get fence");
+ 		return;
+ 	}
+ 
++	mutex_unlock(&xdna->dev_lock);
+ 	dma_fence_wait_timeout(out_fence, false, MAX_SCHEDULE_TIMEOUT);
++	mutex_lock(&xdna->dev_lock);
+ 	dma_fence_put(out_fence);
+ }
+ 
+diff --git a/drivers/accel/amdxdna/amdxdna_ctx.c b/drivers/accel/amdxdna/amdxdna_ctx.c
+index 3f960ddbddb2..9757d8191808 100644
+--- a/drivers/accel/amdxdna/amdxdna_ctx.c
++++ b/drivers/accel/amdxdna/amdxdna_ctx.c
+@@ -269,6 +269,7 @@ int amdxdna_drm_destroy_hwctx_ioctl(struct drm_device *dev, void *data, struct d
+ 	if (!drm_dev_enter(dev, &idx))
+ 		return -ENODEV;
+ 
++	mutex_lock(&xdna->client_lock);
+ 	mutex_lock(&xdna->dev_lock);
+ 	hwctx = xa_erase(&client->hwctx_xa, args->handle);
+ 	if (!hwctx) {
+@@ -287,6 +288,7 @@ int amdxdna_drm_destroy_hwctx_ioctl(struct drm_device *dev, void *data, struct d
+ 	XDNA_DBG(xdna, "PID %d destroyed HW context %d", client->pid, args->handle);
+ out:
+ 	mutex_unlock(&xdna->dev_lock);
++	mutex_unlock(&xdna->client_lock);
+ 	drm_dev_exit(idx);
+ 	return ret;
+ }
+@@ -347,6 +349,7 @@ int amdxdna_drm_config_hwctx_ioctl(struct drm_device *dev, void *data, struct dr
+ 		goto free_buf;
+ 	}
+ 
++	mutex_lock(&xdna->client_lock);
+ 	mutex_lock(&xdna->dev_lock);
+ 	hwctx = xa_load(&client->hwctx_xa, args->handle);
+ 	if (!hwctx) {
+@@ -359,6 +362,7 @@ int amdxdna_drm_config_hwctx_ioctl(struct drm_device *dev, void *data, struct dr
+ 
+ unlock:
+ 	mutex_unlock(&xdna->dev_lock);
++	mutex_unlock(&xdna->client_lock);
+ 	amdxdna_pm_suspend_put(xdna);
+ free_buf:
+ 	kfree(buf);
+@@ -387,6 +391,7 @@ int amdxdna_hwctx_sync_debug_bo(struct amdxdna_client *client, u32 debug_bo_hdl)
+ 	}
+ 
+ 	abo = to_xdna_obj(gobj);
++	mutex_lock(&xdna->client_lock);
+ 	mutex_lock(&xdna->dev_lock);
+ 	hwctx = xa_load(&client->hwctx_xa, abo->assigned_hwctx);
+ 	if (!hwctx) {
+@@ -398,6 +403,7 @@ int amdxdna_hwctx_sync_debug_bo(struct amdxdna_client *client, u32 debug_bo_hdl)
+ 
+ unlock:
+ 	mutex_unlock(&xdna->dev_lock);
++	mutex_unlock(&xdna->client_lock);
+ 	amdxdna_pm_suspend_put(xdna);
+ put_obj:
+ 	drm_gem_object_put(gobj);
+-- 
+2.55.0
+
