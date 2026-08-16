@@ -40698,105 +40698,896 @@ index 03d2f6486e25..3b0b0ef06d9c 100644
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
-From: Lizhi Hou <lizhi.hou@amd.com>
-Date: Mon, 6 Jul 2026 22:57:32 -0700
-Subject: accel/amdxdna: Fix deadlock on debug BO command timeout
+From: =?UTF-8?q?Tomasz=20Paku=C5=82a?= <tomasz.pakula.oficjalny@gmail.com>
+Date: Mon, 16 Feb 2026 17:45:01 +0100
+Subject: [FROM-ML] drm/edid: Parse more info from HDMI Forum vsdb
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
 
-Both amdxdna_hwctx_sync_debug_bo() and amdxdna_drm_config_hwctx_ioctl()
-hold xdna->dev_lock while invoking backend operations. If the hardware
-hangs, aie2_cmd_wait() blocks waiting for a firmware response. When the
-DRM scheduler timeout expires, aie2_sched_job_timedout() is invoked to
-reset the hardware. However, the timeout handler also attempts to acquire
-dev_lock, resulting in a deadlock.
+[Why]
+Drivers may need info about gaming features exposed by HDMI sinks. Add
+a central way of storing this information.
 
-Avoid this by releasing dev_lock before waiting for the firmware
-response and reacquiring it after the wait completes. This allows the
-timeout handler to proceed with device recovery when a debug BO command
-times out.
+[How]
+Adds flags and a struct to hold HDMI VRR information. `supported` here
+is an additional property which allows easier parsing in consumers and
+adds a bit of logic used to detect malformed VRRmin/VRRmax values.
 
-Fixes: 7ea046838021 ("accel/amdxdna: Support firmware debug buffer")
-Reviewed-by: Max Zhen <max.zhen@amd.com>
-Signed-off-by: Lizhi Hou <lizhi.hou@amd.com>
-Link: https://patch.msgid.link/20260707055732.479103-1-lizhi.hou@amd.com
+Signed-off-by: Tomasz Pakuła <tomasz.pakula.oficjalny@gmail.com>
+Tested-by: Bernhard Berger <bernhard.berger@gmail.com>
+Link: https://lore.kernel.org/r/20260216164516.36803-13-tomasz.pakula.oficjalny@gmail.com
 ---
- drivers/accel/amdxdna/aie2_ctx.c    | 5 ++++-
- drivers/accel/amdxdna/amdxdna_ctx.c | 6 ++++++
- 2 files changed, 10 insertions(+), 1 deletion(-)
+ drivers/gpu/drm/drm_edid.c  | 41 +++++++++++++++++++++++++++++++-
+ include/drm/drm_connector.h | 47 +++++++++++++++++++++++++++++++++++++
+ 2 files changed, 87 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/accel/amdxdna/aie2_ctx.c b/drivers/accel/amdxdna/aie2_ctx.c
-index ace99555680a..9d413ccd6229 100644
---- a/drivers/accel/amdxdna/aie2_ctx.c
-+++ b/drivers/accel/amdxdna/aie2_ctx.c
-@@ -772,13 +772,16 @@ static int aie2_hwctx_cu_config(struct amdxdna_hwctx *hwctx, void *buf, u32 size
- static void aie2_cmd_wait(struct amdxdna_hwctx *hwctx, u64 seq)
+diff --git a/drivers/gpu/drm/drm_edid.c b/drivers/gpu/drm/drm_edid.c
+index c65d24369f1a..d0c1f84fdccf 100644
+--- a/drivers/gpu/drm/drm_edid.c
++++ b/drivers/gpu/drm/drm_edid.c
+@@ -6152,6 +6152,33 @@ static void drm_parse_ycbcr420_deep_color_info(struct drm_connector *connector,
+ 	hdmi->y420_dc_modes = dc_mask;
+ }
+ 
++static void drm_parse_hdmi_gaming_info(struct drm_hdmi_info *hdmi, const u8 *db)
++{
++	struct drm_hdmi_vrr_cap *vrr = &hdmi->vrr_cap;
++
++	if (cea_db_payload_len(db) < 8)
++		return;
++
++	hdmi->fapa_start_location = db[8] & DRM_EDID_FAPA_START_LOCATION;
++	hdmi->allm = db[8] & DRM_EDID_ALLM;
++	vrr->fva = db[8] & DRM_EDID_FVA;
++	vrr->cnmvrr = db[8] & DRM_EDID_CNMVRR;
++	vrr->cinema_vrr = db[8] & DRM_EDID_CINEMA_VRR;
++	vrr->mdelta = db[8] & DRM_EDID_MDELTA;
++
++	if (cea_db_payload_len(db) < 9)
++		return;
++
++	vrr->vrr_min = db[9] & DRM_EDID_VRR_MIN_MASK;
++	vrr->supported = (vrr->vrr_min > 0 && vrr->vrr_min <= 48);
++
++	if (cea_db_payload_len(db) < 10)
++		return;
++
++	vrr->vrr_max = (db[9] & DRM_EDID_VRR_MAX_UPPER_MASK) << 2 | db[10];
++	vrr->supported &= (vrr->vrr_max == 0 || vrr->vrr_max >= 100);
++}
++
+ static void drm_parse_dsc_info(struct drm_hdmi_dsc_cap *hdmi_dsc,
+ 			       const u8 *hf_scds)
  {
- 	struct dma_fence *out_fence = aie2_cmd_get_out_fence(hwctx, seq);
-+	struct amdxdna_dev *xdna = hwctx->client->xdna;
+@@ -6277,7 +6304,7 @@ static void drm_parse_hdmi_forum_scds(struct drm_connector *connector,
+ 	}
  
- 	if (!out_fence) {
--		XDNA_ERR(hwctx->client->xdna, "Failed to get fence");
-+		XDNA_ERR(xdna, "Failed to get fence");
+ 	drm_parse_ycbcr420_deep_color_info(connector, hf_scds);
+-
++	drm_parse_hdmi_gaming_info(&connector->display_info.hdmi, hf_scds);
+ 	if (cea_db_payload_len(hf_scds) >= 11 && hf_scds[11]) {
+ 		drm_parse_dsc_info(hdmi_dsc, hf_scds);
+ 		dsc_support = true;
+@@ -6287,6 +6314,18 @@ static void drm_parse_hdmi_forum_scds(struct drm_connector *connector,
+ 		    "[CONNECTOR:%d:%s] HF-VSDB: max TMDS clock: %d KHz, HDMI 2.1 support: %s, DSC 1.2 support: %s\n",
+ 		    connector->base.id, connector->name,
+ 		    max_tmds_clock, str_yes_no(max_frl_rate), str_yes_no(dsc_support));
++	drm_dbg_kms(connector->dev,
++		    "[CONNECTOR:%d:%s] FAPA in blanking: %s, ALLM support: %s, Fast Vactive support: %s\n",
++		    connector->base.id, connector->name, str_yes_no(hdmi->fapa_start_location),
++		    str_yes_no(hdmi->allm), str_yes_no(hdmi->vrr_cap.fva));
++	drm_dbg_kms(connector->dev,
++		    "[CONNECTOR:%d:%s] Negative M VRR support: %s, CinemaVRR support: %s, Mdelta: %d\n",
++		    connector->base.id, connector->name, str_yes_no(hdmi->vrr_cap.cnmvrr),
++		    str_yes_no(hdmi->vrr_cap.cinema_vrr), hdmi->vrr_cap.mdelta);
++	drm_dbg_kms(connector->dev,
++		    "[CONNECTOR:%d:%s] VRRmin: %u, VRRmax: %u, VRR supported: %s\n",
++		    connector->base.id, connector->name, hdmi->vrr_cap.vrr_min,
++		    hdmi->vrr_cap.vrr_max, str_yes_no(hdmi->vrr_cap.supported));
+ }
+ 
+ static void drm_parse_hdmi_deep_color_info(struct drm_connector *connector,
+diff --git a/include/drm/drm_connector.h b/include/drm/drm_connector.h
+index 6fa054be9326..8ccfe47543e8 100644
+--- a/include/drm/drm_connector.h
++++ b/include/drm/drm_connector.h
+@@ -254,6 +254,44 @@ struct drm_scdc {
+ 	struct drm_scrambling scrambling;
+ };
+ 
++/**
++ * struct drm_hdmi_vrr_cap - Information about VRR capabilities of a HDMI sink
++ *
++ * Describes the VRR support provided by HDMI 2.1 sink. The information is
++ * fetched fom additional HFVSDB blocks defined for HDMI 2.1.
++ */
++struct drm_hdmi_vrr_cap {
++	/** @fva: flag for Fast VActive (Quick Frame Transport) support */
++	bool fva;
++
++	/** @mcnmvrr: flag for Negative M VRR support */
++	bool cnmvrr;
++
++	/** @mcinema_vrr: flag for Cinema VRR support */
++	bool cinema_vrr;
++
++	/** @mdelta: flag for limited frame-to-frame compensation support */
++	bool mdelta;
++
++	/**
++	 * @vrr_min : minimum supported variable refresh rate in Hz.
++	 * Valid values only inide 1 - 48 range
++	 */
++	u16 vrr_min;
++
++	/**
++	 * @vrr_max : maximum supported variable refresh rate in Hz (optional).
++	 * Valid values are either 0 (max based on video mode) or >= 100
++	 */
++	u16 vrr_max;
++
++	/**
++	 * @supported: flag for vrr support based on checking for VRRmin and
++	 * VRRmax values having correct values.
++	 */
++	bool supported;
++};
++
+ /**
+  * struct drm_hdmi_dsc_cap - DSC capabilities of HDMI sink
+  *
+@@ -330,6 +368,15 @@ struct drm_hdmi_info {
+ 	/** @max_lanes: supported by sink */
+ 	u8 max_lanes;
+ 
++	/** @fapa_start_location: flag for the FAPA in blanking support */
++	bool fapa_start_location;
++
++	/** @allm: flag for Auto Low Latency Mode support by sink */
++	bool allm;
++
++	/** @vrr_cap: VRR capabilities of the sink */
++	struct drm_hdmi_vrr_cap vrr_cap;
++
+ 	/** @dsc_cap: DSC capabilities of the sink */
+ 	struct drm_hdmi_dsc_cap dsc_cap;
+ };
+-- 
+2.55.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Tomasz=20Paku=C5=82a?= <tomasz.pakula.oficjalny@gmail.com>
+Date: Mon, 16 Feb 2026 17:45:03 +0100
+Subject: [FROM-ML] drm/amd/display: Enable HDMI VRR over PCON
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+[Why]
+Not all TVs support FreeSync and many TVs suffer from VRR flickering
+while Freesync is activated.
+
+[How]
+This works the same as FreeSync over PCON just without sending FreeSync
+info packets (we're sending standard DisplayPort info packets) + reading
+the VRR range from the HDMI Forum vendor specific data block. PCONs take
+over HDMI VRR triggering.
+
+Prefer HDMI VRR over FreeSync to reduce VRR flickering on many TVs.
+FreeSync over HDMI seems to be a fallback solution and not a first-class
+citizen. This especially helps VMM7100.
+
+Tested with VMM7100 and CH7218 based adapters on multiple HDMI 2.1 and
+HDMI 2.0 devices. (Samsung S95B, LG C4, Sony Bravia 8, Dell AW3423DWF)
+
+Closes: https://gitlab.freedesktop.org/drm/amd/-/issues/4805
+
+Signed-off-by: Tomasz Pakuła <tomasz.pakula.oficjalny@gmail.com>
+Tested-by: Bernhard Berger <bernhard.berger@gmail.com>
+Reviewed-by: Harry Wentland <harry.wentland@amd.com>
+Link: https://lore.kernel.org/r/20260216164516.36803-15-tomasz.pakula.oficjalny@gmail.com
+---
+ .../gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 24 ++++++++++++++++++-
+ 1 file changed, 23 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index 5f5001aac0ac..a7c689b2eb0f 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -13253,6 +13253,17 @@ static int parse_hdmi_amd_vsdb(struct amdgpu_dm_connector *aconnector,
+ 	return valid_vsdb_found ? i : -ENODEV;
+ }
+ 
++/**
++ * Get VRR range from HDMI VRR info in EDID.
++ *
++ * @display: display information containing HDMI VRR capabilities
++ */
++static void monitor_range_from_hdmi(struct drm_display_info *display)
++{
++	display->monitor_range.min_vfreq = display->hdmi.vrr_cap.vrr_min;
++	display->monitor_range.max_vfreq = display->hdmi.vrr_cap.vrr_max;
++}
++
+ /**
+  * amdgpu_dm_update_freesync_caps - Update Freesync capabilities
+  *
+@@ -13274,6 +13285,7 @@ void amdgpu_dm_update_freesync_caps(struct drm_connector *connector,
+ 	struct dc_sink *sink;
+ 	struct amdgpu_device *adev = drm_to_adev(connector->dev);
+ 	struct amdgpu_hdmi_vsdb_info vsdb_info = {0};
++	struct drm_hdmi_vrr_cap hdmi_vrr = {0};
+ 	const struct edid *edid;
+ 	bool freesync_capable = false;
+ 	enum adaptive_sync_type as_type = ADAPTIVE_SYNC_TYPE_NONE;
+@@ -13305,6 +13317,7 @@ void amdgpu_dm_update_freesync_caps(struct drm_connector *connector,
+ 		goto update;
+ 
+ 	edid = drm_edid_raw(drm_edid); // FIXME: Get rid of drm_edid_raw()
++	hdmi_vrr = connector->display_info.hdmi.vrr_cap;
+ 
+ 	/* Some eDP panels only have the refresh rate range info in DisplayID */
+ 	if ((connector->display_info.monitor_range.min_vfreq == 0 ||
+@@ -13347,7 +13360,16 @@ void amdgpu_dm_update_freesync_caps(struct drm_connector *connector,
+ 
+ 	if (as_type == FREESYNC_TYPE_PCON_IN_WHITELIST) {
+ 		i = parse_hdmi_amd_vsdb(amdgpu_dm_connector, edid, &vsdb_info);
+-		if (i >= 0 && vsdb_info.freesync_supported && vsdb_info.amd_vsdb_version > 0) {
++		if (hdmi_vrr.supported && hdmi_vrr.vrr_max > 0) {
++			monitor_range_from_hdmi(&connector->display_info);
++
++			amdgpu_dm_connector->pack_sdp_v1_3 = true;
++			amdgpu_dm_connector->as_type = as_type;
++			amdgpu_dm_connector->min_vfreq = hdmi_vrr.vrr_min;
++			amdgpu_dm_connector->max_vfreq = hdmi_vrr.vrr_max;
++			if (amdgpu_dm_connector->max_vfreq - amdgpu_dm_connector->min_vfreq > 10)
++				freesync_capable = true;
++		} else if (i >= 0 && vsdb_info.freesync_supported && vsdb_info.amd_vsdb_version > 0) {
+ 
+ 			amdgpu_dm_connector->pack_sdp_v1_3 = true;
+ 			amdgpu_dm_connector->as_type = as_type;
+-- 
+2.55.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Robert Beckett <bob.beckett@collabora.com>
+Date: Thu, 7 May 2026 17:51:17 +0100
+Subject: [NOT-FOR-UPSTREAM] drm/amd/display: use VTEM packet type for VRR over
+ PCON
+
+If we are connected to a display that can do HDMI VRR but not FreeSync
+over PCON, we must use VTEM packet type.
+
+Signed-off-by: Pei-Hsin Yang <peihsiny@valvesoftware.com>
+Signed-off-by: Robert Beckett <bob.beckett@collabora.com>
+(cherry picked from commit 3ff66bf85ea4de9804e486c365e2438eb8c16486)
+---
+ .../gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 28 ++++++++++++++-----
+ 1 file changed, 21 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index a7c689b2eb0f..6c81a0f708d2 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -9646,20 +9646,34 @@ static void update_freesync_state_on_stream(
+ 
+ 	aconn = (struct amdgpu_dm_connector *)new_stream->dm_stream_context;
+ 
+-	if (aconn && (aconn->as_type == FREESYNC_TYPE_PCON_IN_WHITELIST || aconn->vsdb_info.replay_mode)) {
++	if (aconn && (aconn->as_type == FREESYNC_TYPE_PCON_IN_WHITELIST ||
++		      aconn->vsdb_info.replay_mode)) {
++		struct drm_connector *connector = &aconn->base;
+ 		pack_sdp_v1_3 = aconn->pack_sdp_v1_3;
+ 
+-		if (aconn->vsdb_info.amd_vsdb_version == 1)
+-			packet_type = PACKET_TYPE_FS_V1;
+-		else if (aconn->vsdb_info.amd_vsdb_version == 2)
+-			packet_type = PACKET_TYPE_FS_V2;
+-		else if (aconn->vsdb_info.amd_vsdb_version == 3)
+-			packet_type = PACKET_TYPE_FS_V3;
++		DRM_DEBUG_KMS("PCON Type, VRR supported: = %d",
++			      connector->display_info.hdmi.vrr_cap.supported);
++
++		/* if not HDMI VRR capable, use FreeSync SPD packet */
++		if (!connector->display_info.hdmi.vrr_cap.supported) {
++			if (aconn->vsdb_info.amd_vsdb_version == 1)
++				packet_type = PACKET_TYPE_FS_V1;
++			else if (aconn->vsdb_info.amd_vsdb_version == 2)
++				packet_type = PACKET_TYPE_FS_V2;
++			else if (aconn->vsdb_info.amd_vsdb_version == 3)
++				packet_type = PACKET_TYPE_FS_V3;
++		} else {
++			/* HDMI VRR but not FreeSync capable, use VTEM packet */
++			packet_type = PACKET_TYPE_VTEM;
++		}
+ 
+ 		mod_build_adaptive_sync_infopacket(new_stream, aconn->as_type, NULL,
+ 					&new_stream->adaptive_sync_infopacket);
+ 	}
+ 
++	DRM_DEBUG_KMS("as_type = %d, packet_type = %d",
++		      aconn ? aconn->as_type : ADAPTIVE_SYNC_TYPE_NONE, packet_type);
++
+ 	mod_freesync_build_vrr_infopacket(
+ 		dm->freesync_module,
+ 		new_stream,
+-- 
+2.55.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Tomasz=20Paku=C5=82a?= <tomasz.pakula.oficjalny@gmail.com>
+Date: Mon, 16 Feb 2026 17:45:04 +0100
+Subject: [FROM-ML] drm/amd/display: Support HDMI VRRmax=0
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+[Why]
+VRRmax=0 is a valid value and means that the upper bound is guared by
+the selected video mode.
+
+[How]
+In this context, saved vrr max is the max possible refresh rate ever.
+Try getting upper VRR bound from AMD vsdbif it exists or rely on the
+limitations of BRR in VTEM info frames.
+
+I found through testing, that TVs seem to reject VTEM when BRR is set
+to over 1023 Hz. Use this as the last resort VRRmax. 1023 is the max
+value for a 10-bit field as well.
+
+Signed-off-by: Tomasz Pakuła <tomasz.pakula.oficjalny@gmail.com>
+Link: https://lore.kernel.org/r/20260216164516.36803-16-tomasz.pakula.oficjalny@gmail.com
+---
+ .../gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 29 ++++++++++++++-----
+ .../amd/display/modules/inc/mod_info_packet.h |  2 ++
+ 2 files changed, 24 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index 6c81a0f708d2..926624bc6fa6 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -13268,14 +13268,27 @@ static int parse_hdmi_amd_vsdb(struct amdgpu_dm_connector *aconnector,
+ }
+ 
+ /**
+- * Get VRR range from HDMI VRR info in EDID.
++ * Get VRR range from HDMI VRR info in EDID. If VRRmax == 0,
++ * try getting upper bound from AMD vsdb.
+  *
+  * @display: display information containing HDMI VRR capabilities
++ * @vsdb: AMD VSDB from the CTA extension
+  */
+-static void monitor_range_from_hdmi(struct drm_display_info *display)
++static void monitor_range_from_hdmi(struct drm_display_info *display,
++				    const struct amdgpu_hdmi_vsdb_info *vsdb)
+ {
++	u16 vrr_max = display->hdmi.vrr_cap.vrr_max;
++
++	/* Try getting upper vrr bound from AMD vsdb */
++	if (vrr_max == 0)
++		vrr_max = vsdb->max_refresh_rate_hz;
++
++	/* Use max possible BRR value as a last resort */
++	if (vrr_max == 0)
++		vrr_max = VTEM_BRR_MAX;
++
+ 	display->monitor_range.min_vfreq = display->hdmi.vrr_cap.vrr_min;
+-	display->monitor_range.max_vfreq = display->hdmi.vrr_cap.vrr_max;
++	display->monitor_range.max_vfreq = vrr_max;
+ }
+ 
+ /**
+@@ -13374,13 +13387,15 @@ void amdgpu_dm_update_freesync_caps(struct drm_connector *connector,
+ 
+ 	if (as_type == FREESYNC_TYPE_PCON_IN_WHITELIST) {
+ 		i = parse_hdmi_amd_vsdb(amdgpu_dm_connector, edid, &vsdb_info);
+-		if (hdmi_vrr.supported && hdmi_vrr.vrr_max > 0) {
+-			monitor_range_from_hdmi(&connector->display_info);
++		if (hdmi_vrr.supported) {
++			monitor_range_from_hdmi(&connector->display_info, &vsdb_info);
+ 
+ 			amdgpu_dm_connector->pack_sdp_v1_3 = true;
+ 			amdgpu_dm_connector->as_type = as_type;
+-			amdgpu_dm_connector->min_vfreq = hdmi_vrr.vrr_min;
+-			amdgpu_dm_connector->max_vfreq = hdmi_vrr.vrr_max;
++			amdgpu_dm_connector->min_vfreq =
++				connector->display_info.monitor_range.min_vfreq;
++			amdgpu_dm_connector->max_vfreq =
++				connector->display_info.monitor_range.max_vfreq;
+ 			if (amdgpu_dm_connector->max_vfreq - amdgpu_dm_connector->min_vfreq > 10)
+ 				freesync_capable = true;
+ 		} else if (i >= 0 && vsdb_info.freesync_supported && vsdb_info.amd_vsdb_version > 0) {
+diff --git a/drivers/gpu/drm/amd/display/modules/inc/mod_info_packet.h b/drivers/gpu/drm/amd/display/modules/inc/mod_info_packet.h
+index ddd64b7e4c04..779f1593eb40 100644
+--- a/drivers/gpu/drm/amd/display/modules/inc/mod_info_packet.h
++++ b/drivers/gpu/drm/amd/display/modules/inc/mod_info_packet.h
+@@ -33,6 +33,8 @@ struct dc_stream_state;
+ struct dc_info_packet;
+ struct mod_vrr_params;
+ 
++#define VTEM_BRR_MAX 1023
++
+ void set_vsc_packet_colorimetry_data(
+ 		const struct dc_stream_state *stream,
+ 		struct dc_info_packet *info_packet,
+-- 
+2.55.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Tomasz=20Paku=C5=82a?= <tomasz.pakula.oficjalny@gmail.com>
+Date: Mon, 16 Feb 2026 17:45:09 +0100
+Subject: [FROM-ML] drm/amd/display: Reintroduce VTEM info frame
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+[Why]
+VTEM info fram building was removed back in: commit a9f54ce3c603
+("drm/amd/display: Refactoring VTEM"), but it's needed to support
+HDMI VRR signalling.
+
+[How]
+Build completely new and more robust functions to build out the VTEM
+infopacket. Many values are defined but could have added logic in the
+future, that's shy they are not static values but already value + bit
+position in it's byte.
+
+Reduced blanking detection was previously missing. Use possible hblank
+periods defined for RB1 (from CVT 1.2), RB2 and RB3 (from CVT 2.1).
+
+Signed-off-by: Tomasz Pakuła <tomasz.pakula.oficjalny@gmail.com>
+Link: https://lore.kernel.org/r/20260216164516.36803-21-tomasz.pakula.oficjalny@gmail.com
+---
+ .../amd/display/modules/inc/mod_info_packet.h |   4 +
+ .../display/modules/info_packet/info_packet.c | 178 ++++++++++++------
+ 2 files changed, 124 insertions(+), 58 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/modules/inc/mod_info_packet.h b/drivers/gpu/drm/amd/display/modules/inc/mod_info_packet.h
+index 779f1593eb40..4cd1da2b8f39 100644
+--- a/drivers/gpu/drm/amd/display/modules/inc/mod_info_packet.h
++++ b/drivers/gpu/drm/amd/display/modules/inc/mod_info_packet.h
+@@ -49,6 +49,10 @@ void mod_build_vsc_infopacket(const struct dc_stream_state *stream,
+ void mod_build_hf_vsif_infopacket(const struct dc_stream_state *stream,
+ 		struct dc_info_packet *info_packet);
+ 
++void mod_build_vtem_infopacket(const struct dc_stream_state *stream,
++		const struct mod_vrr_params *vrr,
++		struct dc_info_packet *infopacket);
++
+ enum adaptive_sync_type {
+ 	ADAPTIVE_SYNC_TYPE_NONE                  = 0,
+ 	ADAPTIVE_SYNC_TYPE_DP                    = 1,
+diff --git a/drivers/gpu/drm/amd/display/modules/info_packet/info_packet.c b/drivers/gpu/drm/amd/display/modules/info_packet/info_packet.c
+index 00473c6284d5..2ca4f3ce59e6 100644
+--- a/drivers/gpu/drm/amd/display/modules/info_packet/info_packet.c
++++ b/drivers/gpu/drm/amd/display/modules/info_packet/info_packet.c
+@@ -48,6 +48,7 @@ enum vsc_packet_revision {
+ 	vsc_packet_rev7 = 7,
+ };
+ 
++#define HDMI_INFOFRAME_TYPE_EMP    0x7F
+ #define HDMI_INFOFRAME_TYPE_VENDOR 0x81
+ #define HF_VSIF_VERSION 1
+ 
+@@ -60,64 +61,50 @@ enum vsc_packet_revision {
+ #define VTEM_PB5		5
+ #define VTEM_PB6		6
+ 
+-#define VTEM_MD0		7
+-#define VTEM_MD1		8
+-#define VTEM_MD2		9
+-#define VTEM_MD3		10
+-
+-
+-// VTEM Byte Masks
+-//PB0
+-#define MASK_VTEM_PB0__RESERVED0  0x01
+-#define MASK_VTEM_PB0__SYNC       0x02
+-#define MASK_VTEM_PB0__VFR        0x04
+-#define MASK_VTEM_PB0__AFR        0x08
+-#define MASK_VTEM_PB0__DS_TYPE    0x30
+-	//0: Periodic pseudo-static EM Data Set
+-	//1: Periodic dynamic EM Data Set
+-	//2: Unique EM Data Set
+-	//3: Reserved
+-#define MASK_VTEM_PB0__END        0x40
+-#define MASK_VTEM_PB0__NEW        0x80
+-
+-//PB1
+-#define MASK_VTEM_PB1__RESERVED1 0xFF
+-
+-//PB2
+-#define MASK_VTEM_PB2__ORGANIZATION_ID 0xFF
+-	//0: This is a Vendor Specific EM Data Set
+-	//1: This EM Data Set is defined by This Specification (HDMI 2.1 r102.clean)
+-	//2: This EM Data Set is defined by CTA-861-G
+-	//3: This EM Data Set is defined by VESA
+-//PB3
+-#define MASK_VTEM_PB3__DATA_SET_TAG_MSB    0xFF
+-//PB4
+-#define MASK_VTEM_PB4__DATA_SET_TAG_LSB    0xFF
+-//PB5
+-#define MASK_VTEM_PB5__DATA_SET_LENGTH_MSB 0xFF
+-//PB6
+-#define MASK_VTEM_PB6__DATA_SET_LENGTH_LSB 0xFF
+-
+-
+-
+-//PB7-27 (20 bytes):
+-//PB7 = MD0
+-#define MASK_VTEM_MD0__VRR_EN         0x01
+-#define MASK_VTEM_MD0__M_CONST        0x02
+-#define MASK_VTEM_MD0__QMS_EN         0x04
+-#define MASK_VTEM_MD0__RESERVED2      0x08
+-#define MASK_VTEM_MD0__FVA_FACTOR_M1  0xF0
+-
+-//MD1
+-#define MASK_VTEM_MD1__BASE_VFRONT    0xFF
+-
+-//MD2
+-#define MASK_VTEM_MD2__BASE_REFRESH_RATE_98  0x03
+-#define MASK_VTEM_MD2__RB                    0x04
+-#define MASK_VTEM_MD2__NEXT_TFR              0xF8
+-
+-//MD3
+-#define MASK_VTEM_MD3__BASE_REFRESH_RATE_07  0xFF
++#define VTEM_ORG_ID          1
++#define VTEM_DATA_SET_TAG    1
++#define VTEM_DATA_SET_LENGTH 4
++
++#define VTEM_M_CONST    0
++#define VTEM_FVA_FACTOR 0
++
++#define VTEM_BRR_MASK_UPPER 0x03
++#define VTEM_BRR_MASK_LOWER 0xFF
++
++/* VTEM Byte Offset */
++#define VTEM_PB0 0
++#define VTEM_PB1 1
++#define VTEM_PB2 2
++#define VTEM_PB3 3
++#define VTEM_PB4 4
++#define VTEM_PB5 5
++#define VTEM_PB6 6
++
++#define VTEM_MD0 7
++#define VTEM_MD1 8
++#define VTEM_MD2 9
++#define VTEM_MD3 10
++
++/* Extended Metadata Packet */
++/* Header */
++#define EMP_LAST_BIT  6
++#define EMP_FIRST_BIT 7
++/* PB0 */
++#define EMP_SNC_BIT 1
++#define EMP_VFR_BIT 2
++#define EMP_AFR_BIT 3
++#define EMP_DST_BIT 4
++#define EMP_END_BIT 6
++#define EMP_NEW_BIT 7
++/* PB7 = MD0 */
++#define VTEM_VRR_BIT     0
++#define VTEM_M_CONST_BIT 1
++#define VTEM_FVA_BIT     4
++/* MD1 Base_Vfront */
++/* MD2 */
++#define VTEM_BRR_UPPER_BIT 0
++#define VTEM_RB_BIT        2
++/* MD3 BRR Lower */
+ 
+ enum ColorimetryRGBDP {
+ 	ColorimetryRGB_DP_sRGB               = 0,
+@@ -576,6 +563,81 @@ void mod_build_hf_vsif_infopacket(const struct dc_stream_state *stream,
+ 		info_packet->valid = true;
+ }
+ 
++static void build_vtem_infopacket_header(struct dc_info_packet *infopacket)
++{
++	uint8_t pb0 = 0;
++
++	/* might need logic in the future */
++	pb0 |= 0 << EMP_SNC_BIT;
++	pb0 |= 1 << EMP_VFR_BIT;
++	pb0 |= 0 << EMP_AFR_BIT;
++	pb0 |= 0 << EMP_DST_BIT;
++	pb0 |= 0 << EMP_END_BIT;
++	pb0 |= 1 << EMP_NEW_BIT;
++
++	infopacket->hb0 = HDMI_INFOFRAME_TYPE_EMP;
++	infopacket->hb1 = (1 << EMP_FIRST_BIT) | (1 << EMP_LAST_BIT);
++	infopacket->hb2 = 0; // sequence
++
++	infopacket->sb[VTEM_PB0] = pb0;
++	infopacket->sb[VTEM_PB2] = VTEM_ORG_ID;
++	infopacket->sb[VTEM_PB4] = VTEM_DATA_SET_TAG;
++	infopacket->sb[VTEM_PB6] = VTEM_DATA_SET_LENGTH;
++}
++
++static void build_vtem_infopacket_data(const struct dc_stream_state *stream,
++		const struct mod_vrr_params *vrr,
++		struct dc_info_packet *infopacket)
++{
++	unsigned int hblank = 0;
++	unsigned int brr = 0;
++	bool vrr_active = false;
++	bool rb = false;
++
++	vrr_active = vrr->state == VRR_STATE_ACTIVE_VARIABLE ||
++		     vrr->state == VRR_STATE_ACTIVE_FIXED;
++
++	infopacket->sb[VTEM_MD0] = VTEM_M_CONST << VTEM_M_CONST_BIT;
++	infopacket->sb[VTEM_MD0] |= VTEM_FVA_FACTOR << VTEM_FVA_BIT;
++	infopacket->sb[VTEM_MD0] |= vrr_active << VTEM_VRR_BIT;
++
++	infopacket->sb[VTEM_MD1] = 0;
++	infopacket->sb[VTEM_MD2] = 0;
++	infopacket->sb[VTEM_MD3] = 0;
++
++	if (!vrr_active || is_hdmi_vic_mode(stream))
++		return;
++	/*
++	 * In accordance with CVT 1.2 and CVT 2.1:
++	 * Reduced Blanking standard defines a fixed value of
++	 * 160 for hblank, further reduced to 80 in RB2. RB3 uses
++	 * fixed hblank of 80 pixels + up to 120 additional pixels
++	 * in 8-pixel steps.
++	 */
++	hblank = stream->timing.h_total - stream->timing.h_addressable;
++	rb = (hblank >= 80 && hblank <= 200 && hblank % 8 == 0);
++	brr = div_u64(mod_freesync_calc_nominal_field_rate(stream), 1000000);
++
++	if (brr > VTEM_BRR_MAX) {
++		infopacket->valid = false;
++		return;
++	}
++
++	infopacket->sb[VTEM_MD1] = (uint8_t) stream->timing.v_front_porch;
++	infopacket->sb[VTEM_MD2] = rb << VTEM_RB_BIT;
++	infopacket->sb[VTEM_MD2] |= (brr >> 8) & VTEM_BRR_MASK_UPPER;
++	infopacket->sb[VTEM_MD3] = brr & VTEM_BRR_MASK_LOWER;
++}
++
++void mod_build_vtem_infopacket(const struct dc_stream_state *stream,
++		const struct mod_vrr_params *vrr,
++		struct dc_info_packet *infopacket)
++{
++	infopacket->valid = true;
++	build_vtem_infopacket_header(infopacket);
++	build_vtem_infopacket_data(stream, vrr, infopacket);
++}
++
+ void mod_build_adaptive_sync_infopacket(const struct dc_stream_state *stream,
+ 		enum adaptive_sync_type asType,
+ 		const struct AS_Df_params *param,
+-- 
+2.55.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Tomasz=20Paku=C5=82a?= <tomasz.pakula.oficjalny@gmail.com>
+Date: Mon, 16 Feb 2026 17:45:10 +0100
+Subject: [FROM-ML] drm/amd/display: Enable HDMI VRR
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+[Why]
+We'd like to expose VRR functionality to end user if HDMI sink is
+advertising it's support.
+
+[How]
+VTEM info frame is used to signal HDMI sink that VRR is active.
+Use VTEM info packet as vrr_infopacket
+
+Signed-off-by: Tomasz Pakuła <tomasz.pakula.oficjalny@gmail.com>
+Link: https://lore.kernel.org/r/20260216164516.36803-22-tomasz.pakula.oficjalny@gmail.com
+---
+ .../gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c    | 16 +++++++++++++---
+ .../drm/amd/display/modules/freesync/freesync.c  |  4 ++++
+ .../amd/display/modules/inc/mod_info_packet.h    |  1 +
+ .../display/modules/info_packet/info_packet.c    |  2 +-
+ 4 files changed, 19 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index 926624bc6fa6..561453f3df49 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -9646,7 +9646,9 @@ static void update_freesync_state_on_stream(
+ 
+ 	aconn = (struct amdgpu_dm_connector *)new_stream->dm_stream_context;
+ 
+-	if (aconn && (aconn->as_type == FREESYNC_TYPE_PCON_IN_WHITELIST ||
++	if (aconn && aconn->as_type == ADAPTIVE_SYNC_TYPE_HDMI) {
++		packet_type = PACKET_TYPE_VTEM;
++	} else if (aconn && (aconn->as_type == FREESYNC_TYPE_PCON_IN_WHITELIST ||
+ 		      aconn->vsdb_info.replay_mode)) {
+ 		struct drm_connector *connector = &aconn->base;
+ 		pack_sdp_v1_3 = aconn->pack_sdp_v1_3;
+@@ -13371,12 +13373,20 @@ void amdgpu_dm_update_freesync_caps(struct drm_connector *connector,
+ 
+ 	} else if (drm_edid && sink->sink_signal == SIGNAL_TYPE_HDMI_TYPE_A) {
+ 		i = parse_hdmi_amd_vsdb(amdgpu_dm_connector, edid, &vsdb_info);
+-		if (i >= 0 && vsdb_info.freesync_supported) {
++		if (hdmi_vrr.supported) {
++			monitor_range_from_hdmi(&connector->display_info, &vsdb_info);
++			amdgpu_dm_connector->as_type = ADAPTIVE_SYNC_TYPE_HDMI;
++			amdgpu_dm_connector->min_vfreq =
++				connector->display_info.monitor_range.min_vfreq;
++			amdgpu_dm_connector->max_vfreq =
++				connector->display_info.monitor_range.max_vfreq;
++			if (amdgpu_dm_connector->max_vfreq - amdgpu_dm_connector->min_vfreq > 10)
++				freesync_capable = true;
++		} else if (i >= 0 && vsdb_info.freesync_supported) {
+ 			amdgpu_dm_connector->min_vfreq = vsdb_info.min_refresh_rate_hz;
+ 			amdgpu_dm_connector->max_vfreq = vsdb_info.max_refresh_rate_hz;
+ 			if (amdgpu_dm_connector->max_vfreq - amdgpu_dm_connector->min_vfreq > 10)
+ 				freesync_capable = true;
+-
+ 			connector->display_info.monitor_range.min_vfreq = vsdb_info.min_refresh_rate_hz;
+ 			connector->display_info.monitor_range.max_vfreq = vsdb_info.max_refresh_rate_hz;
+ 		}
+diff --git a/drivers/gpu/drm/amd/display/modules/freesync/freesync.c b/drivers/gpu/drm/amd/display/modules/freesync/freesync.c
+index 19de72173052..d1376d4ecce5 100644
+--- a/drivers/gpu/drm/amd/display/modules/freesync/freesync.c
++++ b/drivers/gpu/drm/amd/display/modules/freesync/freesync.c
+@@ -27,6 +27,7 @@
+ #include "dc.h"
+ #include "mod_freesync.h"
+ #include "core_types.h"
++#include "mod_info_packet.h"
+ 
+ #define MOD_FREESYNC_MAX_CONCURRENT_STREAMS  32
+ 
+@@ -955,6 +956,9 @@ void mod_freesync_build_vrr_infopacket(struct mod_freesync *mod_freesync,
  		return;
- 	}
  
-+	mutex_unlock(&xdna->dev_lock);
- 	dma_fence_wait_timeout(out_fence, false, MAX_SCHEDULE_TIMEOUT);
-+	mutex_lock(&xdna->dev_lock);
- 	dma_fence_put(out_fence);
+ 	switch (packet_type) {
++	case PACKET_TYPE_VTEM:
++		mod_build_vtem_infopacket(stream, vrr, infopacket);
++		break;
+ 	case PACKET_TYPE_FS_V3:
+ 		build_vrr_infopacket_v3(stream->signal, vrr, app_tf, infopacket, stream->freesync_on_desktop);
+ 		break;
+diff --git a/drivers/gpu/drm/amd/display/modules/inc/mod_info_packet.h b/drivers/gpu/drm/amd/display/modules/inc/mod_info_packet.h
+index 4cd1da2b8f39..846c748297fd 100644
+--- a/drivers/gpu/drm/amd/display/modules/inc/mod_info_packet.h
++++ b/drivers/gpu/drm/amd/display/modules/inc/mod_info_packet.h
+@@ -59,6 +59,7 @@ enum adaptive_sync_type {
+ 	FREESYNC_TYPE_PCON_IN_WHITELIST          = 2,
+ 	FREESYNC_TYPE_PCON_NOT_IN_WHITELIST      = 3,
+ 	ADAPTIVE_SYNC_TYPE_EDP                   = 4,
++	ADAPTIVE_SYNC_TYPE_HDMI                  = 5,
+ };
+ 
+ enum adaptive_sync_sdp_version {
+diff --git a/drivers/gpu/drm/amd/display/modules/info_packet/info_packet.c b/drivers/gpu/drm/amd/display/modules/info_packet/info_packet.c
+index 2ca4f3ce59e6..6ed1ce8e19cb 100644
+--- a/drivers/gpu/drm/amd/display/modules/info_packet/info_packet.c
++++ b/drivers/gpu/drm/amd/display/modules/info_packet/info_packet.c
+@@ -662,6 +662,7 @@ void mod_build_adaptive_sync_infopacket(const struct dc_stream_state *stream,
+ 		break;
+ 	case ADAPTIVE_SYNC_TYPE_NONE:
+ 	case FREESYNC_TYPE_PCON_NOT_IN_WHITELIST:
++	case ADAPTIVE_SYNC_TYPE_HDMI:
+ 	default:
+ 		break;
+ 	}
+@@ -699,4 +700,3 @@ void mod_build_adaptive_sync_infopacket_v2(const struct dc_stream_state *stream,
+ 		info_packet->sb[6] = param->decrease.frame_duration_hex;
+ 	}
+ }
+-
+-- 
+2.55.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Tomasz=20Paku=C5=82a?= <tomasz.pakula.oficjalny@gmail.com>
+Date: Mon, 16 Feb 2026 17:45:11 +0100
+Subject: [FROM-ML] drm/amd/display: freesync_on_desktop support for HDMI VRR
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+[Why]
+Many TVs and other HDMI sinks suffer from blanking and possibly other
+glitches when VRR is toggled. With FreeSync present on such sinks, they
+behave like the signal is always variable, even in fixed refresh rate
+situations. DisplayPort and eDP enforce seamless VRR transitions but
+HDMI unfortunately doesn't.
+
+[How]
+Keep HDMI VRR toggled if it's supported and not explicitly disabled.
+Add logic that control this behavior and use this mode by default until
+it can be controlled by connector KMS property.
+
+Functionally, for an end user, this is the same as normal, fixed refresh
+rate mode. The only difference is that sink is kept in VRR state which
+enables seamless transitions into/out of variable refresh rate.
+
+Uses the already established freesync_on_desktop field and logic.
+
+Signed-off-by: Tomasz Pakuła <tomasz.pakula.oficjalny@gmail.com>
+Link: https://lore.kernel.org/r/20260216164516.36803-23-tomasz.pakula.oficjalny@gmail.com
+---
+ .../gpu/drm/amd/display/modules/info_packet/info_packet.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/display/modules/info_packet/info_packet.c b/drivers/gpu/drm/amd/display/modules/info_packet/info_packet.c
+index 6ed1ce8e19cb..b5390905cfbb 100644
+--- a/drivers/gpu/drm/amd/display/modules/info_packet/info_packet.c
++++ b/drivers/gpu/drm/amd/display/modules/info_packet/info_packet.c
+@@ -596,6 +596,14 @@ static void build_vtem_infopacket_data(const struct dc_stream_state *stream,
+ 
+ 	vrr_active = vrr->state == VRR_STATE_ACTIVE_VARIABLE ||
+ 		     vrr->state == VRR_STATE_ACTIVE_FIXED;
++	/*
++	 * Enables FreeSync-like behavior by keeping HDMI VRR signalling active
++	 * in fixed refresh rate conditions like normal desktop work/web browsing.
++	 * Functinally behaves like non-VRR mode by keeping the actual refresh
++	 * rate fixed.
++	 */
++	if (stream->freesync_on_desktop)
++		vrr_active |= vrr->state == VRR_STATE_INACTIVE;
+ 
+ 	infopacket->sb[VTEM_MD0] = VTEM_M_CONST << VTEM_M_CONST_BIT;
+ 	infopacket->sb[VTEM_MD0] |= VTEM_FVA_FACTOR << VTEM_FVA_BIT;
+-- 
+2.55.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Sun, 16 Aug 2026 15:35:23 +0200
+Subject: drm/amd/display: backport HDMI VIC helper for VTEM
+
+---
+ .../display/modules/info_packet/info_packet.c | 19 ++++++++++++++-----
+ 1 file changed, 14 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/modules/info_packet/info_packet.c b/drivers/gpu/drm/amd/display/modules/info_packet/info_packet.c
+index b5390905cfbb..4a65bbd8abef 100644
+--- a/drivers/gpu/drm/amd/display/modules/info_packet/info_packet.c
++++ b/drivers/gpu/drm/amd/display/modules/info_packet/info_packet.c
+@@ -483,6 +483,19 @@ void mod_build_vsc_infopacket(const struct dc_stream_state *stream,
+ 	}
  }
  
-diff --git a/drivers/accel/amdxdna/amdxdna_ctx.c b/drivers/accel/amdxdna/amdxdna_ctx.c
-index 3f960ddbddb2..9757d8191808 100644
---- a/drivers/accel/amdxdna/amdxdna_ctx.c
-+++ b/drivers/accel/amdxdna/amdxdna_ctx.c
-@@ -269,6 +269,7 @@ int amdxdna_drm_destroy_hwctx_ioctl(struct drm_device *dev, void *data, struct d
- 	if (!drm_dev_enter(dev, &idx))
- 		return -ENODEV;
++static bool is_hdmi_vic_mode(const struct dc_stream_state *stream)
++{
++	enum dc_timing_3d_format format = stream->timing.timing_3d_format;
++
++	if (stream->view_format == VIEW_3D_FORMAT_NONE)
++		format = TIMING_3D_FORMAT_NONE;
++
++	return stream->timing.hdmi_vic != 0 &&
++		stream->timing.h_total >= 3840 &&
++		stream->timing.v_total >= 2160 &&
++		format == TIMING_3D_FORMAT_NONE;
++}
++
+ /**
+  *  mod_build_hf_vsif_infopacket - Prepare HDMI Vendor Specific info frame.
+  *                                 Follows HDMI Spec to build up Vendor Specific info frame
+@@ -504,11 +517,7 @@ void mod_build_hf_vsif_infopacket(const struct dc_stream_state *stream,
+ 		if (stream->view_format == VIEW_3D_FORMAT_NONE)
+ 			format = TIMING_3D_FORMAT_NONE;
  
-+	mutex_lock(&xdna->client_lock);
- 	mutex_lock(&xdna->dev_lock);
- 	hwctx = xa_erase(&client->hwctx_xa, args->handle);
- 	if (!hwctx) {
-@@ -287,6 +288,7 @@ int amdxdna_drm_destroy_hwctx_ioctl(struct drm_device *dev, void *data, struct d
- 	XDNA_DBG(xdna, "PID %d destroyed HW context %d", client->pid, args->handle);
- out:
- 	mutex_unlock(&xdna->dev_lock);
-+	mutex_unlock(&xdna->client_lock);
- 	drm_dev_exit(idx);
- 	return ret;
- }
-@@ -347,6 +349,7 @@ int amdxdna_drm_config_hwctx_ioctl(struct drm_device *dev, void *data, struct dr
- 		goto free_buf;
- 	}
+-		if (stream->timing.hdmi_vic != 0
+-				&& stream->timing.h_total >= 3840
+-				&& stream->timing.v_total >= 2160
+-				&& format == TIMING_3D_FORMAT_NONE)
+-			hdmi_vic_mode = true;
++		hdmi_vic_mode = is_hdmi_vic_mode(stream);
  
-+	mutex_lock(&xdna->client_lock);
- 	mutex_lock(&xdna->dev_lock);
- 	hwctx = xa_load(&client->hwctx_xa, args->handle);
- 	if (!hwctx) {
-@@ -359,6 +362,7 @@ int amdxdna_drm_config_hwctx_ioctl(struct drm_device *dev, void *data, struct dr
- 
- unlock:
- 	mutex_unlock(&xdna->dev_lock);
-+	mutex_unlock(&xdna->client_lock);
- 	amdxdna_pm_suspend_put(xdna);
- free_buf:
- 	kfree(buf);
-@@ -387,6 +391,7 @@ int amdxdna_hwctx_sync_debug_bo(struct amdxdna_client *client, u32 debug_bo_hdl)
- 	}
- 
- 	abo = to_xdna_obj(gobj);
-+	mutex_lock(&xdna->client_lock);
- 	mutex_lock(&xdna->dev_lock);
- 	hwctx = xa_load(&client->hwctx_xa, abo->assigned_hwctx);
- 	if (!hwctx) {
-@@ -398,6 +403,7 @@ int amdxdna_hwctx_sync_debug_bo(struct amdxdna_client *client, u32 debug_bo_hdl)
- 
- unlock:
- 	mutex_unlock(&xdna->dev_lock);
-+	mutex_unlock(&xdna->client_lock);
- 	amdxdna_pm_suspend_put(xdna);
- put_obj:
- 	drm_gem_object_put(gobj);
+ 		if ((format == TIMING_3D_FORMAT_NONE) && !hdmi_vic_mode)
+ 			return;
 -- 
 2.55.0
 

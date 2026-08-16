@@ -4947,7 +4947,14 @@ fi\
 #
 %changelog
 * Sun Aug 16 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.0.12-an18]
-- accel/amdxdna: Fix deadlock on debug BO command timeout (Lizhi Hou)
+- drm/amd/display: backport HDMI VIC helper for VTEM (Antheas Kapenekakis)
+- [FROM-ML] drm/amd/display: freesync_on_desktop support for HDMI VRR (Tomasz Pakuła)
+- [FROM-ML] drm/amd/display: Enable HDMI VRR (Tomasz Pakuła)
+- [FROM-ML] drm/amd/display: Reintroduce VTEM info frame (Tomasz Pakuła)
+- [FROM-ML] drm/amd/display: Support HDMI VRRmax=0 (Tomasz Pakuła)
+- [NOT-FOR-UPSTREAM] drm/amd/display: use VTEM packet type for VRR over PCON (Robert Beckett)
+- [FROM-ML] drm/amd/display: Enable HDMI VRR over PCON (Tomasz Pakuła)
+- [FROM-ML] drm/edid: Parse more info from HDMI Forum vsdb (Tomasz Pakuła)
 - PCI: Avoid FLR for AMD NPU device (Lizhi Hou)
 - accel/amdxdna: Prevent PM resume deadlock in hwctx_sync_debug_bo() (Lizhi Hou)
 - amdgpu: Add CH7218 PCON to the VRR whitelist (Tomasz Pakuła)
