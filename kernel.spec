@@ -190,13 +190,13 @@ Summary: The Linux kernel
 %define specrpmversion 7.0.12
 %define specversion 7.0.12
 %define patchversion 7.0
-%define pkgrelease an18
+%define pkgrelease an19
 %define kversion 7
 %define tarfile_release 7.0.12
 # This is needed to do merge window version magic
 %define patchlevel 0
 # This allows pkg_release to have configurable %%{?dist} tag
-%define specrelease an18%{?buildid}%{?dist}
+%define specrelease an19%{?buildid}%{?dist}
 # This defines the kabi tarball version
 %define kabiversion 7.0.12
 
@@ -4946,18 +4946,26 @@ fi\
 #
 #
 %changelog
-* Sun Aug 16 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.0.12-an18]
-- drm/amd/display: backport HDMI VIC helper for VTEM (Antheas Kapenekakis)
-- [FROM-ML] drm/amd/display: freesync_on_desktop support for HDMI VRR (Tomasz Pakuła)
-- [FROM-ML] drm/amd/display: Enable HDMI VRR (Tomasz Pakuła)
-- [FROM-ML] drm/amd/display: Reintroduce VTEM info frame (Tomasz Pakuła)
-- [FROM-ML] drm/amd/display: Support HDMI VRRmax=0 (Tomasz Pakuła)
-- [NOT-FOR-UPSTREAM] drm/amd/display: use VTEM packet type for VRR over PCON (Robert Beckett)
-- [FROM-ML] drm/amd/display: Enable HDMI VRR over PCON (Tomasz Pakuła)
-- [FROM-ML] drm/edid: Parse more info from HDMI Forum vsdb (Tomasz Pakuła)
-- PCI: Avoid FLR for AMD NPU device (Lizhi Hou)
-- accel/amdxdna: Prevent PM resume deadlock in hwctx_sync_debug_bo() (Lizhi Hou)
+* Thu Aug 20 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.0.12-an19]
+- amd-dptc: add non-plus AI Max variant (Antheas Kapenekakis)
+- drm/amd/display: Force freesync_on_desktop for PCON (Antheas Kapenekakis)
+- drm/amd/display: Support HDMI VRRmax=0 (Tomasz Pakuła)
+- drm/amd/display: Enable HDMI VRR over PCON (Tomasz Pakuła)
+- drm/amd/display: Rename PCON adaptive sync types (Tomasz Pakuła)
+- drm/edid: Parse more info from HDMI Forum vsdb (Tomasz Pakuła)
+- drm/amd/display: Refactor PCON VRR compatibility check (Tomasz Pakuła)
+- drm/amd/display: Separate DP/eDP and PCON paths completely (Tomasz Pakuła)
+- drm/amd/display: Use bigger VRR range if found in AMD vsdb (Tomasz Pakuła)
+- drm/amd/display: Check for VRR range in CEA AMD vsdb (Tomasz Pakuła)
+- drm/amd/display: Always try to parse AMD vsdb (Tomasz Pakuła)
+- drm/amd/display: Move DisplayID vrr parsing (Tomasz Pakuła)
+- Modify display range if freesync capable (Tomasz Pakuła)
+- Do not modify display_info in freesync_caps (Tomasz Pakuła)
+- drm/amd/display: Refactor amdgpu_dm_update_freesync_caps() (Tomasz Pakuła)
 - amdgpu: Add CH7218 PCON to the VRR whitelist (Tomasz Pakuła)
+- PCI: Avoid FLR for AMD NPU device (Lizhi Hou)
+- accel/amdxdna: Block running when IOMMU is off (Lizhi Hou)
+- accel/amdxdna: Prevent PM resume deadlock in hwctx_sync_debug_bo() (Lizhi Hou)
 - drm/amd/display: Adjust freesync pcon whitelist (Wayne Lin)
 - oxpec: add s2idle quirk for Apex / X2Mini Pro (Antheas Kapenekakis)
 - disable the iommu in apex and x2mini pro for now (Antheas Kapenekakis)
