@@ -40623,21 +40623,31 @@ Reviewed-by: Mario Limonciello <mario.limonciello@amd.com>
 Signed-off-by: Lizhi Hou <lizhi.hou@amd.com>
 Link: https://patch.msgid.link/20260520223531.1403302-1-lizhi.hou@amd.com
 ---
- drivers/accel/amdxdna/aie2_pci.c | 5 +++++
- 1 file changed, 5 insertions(+)
+ drivers/accel/amdxdna/aie2_pci.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
 
 diff --git a/drivers/accel/amdxdna/aie2_pci.c b/drivers/accel/amdxdna/aie2_pci.c
-index 4924a9da55b6..a935f405a807 100644
+index 4924a9da55b6..926e472d503f 100644
 --- a/drivers/accel/amdxdna/aie2_pci.c
 +++ b/drivers/accel/amdxdna/aie2_pci.c
-@@ -510,6 +510,11 @@ static int aie2_init(struct amdxdna_dev *xdna)
+@@ -499,6 +499,7 @@ static int aie2_init(struct amdxdna_dev *xdna)
+ 	void __iomem *tbl[PCI_NUM_RESOURCES] = {0};
+ 	struct init_config xrs_cfg = { 0 };
+ 	struct amdxdna_dev_hdl *ndev;
++	struct iommu_group *group;
+ 	struct psp_config psp_conf;
+ 	const struct firmware *fw;
+ 	unsigned long bars = 0;
+@@ -510,6 +511,13 @@ static int aie2_init(struct amdxdna_dev *xdna)
  		return -EINVAL;
  	}
  
-+	if (!xdna->group) {
++	group = iommu_group_get(xdna->ddev.dev);
++	if (!group) {
 +		XDNA_ERR(xdna, "Running without IOMMU not supported");
 +		return -EINVAL;
 +	}
++	iommu_group_put(group);
 +
  	ndev = drmm_kzalloc(&xdna->ddev, sizeof(*ndev), GFP_KERNEL);
  	if (!ndev)
