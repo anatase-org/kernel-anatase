@@ -42114,3 +42114,72 @@ index b069878f7ee8..14f63ca2625a 100644
 -- 
 2.55.0
 
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Sun, 23 Aug 2026 19:36:21 +0200
+Subject: platform/x86/amd: dptc: Add Minisforum V3 support
+
+The Minisforum V3 supports DPTCi power control with a 28 W sustained limit. Match its board vendor and name exactly and select the existing 28 W device limits.
+---
+ drivers/platform/x86/amd/dptc.c | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
+
+diff --git a/drivers/platform/x86/amd/dptc.c b/drivers/platform/x86/amd/dptc.c
+index 14f63ca2625a..778764ac170e 100644
+--- a/drivers/platform/x86/amd/dptc.c
++++ b/drivers/platform/x86/amd/dptc.c
+@@ -201,6 +201,16 @@ static const char * const dptc_soc_table[] = {
+ };
+ 
+ static const struct dmi_system_id dptc_dmi_table[] = {
++	/* Minisforum */
++	{
++		.ident = "Minisforum V3",
++		.matches = {
++			DMI_EXACT_MATCH(DMI_BOARD_VENDOR,
++					"Shenzhen Meigao Electronic Equipment Co.,Ltd"),
++			DMI_EXACT_MATCH(DMI_BOARD_NAME, "HPPAC"),
++		},
++		.driver_data = (void *)&limits_28w,
++	},
+ 	/* GPD */
+ 	{
+ 		.ident = "GPD Win Mini",
+-- 
+2.55.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Sun, 23 Aug 2026 19:36:26 +0200
+Subject: platform/x86: ayaneo-ec: Add AYANEO 2S charge control
+
+The AYANEO 2S uses the same EC fan interface as the AYANEO 2 and additionally supports charge limiting. Add an exact match ahead of the broader AYANEO 2 match so the charge-control quirk is selected.
+
+Reported-by: Tiago Silva <tiago.paulo@live.com>
+---
+ drivers/platform/x86/ayaneo-ec.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/drivers/platform/x86/ayaneo-ec.c b/drivers/platform/x86/ayaneo-ec.c
+index 28cb09fe8491..08e679347e9b 100644
+--- a/drivers/platform/x86/ayaneo-ec.c
++++ b/drivers/platform/x86/ayaneo-ec.c
+@@ -76,6 +76,13 @@ static const struct ayaneo_ec_quirk quirk_ayaneo3 = {
+ };
+ 
+ static const struct dmi_system_id dmi_table[] = {
++	{
++		.matches = {
++			DMI_MATCH(DMI_BOARD_VENDOR, "AYANEO"),
++			DMI_EXACT_MATCH(DMI_BOARD_NAME, "AYANEO 2S"),
++		},
++		.driver_data = (void *)&quirk_charge_limit,
++	},
+ 	{
+ 		.matches = {
+ 			DMI_MATCH(DMI_BOARD_VENDOR, "AYANEO"),
+-- 
+2.55.0
+

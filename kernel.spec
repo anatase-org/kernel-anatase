@@ -190,13 +190,13 @@ Summary: The Linux kernel
 %define specrpmversion 7.0.12
 %define specversion 7.0.12
 %define patchversion 7.0
-%define pkgrelease an19
+%define pkgrelease an20
 %define kversion 7
 %define tarfile_release 7.0.12
 # This is needed to do merge window version magic
 %define patchlevel 0
 # This allows pkg_release to have configurable %%{?dist} tag
-%define specrelease an19%{?buildid}%{?dist}
+%define specrelease an20%{?buildid}%{?dist}
 # This defines the kabi tarball version
 %define kabiversion 7.0.12
 
@@ -4946,7 +4946,9 @@ fi\
 #
 #
 %changelog
-* Thu Aug 20 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.0.12-an19]
+* Sun Aug 23 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.0.12-an20]
+- platform/x86: ayaneo-ec: Add AYANEO 2S charge control (Antheas Kapenekakis)
+- platform/x86/amd: dptc: Add Minisforum V3 support (Antheas Kapenekakis)
 - amd-dptc: add non-plus AI Max variant (Antheas Kapenekakis)
 - drm/amd/display: Force freesync_on_desktop for PCON (Antheas Kapenekakis)
 - drm/amd/display: Support HDMI VRRmax=0 (Tomasz Pakuła)
