@@ -8,8 +8,8 @@ Subject: [NA] add dev tools
  README.md    |  19 ++++++
  sync-arch.sh |  22 +++++++
  sync-ko.sh   |  25 ++++++++
- sync.sh      | 108 +++++++++++++++++++++++++++++++++
- 5 files changed, 174 insertions(+), 168 deletions(-)
+ sync.sh      | 126 ++++++++++++++++++++++++++++++++++++++
+ 5 files changed, 192 insertions(+), 168 deletions(-)
  delete mode 100644 README
  create mode 100644 README.md
  create mode 100755 sync-arch.sh
@@ -278,10 +278,10 @@ index 000000000000..49405da76e6a
 \ No newline at end of file
 diff --git a/sync.sh b/sync.sh
 new file mode 100755
-index 000000000000..8058c285a8c7
+index 000000000000..d5c9d8d622df
 --- /dev/null
 +++ b/sync.sh
-@@ -0,0 +1,108 @@
+@@ -0,0 +1,126 @@
 +#!/bin/bash
 +
 +# This script temporarily replaces the kernel in a remote bootc system
@@ -299,6 +299,7 @@ index 000000000000..8058c285a8c7
 +HOST=$1
 +RSYNC="rsync -rv --exclude .git --exclude venv --exclude __pycache__'"
 +USER=${USER:-anatase}
++NVIDIA_DIR="$(pwd)/../open-gpu-kernel-modules"
 +
 +# openssl req -new -x509 -newkey rsa:2048 -keyout "key.pem" \
 +#         -outform DER -out "cert.der" -nodes -days 36500 \
@@ -350,6 +351,23 @@ index 000000000000..8058c285a8c7
 +install -m 0644 "$KIMAGE" ./out/vmlinuz
 +make -j $(expr $(nproc) - 2) modules_install INSTALL_MOD_PATH=./out/ -s
 +
++# Build and stage the NVIDIA open kernel modules alongside the in-tree modules.
++# The existing rsync below then transports both sets of modules to the host.
++if [ -f "$NVIDIA_DIR/Makefile" ]; then
++    echo "Building NVIDIA modules from $NVIDIA_DIR"
++    time PATH="/usr/lib/ccache/bin:$PATH" \
++        CCACHE_DIR=$(pwd)/../cache CCACHE_FILECLONE=1 \
++        CCACHE_MAXSIZE=4G CCACHE_IGNORECONFIG=1 \
++        make -C "$NVIDIA_DIR" -s -j $(expr $(nproc) - 2) modules \
++        SYSSRC="$(pwd)" SYSOUT="$(pwd)"
++
++    echo "Installing NVIDIA modules to ./out"
++    make -C "$NVIDIA_DIR" -s -j $(expr $(nproc) - 2) modules_install \
++        SYSSRC="$(pwd)" SYSOUT="$(pwd)" INSTALL_MOD_PATH="$(pwd)/out"
++else
++    echo "NVIDIA module sources not found at $NVIDIA_DIR; skipping"
++fi
++
 +KNAME=$(make -s kernelrelease)
 +$RSYNC --rsync-path="sudo rsync" --delete out/lib/modules/$KNAME/ $HOST:/lib/modules/$KNAME/
 +
@@ -390,7 +408,6 @@ index 000000000000..8058c285a8c7
 +    sudo efibootmgr --bootnext \$bootnum
 +    sudo reboot
 +EOF
-\ No newline at end of file
 -- 
 2.55.0
 
@@ -42180,6 +42197,31 @@ index 28cb09fe8491..08e679347e9b 100644
  	{
  		.matches = {
  			DMI_MATCH(DMI_BOARD_VENDOR, "AYANEO"),
+-- 
+2.55.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Fri, 28 Aug 2026 17:36:08 +0200
+Subject: PCI: bwctrl: export pcie_set_target_speed
+
+---
+ drivers/pci/pcie/bwctrl.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/pci/pcie/bwctrl.c b/drivers/pci/pcie/bwctrl.c
+index c4c8d260bf96..b2949ed59916 100644
+--- a/drivers/pci/pcie/bwctrl.c
++++ b/drivers/pci/pcie/bwctrl.c
+@@ -178,6 +178,7 @@ int pcie_set_target_speed(struct pci_dev *port, enum pci_bus_speed speed_req,
+ 
+ 	return ret;
+ }
++EXPORT_SYMBOL_GPL(pcie_set_target_speed);
+ 
+ static void pcie_bwnotif_enable(struct pcie_device *srv)
+ {
 -- 
 2.55.0
 

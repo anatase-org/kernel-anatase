@@ -61,10 +61,13 @@ ZFS_RELEASE=$(sed -n 's/^%define[[:space:]]\+zfs_version[[:space:]]\+//p' kernel
 [ -n "${NVIDIA_RELEASE_LTS}" ] || die "Could not determine nvidia_version_lts from kernel.spec"
 [ -n "${ZFS_RELEASE}" ] || die "Could not determine zfs_version from kernel.spec"
 
+NVIDIA_DRIVER_RELEASE=${NVIDIA_RELEASE%-an[0-9]*}
+
 printf 'Using builder image %s\n' "${BUILDER_IMAGE}"
 printf 'Building kernel artifact image %s\n' "${IMAGE_REF}"
 printf 'TARFILE_RELEASE is %s\n' "${TARFILE_RELEASE}"
 printf 'NVIDIA_RELEASE is %s\n' "${NVIDIA_RELEASE}"
+printf 'NVIDIA_DRIVER_RELEASE is %s\n' "${NVIDIA_DRIVER_RELEASE}"
 printf 'NVIDIA_RELEASE_LTS is %s\n' "${NVIDIA_RELEASE_LTS}"
 printf 'ZFS_RELEASE is %s\n' "${ZFS_RELEASE}"
 
@@ -142,7 +145,7 @@ podman build \
     "${secret_opts[@]}" \
     "${volume_opts[@]}" \
     --label "org.anatase.kernel.version=${TARFILE_RELEASE}" \
-    --label "org.anatase.kernel.nvidia=${NVIDIA_RELEASE}" \
+    --label "org.anatase.kernel.nvidia=${NVIDIA_DRIVER_RELEASE}" \
     --label "org.anatase.kernel.nvidia_lts=${NVIDIA_RELEASE_LTS}" \
     --label "org.anatase.kernel.zfs=${ZFS_RELEASE}" \
     -f Containerfile \
