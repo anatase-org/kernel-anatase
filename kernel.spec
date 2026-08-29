@@ -190,13 +190,13 @@ Summary: The Linux kernel
 %define specrpmversion 7.0.12
 %define specversion 7.0.12
 %define patchversion 7.0
-%define pkgrelease an21
+%define pkgrelease an22
 %define kversion 7
 %define tarfile_release 7.0.12
 # This is needed to do merge window version magic
 %define patchlevel 0
 # This allows pkg_release to have configurable %%{?dist} tag
-%define specrelease an21%{?buildid}%{?dist}
+%define specrelease an22%{?buildid}%{?dist}
 # This defines the kabi tarball version
 %define kabiversion 7.0.12
 
@@ -4946,7 +4946,10 @@ fi\
 #
 #
 %changelog
-* Fri Aug 28 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.0.12-an21]
+* Sat Aug 29 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.0.12-an22]
+- HID: asus: add ROG XG Mobile 2025 RGB support (Antheas Kapenekakis)
+- HID: asus: add ROG XG Mobile 2025 support (Antheas Kapenekakis)
+- HID: asus: increase keyboard feature report size (Antheas Kapenekakis)
 - PCI: bwctrl: export pcie_set_target_speed (Antheas Kapenekakis)
 - platform/x86: ayaneo-ec: Add AYANEO 2S charge control (Antheas Kapenekakis)
 - platform/x86/amd: dptc: Add Minisforum V3 support (Antheas Kapenekakis)
