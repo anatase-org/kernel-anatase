@@ -190,13 +190,13 @@ Summary: The Linux kernel
 %define specrpmversion 7.0.12
 %define specversion 7.0.12
 %define patchversion 7.0
-%define pkgrelease an24
+%define pkgrelease an25
 %define kversion 7
 %define tarfile_release 7.0.12
 # This is needed to do merge window version magic
 %define patchlevel 0
 # This allows pkg_release to have configurable %%{?dist} tag
-%define specrelease an24%{?buildid}%{?dist}
+%define specrelease an25%{?buildid}%{?dist}
 # This defines the kabi tarball version
 %define kabiversion 7.0.12
 
@@ -4946,7 +4946,8 @@ fi\
 #
 #
 %changelog
-* Sun Aug 30 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.0.12-an24]
+* Mon Aug 31 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.0.12-an25]
+- drm/dp: Read the PCON max FRL bandwidth only for HDMI DFPs (Alexander Kaplan)
 - bump nvidia (Antheas Kapenekakis)
 - add 8bitdo to config local (Antheas Kapenekakis)
 - add new 8bitdo kernel driver (Antheas Kapenekakis)
