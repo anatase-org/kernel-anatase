@@ -190,13 +190,13 @@ Summary: The Linux kernel
 %define specrpmversion 7.0.12
 %define specversion 7.0.12
 %define patchversion 7.0
-%define pkgrelease an26
+%define pkgrelease an27
 %define kversion 7
 %define tarfile_release 7.0.12
 # This is needed to do merge window version magic
 %define patchlevel 0
 # This allows pkg_release to have configurable %%{?dist} tag
-%define specrelease an26%{?buildid}%{?dist}
+%define specrelease an27%{?buildid}%{?dist}
 # This defines the kabi tarball version
 %define kabiversion 7.0.12
 
@@ -4946,7 +4946,8 @@ fi\
 #
 #
 %changelog
-* Wed Sep 02 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.0.12-an26]
+* Sat Sep 05 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.0.12-an27]
+- platform/x86: oxpec: Fix Apex charge limit control (Antheas Kapenekakis)
 - quirk AMD speakers to hopefully avoid crackle during suspend / resume (Antheas Kapenekakis)
 - drm/dp: Read the PCON max FRL bandwidth only for HDMI DFPs (Alexander Kaplan)
 - bump nvidia (Antheas Kapenekakis)
