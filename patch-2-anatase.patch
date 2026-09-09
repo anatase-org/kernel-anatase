@@ -18,7 +18,7 @@ Subject: [NA] add dev tools
 
 diff --git a/README b/README
 deleted file mode 100644
-index e6549b2a7aac..000000000000
+index e6549b2a7aac3..0000000000000
 --- a/README
 +++ /dev/null
 @@ -1,168 +0,0 @@
@@ -192,7 +192,7 @@ index e6549b2a7aac..000000000000
 -* Email Clients: Documentation/process/email-clients.rst
 diff --git a/README.md b/README.md
 new file mode 100644
-index 000000000000..ca4adb32e399
+index 0000000000000..ca4adb32e3998
 --- /dev/null
 +++ b/README.md
 @@ -0,0 +1,19 @@
@@ -218,7 +218,7 @@ index 000000000000..ca4adb32e399
 \ No newline at end of file
 diff --git a/sync-arch.sh b/sync-arch.sh
 new file mode 100755
-index 000000000000..9a9c605bfee9
+index 0000000000000..9a9c605bfee99
 --- /dev/null
 +++ b/sync-arch.sh
 @@ -0,0 +1,22 @@
@@ -246,7 +246,7 @@ index 000000000000..9a9c605bfee9
 +
 diff --git a/sync-ko.sh b/sync-ko.sh
 new file mode 100755
-index 000000000000..49405da76e6a
+index 0000000000000..49405da76e6ad
 --- /dev/null
 +++ b/sync-ko.sh
 @@ -0,0 +1,25 @@
@@ -278,7 +278,7 @@ index 000000000000..49405da76e6a
 \ No newline at end of file
 diff --git a/sync.sh b/sync.sh
 new file mode 100755
-index 000000000000..d5c9d8d622df
+index 0000000000000..d5c9d8d622dff
 --- /dev/null
 +++ b/sync.sh
 @@ -0,0 +1,126 @@
@@ -464,7 +464,7 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
 
 diff --git a/.gitmodules b/.gitmodules
 new file mode 100644
-index 000000000000..0c19f8f47f9d
+index 0000000000000..0c19f8f47f9d1
 --- /dev/null
 +++ b/.gitmodules
 @@ -0,0 +1,39 @@
@@ -508,7 +508,7 @@ index 000000000000..0c19f8f47f9d
 +	path = drivers/custom/t150
 +	url = https://github.com/scarburato/t150_driver
 diff --git a/drivers/Kconfig b/drivers/Kconfig
-index c0f1fb893ec0..c738d998f610 100644
+index c0f1fb893ec02..c738d998f6103 100644
 --- a/drivers/Kconfig
 +++ b/drivers/Kconfig
 @@ -17,6 +17,8 @@ config PC104
@@ -521,7 +521,7 @@ index c0f1fb893ec0..c738d998f610 100644
  
  source "drivers/bus/Kconfig"
 diff --git a/drivers/Makefile b/drivers/Makefile
-index 53fbd2e0acdd..054aad967ab3 100644
+index 53fbd2e0acdd2..054aad967ab35 100644
 --- a/drivers/Makefile
 +++ b/drivers/Makefile
 @@ -6,6 +6,8 @@
@@ -535,7 +535,7 @@ index 53fbd2e0acdd..054aad967ab3 100644
  obj-y				+= bus/
 diff --git a/drivers/custom/.gitignore b/drivers/custom/.gitignore
 new file mode 100644
-index 000000000000..b9adbda1674e
+index 0000000000000..b9adbda1674e6
 --- /dev/null
 +++ b/drivers/custom/.gitignore
 @@ -0,0 +1,3 @@
@@ -545,7 +545,7 @@ index 000000000000..b9adbda1674e
 \ No newline at end of file
 diff --git a/drivers/custom/Kconfig b/drivers/custom/Kconfig
 new file mode 100644
-index 000000000000..481fdc49347d
+index 0000000000000..481fdc49347df
 --- /dev/null
 +++ b/drivers/custom/Kconfig
 @@ -0,0 +1,73 @@
@@ -625,7 +625,7 @@ index 000000000000..481fdc49347d
 \ No newline at end of file
 diff --git a/drivers/custom/Makefile b/drivers/custom/Makefile
 new file mode 100644
-index 000000000000..3fc5568be36d
+index 0000000000000..3fc5568be36dd
 --- /dev/null
 +++ b/drivers/custom/Makefile
 @@ -0,0 +1,33 @@
@@ -665,56 +665,56 @@ index 000000000000..3fc5568be36d
 \ No newline at end of file
 diff --git a/drivers/custom/ayaneo_platform b/drivers/custom/ayaneo_platform
 new file mode 160000
-index 000000000000..687e5e362003
+index 0000000000000..687e5e3620032
 --- /dev/null
 +++ b/drivers/custom/ayaneo_platform
 @@ -0,0 +1 @@
 +Subproject commit 687e5e3620032bc100619eed7498df2b56020f62
 diff --git a/drivers/custom/ayn_platform b/drivers/custom/ayn_platform
 new file mode 160000
-index 000000000000..fee1bab81d4e
+index 0000000000000..fee1bab81d4ef
 --- /dev/null
 +++ b/drivers/custom/ayn_platform
 @@ -0,0 +1 @@
 +Subproject commit fee1bab81d4ef7dc8f9c5695f5081ace26a58ea0
 diff --git a/drivers/custom/bmi260 b/drivers/custom/bmi260
 new file mode 160000
-index 000000000000..2d764db2bd69
+index 0000000000000..2d764db2bd69f
 --- /dev/null
 +++ b/drivers/custom/bmi260
 @@ -0,0 +1 @@
 +Subproject commit 2d764db2bd69f2922d7fad6cb162136e32f357a2
 diff --git a/drivers/custom/evdi b/drivers/custom/evdi
 new file mode 160000
-index 000000000000..2713cd41932f
+index 0000000000000..2713cd41932f2
 --- /dev/null
 +++ b/drivers/custom/evdi
 @@ -0,0 +1 @@
 +Subproject commit 2713cd41932f2bd8697953a205862a68a966b5ba
 diff --git a/drivers/custom/fanatecff b/drivers/custom/fanatecff
 new file mode 160000
-index 000000000000..dd78ef477c0d
+index 0000000000000..dd78ef477c0dc
 --- /dev/null
 +++ b/drivers/custom/fanatecff
 @@ -0,0 +1 @@
 +Subproject commit dd78ef477c0dc90d59291a0197afcea26911fca8
 diff --git a/drivers/custom/hid-tmff2 b/drivers/custom/hid-tmff2
 new file mode 160000
-index 000000000000..c5b9b79d4e61
+index 0000000000000..c5b9b79d4e61b
 --- /dev/null
 +++ b/drivers/custom/hid-tmff2
 @@ -0,0 +1 @@
 +Subproject commit c5b9b79d4e61b77e0827e81dd676420b3c366743
 diff --git a/drivers/custom/lg4ff b/drivers/custom/lg4ff
 new file mode 160000
-index 000000000000..2092db19f7b4
+index 0000000000000..2092db19f7b40
 --- /dev/null
 +++ b/drivers/custom/lg4ff
 @@ -0,0 +1 @@
 +Subproject commit 2092db19f7b40854e0427a1b2e39eda9f8d0c3cd
 diff --git a/drivers/custom/modprobe.conf b/drivers/custom/modprobe.conf
 new file mode 100644
-index 000000000000..6eccdca1d8a5
+index 0000000000000..6eccdca1d8a56
 --- /dev/null
 +++ b/drivers/custom/modprobe.conf
 @@ -0,0 +1 @@
@@ -722,7 +722,7 @@ index 000000000000..6eccdca1d8a5
 \ No newline at end of file
 diff --git a/drivers/custom/nvidia-separate-drivers.py b/drivers/custom/nvidia-separate-drivers.py
 new file mode 100644
-index 000000000000..a3c0253d2408
+index 0000000000000..a3c0253d24081
 --- /dev/null
 +++ b/drivers/custom/nvidia-separate-drivers.py
 @@ -0,0 +1,248 @@
@@ -976,48 +976,48 @@ index 000000000000..a3c0253d2408
 +                sys.exit(1)
 diff --git a/drivers/custom/razer b/drivers/custom/razer
 new file mode 160000
-index 000000000000..878ab5a561d1
+index 0000000000000..878ab5a561d1e
 --- /dev/null
 +++ b/drivers/custom/razer
 @@ -0,0 +1 @@
 +Subproject commit 878ab5a561d1e7acbbaeb82031820acb217b1d04
 diff --git a/drivers/custom/system76 b/drivers/custom/system76
 new file mode 160000
-index 000000000000..90ea5e69af3b
+index 0000000000000..90ea5e69af3bb
 --- /dev/null
 +++ b/drivers/custom/system76
 @@ -0,0 +1 @@
 +Subproject commit 90ea5e69af3bbc64ad373c7b8fec8c1197e8bd4f
 diff --git a/drivers/custom/system76_io b/drivers/custom/system76_io
 new file mode 160000
-index 000000000000..fc71f154ab8d
+index 0000000000000..fc71f154ab8d9
 --- /dev/null
 +++ b/drivers/custom/system76_io
 @@ -0,0 +1 @@
 +Subproject commit fc71f154ab8d9810f960ba171479c68c44737649
 diff --git a/drivers/custom/t150 b/drivers/custom/t150
 new file mode 160000
-index 000000000000..f7ecb30c65ee
+index 0000000000000..f7ecb30c65ee5
 --- /dev/null
 +++ b/drivers/custom/t150
 @@ -0,0 +1 @@
 +Subproject commit f7ecb30c65ee5f7870e921bc0a2354df8e1e8100
 diff --git a/drivers/custom/v4l2loopback b/drivers/custom/v4l2loopback
 new file mode 160000
-index 000000000000..9ef83fb9bc88
+index 0000000000000..9ef83fb9bc88e
 --- /dev/null
 +++ b/drivers/custom/v4l2loopback
 @@ -0,0 +1 @@
 +Subproject commit 9ef83fb9bc88e8f841786753c362ac52c580defc
 diff --git a/drivers/custom/xone b/drivers/custom/xone
 new file mode 160000
-index 000000000000..9053b2a0f66f
+index 0000000000000..9053b2a0f66f9
 --- /dev/null
 +++ b/drivers/custom/xone
 @@ -0,0 +1 @@
 +Subproject commit 9053b2a0f66f948357a9c79fb41c284162a24688
 diff --git a/scripts/mod/modpost.c b/scripts/mod/modpost.c
-index c3bc801d8b2d..92bf689487c7 100644
+index c3bc801d8b2de..92bf689487c75 100644
 --- a/scripts/mod/modpost.c
 +++ b/scripts/mod/modpost.c
 @@ -1616,8 +1616,8 @@ static void read_symbols(const char *modname)
@@ -1055,7 +1055,7 @@ Signed-off-by: Cristian Ciocaltea <cristian.ciocaltea@collabora.com>
  create mode 100644 drivers/mfd/steamdeck.c
 
 diff --git a/drivers/mfd/Kconfig b/drivers/mfd/Kconfig
-index 7192c9d1d268..ea33eb5bf31b 100644
+index 7192c9d1d268e..ea33eb5bf31bc 100644
 --- a/drivers/mfd/Kconfig
 +++ b/drivers/mfd/Kconfig
 @@ -2554,6 +2554,17 @@ config MFD_RSMU_SPI
@@ -1077,7 +1077,7 @@ index 7192c9d1d268..ea33eb5bf31b 100644
  	tristate "Support for the AAeon UP board FPGA"
  	depends on (X86 && ACPI)
 diff --git a/drivers/mfd/Makefile b/drivers/mfd/Makefile
-index e75e8045c28a..5fc48aa2bab1 100644
+index e75e8045c28af..5fc48aa2bab1f 100644
 --- a/drivers/mfd/Makefile
 +++ b/drivers/mfd/Makefile
 @@ -301,6 +301,8 @@ obj-$(CONFIG_MFD_QNAP_MCU)	+= qnap-mcu.o
@@ -1091,7 +1091,7 @@ index e75e8045c28a..5fc48aa2bab1 100644
  obj-$(CONFIG_MFD_LOONGSON_SE)	+= loongson-se.o
 diff --git a/drivers/mfd/steamdeck.c b/drivers/mfd/steamdeck.c
 new file mode 100644
-index 000000000000..0e504b3c2796
+index 0000000000000..0e504b3c2796e
 --- /dev/null
 +++ b/drivers/mfd/steamdeck.c
 @@ -0,0 +1,127 @@
@@ -1243,7 +1243,7 @@ Signed-off-by: Cristian Ciocaltea <cristian.ciocaltea@collabora.com>
  1 file changed, 20 insertions(+)
 
 diff --git a/drivers/mfd/steamdeck.c b/drivers/mfd/steamdeck.c
-index 0e504b3c2796..a60fa7db9141 100644
+index 0e504b3c2796e..a60fa7db91415 100644
 --- a/drivers/mfd/steamdeck.c
 +++ b/drivers/mfd/steamdeck.c
 @@ -41,9 +41,29 @@ struct steamdeck {
@@ -1296,7 +1296,7 @@ Signed-off-by: Cristian Ciocaltea <cristian.ciocaltea@collabora.com>
  create mode 100644 drivers/leds/leds-steamdeck.c
 
 diff --git a/drivers/leds/Kconfig b/drivers/leds/Kconfig
-index 597d7a79c988..327916fd676e 100644
+index 597d7a79c988b..327916fd676ed 100644
 --- a/drivers/leds/Kconfig
 +++ b/drivers/leds/Kconfig
 @@ -1029,6 +1029,13 @@ config LEDS_ACER_A500
@@ -1314,7 +1314,7 @@ index 597d7a79c988..327916fd676e 100644
  
  comment "Flash and Torch LED drivers"
 diff --git a/drivers/leds/Makefile b/drivers/leds/Makefile
-index 8fdb45d5b439..8fa5c1dd0c72 100644
+index 8fdb45d5b4393..8fa5c1dd0c72d 100644
 --- a/drivers/leds/Makefile
 +++ b/drivers/leds/Makefile
 @@ -87,6 +87,7 @@ obj-$(CONFIG_LEDS_QNAP_MCU)		+= leds-qnap-mcu.o
@@ -1327,7 +1327,7 @@ index 8fdb45d5b439..8fa5c1dd0c72 100644
  obj-$(CONFIG_LEDS_SYSCON)		+= leds-syscon.o
 diff --git a/drivers/leds/leds-steamdeck.c b/drivers/leds/leds-steamdeck.c
 new file mode 100644
-index 000000000000..686500b8de73
+index 0000000000000..686500b8de736
 --- /dev/null
 +++ b/drivers/leds/leds-steamdeck.c
 @@ -0,0 +1,74 @@
@@ -1426,7 +1426,7 @@ Signed-off-by: Cristian Ciocaltea <cristian.ciocaltea@collabora.com>
  1 file changed, 49 insertions(+)
 
 diff --git a/drivers/leds/leds-steamdeck.c b/drivers/leds/leds-steamdeck.c
-index 686500b8de73..ada9fffc0a42 100644
+index 686500b8de736..ada9fffc0a420 100644
 --- a/drivers/leds/leds-steamdeck.c
 +++ b/drivers/leds/leds-steamdeck.c
 @@ -16,6 +16,54 @@ struct steamdeck_led {
@@ -1512,7 +1512,7 @@ Signed-off-by: Cristian Ciocaltea <cristian.ciocaltea@collabora.com>
  create mode 100644 drivers/extcon/extcon-steamdeck.c
 
 diff --git a/drivers/extcon/Kconfig b/drivers/extcon/Kconfig
-index aec46bf03302..2b26545df5eb 100644
+index aec46bf03302c..2b26545df5eb9 100644
 --- a/drivers/extcon/Kconfig
 +++ b/drivers/extcon/Kconfig
 @@ -227,4 +227,11 @@ config EXTCON_RTK_TYPE_C
@@ -1528,7 +1528,7 @@ index aec46bf03302..2b26545df5eb 100644
 +
  endif
 diff --git a/drivers/extcon/Makefile b/drivers/extcon/Makefile
-index 6482f2bfd661..770dceb94c1d 100644
+index 6482f2bfd6611..770dceb94c1df 100644
 --- a/drivers/extcon/Makefile
 +++ b/drivers/extcon/Makefile
 @@ -28,3 +28,4 @@ obj-$(CONFIG_EXTCON_USB_GPIO)	+= extcon-usb-gpio.o
@@ -1538,7 +1538,7 @@ index 6482f2bfd661..770dceb94c1d 100644
 +obj-$(CONFIG_EXTCON_STEAMDECK)  += extcon-steamdeck.o
 diff --git a/drivers/extcon/extcon-steamdeck.c b/drivers/extcon/extcon-steamdeck.c
 new file mode 100644
-index 000000000000..74f190adc8ea
+index 0000000000000..74f190adc8eaa
 --- /dev/null
 +++ b/drivers/extcon/extcon-steamdeck.c
 @@ -0,0 +1,180 @@
@@ -1744,7 +1744,7 @@ Signed-off-by: Cristian Ciocaltea <cristian.ciocaltea@collabora.com>
  create mode 100644 drivers/hwmon/steamdeck-hwmon.c
 
 diff --git a/drivers/hwmon/Kconfig b/drivers/hwmon/Kconfig
-index 328867242cb3..cbb67c23aff2 100644
+index 328867242cb37..cbb67c23aff27 100644
 --- a/drivers/hwmon/Kconfig
 +++ b/drivers/hwmon/Kconfig
 @@ -2159,6 +2159,17 @@ config SENSORS_SCH5636
@@ -1766,7 +1766,7 @@ index 328867242cb3..cbb67c23aff2 100644
  	tristate "ST Microelectronics STTS751"
  	depends on I2C
 diff --git a/drivers/hwmon/Makefile b/drivers/hwmon/Makefile
-index 5833c807c688..95d8655a2ec1 100644
+index 5833c807c688a..95d8655a2ec19 100644
 --- a/drivers/hwmon/Makefile
 +++ b/drivers/hwmon/Makefile
 @@ -219,6 +219,7 @@ obj-$(CONFIG_SENSORS_SMSC47M1)	+= smsc47m1.o
@@ -1779,7 +1779,7 @@ index 5833c807c688..95d8655a2ec1 100644
  obj-$(CONFIG_SENSORS_SURFACE_TEMP)+= surface_temp.o
 diff --git a/drivers/hwmon/steamdeck-hwmon.c b/drivers/hwmon/steamdeck-hwmon.c
 new file mode 100644
-index 000000000000..fab9e9460bd4
+index 0000000000000..fab9e9460bd40
 --- /dev/null
 +++ b/drivers/hwmon/steamdeck-hwmon.c
 @@ -0,0 +1,224 @@
@@ -2026,7 +2026,7 @@ Signed-off-by: Cristian Ciocaltea <cristian.ciocaltea@collabora.com>
  1 file changed, 71 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/hwmon/steamdeck-hwmon.c b/drivers/hwmon/steamdeck-hwmon.c
-index fab9e9460bd4..9d0a5471b181 100644
+index fab9e9460bd40..9d0a5471b1811 100644
 --- a/drivers/hwmon/steamdeck-hwmon.c
 +++ b/drivers/hwmon/steamdeck-hwmon.c
 @@ -180,6 +180,76 @@ static const struct hwmon_chip_info steamdeck_hwmon_chip_info = {
@@ -2138,7 +2138,7 @@ Signed-off-by: Cristian Ciocaltea <cristian.ciocaltea@collabora.com>
  1 file changed, 1 insertion(+)
 
 diff --git a/drivers/usb/dwc3/dwc3-pci.c b/drivers/usb/dwc3/dwc3-pci.c
-index 6c1cbb722ca8..1d1ecf1380a0 100644
+index 6c1cbb722ca85..1d1ecf1380a09 100644
 --- a/drivers/usb/dwc3/dwc3-pci.c
 +++ b/drivers/usb/dwc3/dwc3-pci.c
 @@ -196,6 +196,7 @@ static const struct property_entry dwc3_pci_mr_properties[] = {
@@ -2174,7 +2174,7 @@ Signed-off-by: Cristian Ciocaltea <cristian.ciocaltea@collabora.com>
  1 file changed, 2 deletions(-)
 
 diff --git a/drivers/usb/dwc3/dwc3-pci.c b/drivers/usb/dwc3/dwc3-pci.c
-index 1d1ecf1380a0..7a4eeb5ad2b7 100644
+index 1d1ecf1380a09..7a4eeb5ad2b70 100644
 --- a/drivers/usb/dwc3/dwc3-pci.c
 +++ b/drivers/usb/dwc3/dwc3-pci.c
 @@ -193,8 +193,6 @@ static const struct property_entry dwc3_pci_amd_properties[] = {
@@ -2202,7 +2202,7 @@ Signed-off-by: Cristian Ciocaltea <cristian.ciocaltea@collabora.com>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/drivers/usb/dwc3/dwc3-pci.c b/drivers/usb/dwc3/dwc3-pci.c
-index 7a4eeb5ad2b7..ae66f4d2267b 100644
+index 7a4eeb5ad2b70..ae66f4d2267b0 100644
 --- a/drivers/usb/dwc3/dwc3-pci.c
 +++ b/drivers/usb/dwc3/dwc3-pci.c
 @@ -194,7 +194,7 @@ static const struct property_entry dwc3_pci_amd_properties[] = {
@@ -2234,7 +2234,7 @@ Signed-off-by: Cristian Ciocaltea <cristian.ciocaltea@collabora.com>
  1 file changed, 3 insertions(+)
 
 diff --git a/drivers/media/cec/platform/cros-ec/cros-ec-cec.c b/drivers/media/cec/platform/cros-ec/cros-ec-cec.c
-index 419b9a7abcce..22282578ab99 100644
+index 419b9a7abcceb..22282578ab997 100644
 --- a/drivers/media/cec/platform/cros-ec/cros-ec-cec.c
 +++ b/drivers/media/cec/platform/cros-ec/cros-ec-cec.c
 @@ -296,6 +296,7 @@ struct cec_dmi_match {
@@ -2281,7 +2281,7 @@ Signed-off-by: Cristian Ciocaltea <cristian.ciocaltea@collabora.com>
  1 file changed, 22 insertions(+), 2 deletions(-)
 
 diff --git a/sound/soc/codecs/max98388.c b/sound/soc/codecs/max98388.c
-index 076f15a9867e..42f1e0b7f38a 100644
+index 076f15a9867e1..42f1e0b7f38a9 100644
 --- a/sound/soc/codecs/max98388.c
 +++ b/sound/soc/codecs/max98388.c
 @@ -390,27 +390,43 @@ static void max98388_reset(struct max98388_priv *max98388, struct device *dev)
@@ -2381,7 +2381,7 @@ Signed-off-by: Cristian Ciocaltea <cristian.ciocaltea@collabora.com>
  4 files changed, 9 insertions(+), 8 deletions(-)
 
 diff --git a/include/net/bluetooth/hci.h b/include/net/bluetooth/hci.h
-index 89ad9470fa71..0d5db36d590f 100644
+index 89ad9470fa71b..0d5db36d590fd 100644
 --- a/include/net/bluetooth/hci.h
 +++ b/include/net/bluetooth/hci.h
 @@ -486,6 +486,7 @@ enum {
@@ -2393,7 +2393,7 @@ index 89ad9470fa71..0d5db36d590f 100644
  #define HCI_ACL_CONN_TIMEOUT	msecs_to_jiffies(20000)	/* 20 seconds */
  #define HCI_LE_CONN_TIMEOUT	msecs_to_jiffies(20000)	/* 20 seconds */
 diff --git a/include/net/bluetooth/hci_core.h b/include/net/bluetooth/hci_core.h
-index a7bffb908c1e..e9ca5f8766a2 100644
+index a7bffb908c1ec..e9ca5f8766a2a 100644
 --- a/include/net/bluetooth/hci_core.h
 +++ b/include/net/bluetooth/hci_core.h
 @@ -497,7 +497,7 @@ struct hci_dev {
@@ -2406,7 +2406,7 @@ index a7bffb908c1e..e9ca5f8766a2 100644
  	struct work_struct	error_reset;
  	struct work_struct	cmd_sync_work;
 diff --git a/net/bluetooth/hci_core.c b/net/bluetooth/hci_core.c
-index 01f8ceeb1c0c..d2ceac4a68b1 100644
+index 01f8ceeb1c0c8..d2ceac4a68b16 100644
 --- a/net/bluetooth/hci_core.c
 +++ b/net/bluetooth/hci_core.c
 @@ -520,7 +520,7 @@ int hci_dev_close(__u16 dev)
@@ -2455,7 +2455,7 @@ index 01f8ceeb1c0c..d2ceac4a68b1 100644
  
  	hci_cmd_sync_clear(hdev);
 diff --git a/net/bluetooth/mgmt.c b/net/bluetooth/mgmt.c
-index de5bd6b637b2..2a65606c848b 100644
+index de5bd6b637b20..2a65606c848bb 100644
 --- a/net/bluetooth/mgmt.c
 +++ b/net/bluetooth/mgmt.c
 @@ -8108,7 +8108,7 @@ static int set_external_config(struct sock *sk, struct hci_dev *hdev,
@@ -2492,7 +2492,7 @@ Signed-off-by: Cristian Ciocaltea <cristian.ciocaltea@collabora.com>
  1 file changed, 1 insertion(+)
 
 diff --git a/drivers/bluetooth/hci_qca.c b/drivers/bluetooth/hci_qca.c
-index e4c6b81c7c68..03e826cf28de 100644
+index e4c6b81c7c68b..03e826cf28de5 100644
 --- a/drivers/bluetooth/hci_qca.c
 +++ b/drivers/bluetooth/hci_qca.c
 @@ -2777,6 +2777,7 @@ static const struct acpi_device_id qca_bluetooth_acpi_match[] = {
@@ -2529,7 +2529,7 @@ Signed-off-by: Cristian Ciocaltea <cristian.ciocaltea@collabora.com>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/net/bluetooth/hci_sync.c b/net/bluetooth/hci_sync.c
-index 8a92fec9d9e3..18441d825335 100644
+index 8a92fec9d9e33..18441d825335c 100644
 --- a/net/bluetooth/hci_sync.c
 +++ b/net/bluetooth/hci_sync.c
 @@ -6274,7 +6274,7 @@ int hci_suspend_sync(struct hci_dev *hdev)
@@ -2577,7 +2577,7 @@ Signed-off-by: Cristian Ciocaltea <cristian.ciocaltea@collabora.com>
  1 file changed, 10 insertions(+)
 
 diff --git a/net/bluetooth/hci_sync.c b/net/bluetooth/hci_sync.c
-index 18441d825335..7d1e6f8b3077 100644
+index 18441d825335c..7d1e6f8b30778 100644
 --- a/net/bluetooth/hci_sync.c
 +++ b/net/bluetooth/hci_sync.c
 @@ -2756,6 +2756,7 @@ static u8 hci_update_accept_list_sync(struct hci_dev *hdev)
@@ -2627,7 +2627,7 @@ Signed-off-by: Cristian Ciocaltea <cristian.ciocaltea@collabora.com>
  1 file changed, 85 insertions(+)
 
 diff --git a/drivers/bluetooth/btrtl.c b/drivers/bluetooth/btrtl.c
-index 62f9d4df3a4f..1a81c6828b1a 100644
+index 62f9d4df3a4f8..1a81c6828b1ad 100644
 --- a/drivers/bluetooth/btrtl.c
 +++ b/drivers/bluetooth/btrtl.c
 @@ -9,6 +9,7 @@
@@ -2791,7 +2791,7 @@ Signed-off-by: Cristian Ciocaltea <cristian.ciocaltea@collabora.com>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/sound/soc/amd/acp/acp-mach.h b/sound/soc/amd/acp/acp-mach.h
-index 7177d3fd9619..c6779beb7ba1 100644
+index 7177d3fd96192..c6779beb7ba10 100644
 --- a/sound/soc/amd/acp/acp-mach.h
 +++ b/sound/soc/amd/acp/acp-mach.h
 @@ -33,8 +33,8 @@
@@ -2823,7 +2823,7 @@ Signed-off-by: Cristian Ciocaltea <cristian.ciocaltea@collabora.com>
  1 file changed, 4 insertions(+)
 
 diff --git a/sound/soc/codecs/nau8821.c b/sound/soc/codecs/nau8821.c
-index ffb526de0021..0bab1c8bfd7b 100644
+index ffb526de0021c..0bab1c8bfd7b6 100644
 --- a/sound/soc/codecs/nau8821.c
 +++ b/sound/soc/codecs/nau8821.c
 @@ -1432,6 +1432,10 @@ static int nau8821_set_fll(struct snd_soc_component *component,
@@ -2851,7 +2851,7 @@ Subject: [HACK] Add 2s delay before enabling DP link for dock
  1 file changed, 9 insertions(+)
 
 diff --git a/drivers/gpu/drm/amd/display/dc/hwss/dce110/dce110_hwseq.c b/drivers/gpu/drm/amd/display/dc/hwss/dce110/dce110_hwseq.c
-index 699a756bbc40..12e02d0c00fa 100644
+index 699a756bbc405..12e02d0c00fa9 100644
 --- a/drivers/gpu/drm/amd/display/dc/hwss/dce110/dce110_hwseq.c
 +++ b/drivers/gpu/drm/amd/display/dc/hwss/dce110/dce110_hwseq.c
 @@ -97,6 +97,8 @@
@@ -2903,7 +2903,7 @@ Signed-off-by: Cristian Ciocaltea <cristian.ciocaltea@collabora.com>
  4 files changed, 7 insertions(+)
 
 diff --git a/drivers/mmc/core/mmc.c b/drivers/mmc/core/mmc.c
-index 8846550a8892..1feafcacad86 100644
+index 8846550a8892a..1feafcacad861 100644
 --- a/drivers/mmc/core/mmc.c
 +++ b/drivers/mmc/core/mmc.c
 @@ -829,6 +829,7 @@ MMC_DEV_ATTR(rel_sectors, "%#x\n", card->ext_csd.rel_sectors);
@@ -2923,7 +2923,7 @@ index 8846550a8892..1feafcacad86 100644
  };
  ATTRIBUTE_GROUPS(mmc_std);
 diff --git a/drivers/mmc/core/quirks.h b/drivers/mmc/core/quirks.h
-index 6f727b4a60a5..45185c1d4aed 100644
+index 6f727b4a60a52..45185c1d4aed6 100644
 --- a/drivers/mmc/core/quirks.h
 +++ b/drivers/mmc/core/quirks.h
 @@ -276,4 +276,6 @@ static inline void mmc_fixup_device(struct mmc_card *card,
@@ -2934,7 +2934,7 @@ index 6f727b4a60a5..45185c1d4aed 100644
 +	card->safe_trim_quirk_version = 1;
  }
 diff --git a/drivers/mmc/core/sd.c b/drivers/mmc/core/sd.c
-index 948948ca9b4a..5335220f651d 100644
+index 948948ca9b4ae..5335220f651d2 100644
 --- a/drivers/mmc/core/sd.c
 +++ b/drivers/mmc/core/sd.c
 @@ -727,6 +727,7 @@ MMC_DEV_ATTR(oemid, "0x%04x\n", card->cid.oemid);
@@ -2954,7 +2954,7 @@ index 948948ca9b4a..5335220f651d 100644
  };
  
 diff --git a/include/linux/mmc/card.h b/include/linux/mmc/card.h
-index 9dc4750296af..b4b6df2def9d 100644
+index 9dc4750296af9..b4b6df2def9dd 100644
 --- a/include/linux/mmc/card.h
 +++ b/include/linux/mmc/card.h
 @@ -308,6 +308,7 @@ struct mmc_card {
@@ -2989,7 +2989,7 @@ Signed-off-by: Cristian Ciocaltea <cristian.ciocaltea@collabora.com>
  1 file changed, 22 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/gpu/drm/amd/display/dc/hwss/dce110/dce110_hwseq.c b/drivers/gpu/drm/amd/display/dc/hwss/dce110/dce110_hwseq.c
-index 12e02d0c00fa..395af02b8108 100644
+index 12e02d0c00fa9..395af02b81087 100644
 --- a/drivers/gpu/drm/amd/display/dc/hwss/dce110/dce110_hwseq.c
 +++ b/drivers/gpu/drm/amd/display/dc/hwss/dce110/dce110_hwseq.c
 @@ -1968,9 +1968,29 @@ void dce110_enable_accelerated_mode(struct dc *dc, struct dc_state *context)
@@ -3042,7 +3042,7 @@ Signed-off-by: Cristian Ciocaltea <cristian.ciocaltea@collabora.com>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/drivers/gpu/drm/amd/display/dc/link/link_detection.c b/drivers/gpu/drm/amd/display/dc/link/link_detection.c
-index b2c020071cbf..a8d456d01909 100644
+index b2c020071cbfb..a8d456d019099 100644
 --- a/drivers/gpu/drm/amd/display/dc/link/link_detection.c
 +++ b/drivers/gpu/drm/amd/display/dc/link/link_detection.c
 @@ -646,7 +646,7 @@ static bool wait_for_entering_dp_alt_mode(struct dc_link *link)
@@ -3068,7 +3068,7 @@ Subject: Disable modes with >1200 MHz Pixel clocks when connected via dock
  1 file changed, 11 insertions(+)
 
 diff --git a/drivers/gpu/drm/amd/display/dc/link/link_validation.c b/drivers/gpu/drm/amd/display/dc/link/link_validation.c
-index acdc162de535..53b7ea0daba4 100644
+index acdc162de5353..53b7ea0daba48 100644
 --- a/drivers/gpu/drm/amd/display/dc/link/link_validation.c
 +++ b/drivers/gpu/drm/amd/display/dc/link/link_validation.c
 @@ -35,6 +35,8 @@
@@ -3111,7 +3111,7 @@ Subject: drm/amd/display: Enable 3 overlay planes for Steam Deck
  2 files changed, 4 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/gpu/drm/amd/display/dc/dc.h b/drivers/gpu/drm/amd/display/dc/dc.h
-index 8044c80971f0..e310b57de06b 100644
+index 8044c80971f04..e310b57de06b4 100644
 --- a/drivers/gpu/drm/amd/display/dc/dc.h
 +++ b/drivers/gpu/drm/amd/display/dc/dc.h
 @@ -68,7 +68,7 @@ struct dcn_dccg_reg_state;
@@ -3124,7 +3124,7 @@ index 8044c80971f0..e310b57de06b 100644
   * MAX_PLANES - representative of the upper bound of planes that are supported by the HW
   */
 diff --git a/drivers/gpu/drm/amd/display/dc/resource/dcn301/dcn301_resource.c b/drivers/gpu/drm/amd/display/dc/resource/dcn301/dcn301_resource.c
-index 6bb1c62124bb..cbc66f1d49d8 100644
+index 6bb1c62124bb4..cbc66f1d49d8e 100644
 --- a/drivers/gpu/drm/amd/display/dc/resource/dcn301/dcn301_resource.c
 +++ b/drivers/gpu/drm/amd/display/dc/resource/dcn301/dcn301_resource.c
 @@ -1470,9 +1470,9 @@ static bool dcn301_resource_construct(
@@ -3161,7 +3161,7 @@ Signed-off-by: Cristian Ciocaltea <cristian.ciocaltea@collabora.com>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/drivers/gpu/drm/amd/amdgpu/sdma_v5_2.c b/drivers/gpu/drm/amd/amdgpu/sdma_v5_2.c
-index feebaa8cd9b1..14505b6fe054 100644
+index feebaa8cd9b14..14505b6fe0546 100644
 --- a/drivers/gpu/drm/amd/amdgpu/sdma_v5_2.c
 +++ b/drivers/gpu/drm/amd/amdgpu/sdma_v5_2.c
 @@ -1322,7 +1322,7 @@ static int sdma_v5_2_sw_init(struct amdgpu_ip_block *ip_block)
@@ -3190,7 +3190,7 @@ Signed-off-by: Cristian Ciocaltea <cristian.ciocaltea@collabora.com>
  1 file changed, 1 insertion(+), 2 deletions(-)
 
 diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
-index 0aee65503642..d0962a89673f 100644
+index 0aee65503642d..d0962a89673fc 100644
 --- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
 +++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
 @@ -6718,8 +6718,7 @@ static void fill_stream_properties_from_drm_display_mode(
@@ -3231,7 +3231,7 @@ Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
  1 file changed, 6 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
-index d0962a89673f..ec0248cec5e4 100644
+index d0962a89673fc..ec0248cec5e43 100644
 --- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
 +++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
 @@ -8936,7 +8936,12 @@ static int amdgpu_dm_connector_get_modes(struct drm_connector *connector)
@@ -3271,7 +3271,7 @@ Signed-off-by: Cristian Ciocaltea <cristian.ciocaltea@collabora.com>
  1 file changed, 2 insertions(+)
 
 diff --git a/drivers/video/backlight/backlight.c b/drivers/video/backlight/backlight.c
-index a22d0bbb6e63..6cc186a80c4e 100644
+index a22d0bbb6e639..6cc186a80c4e4 100644
 --- a/drivers/video/backlight/backlight.c
 +++ b/drivers/video/backlight/backlight.c
 @@ -116,6 +116,7 @@ EXPORT_SYMBOL(backlight_notify_blank_all);
@@ -3322,7 +3322,7 @@ Signed-off-by: Cristian Ciocaltea <cristian.ciocaltea@collabora.com>
  2 files changed, 56 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/acpi/acpica/dsmethod.c b/drivers/acpi/acpica/dsmethod.c
-index 45ec32e81903..f6450854dfca 100644
+index 45ec32e81903a..f6450854dfcac 100644
 --- a/drivers/acpi/acpica/dsmethod.c
 +++ b/drivers/acpi/acpica/dsmethod.c
 @@ -306,8 +306,9 @@ acpi_ds_begin_method_execution(struct acpi_namespace_node *method_node,
@@ -3338,7 +3338,7 @@ index 45ec32e81903..f6450854dfca 100644
  	}
  
 diff --git a/drivers/acpi/acpica/uterror.c b/drivers/acpi/acpica/uterror.c
-index 918aca7c4db4..4a482de2e55d 100644
+index 918aca7c4db41..4a482de2e55dd 100644
 --- a/drivers/acpi/acpica/uterror.c
 +++ b/drivers/acpi/acpica/uterror.c
 @@ -278,6 +278,56 @@ acpi_ut_namespace_error(const char *module_name,
@@ -3429,7 +3429,7 @@ Signed-off-by: Yaroslav Bolyukin <iam@lach.pw>
  3 files changed, 39 insertions(+), 15 deletions(-)
 
 diff --git a/drivers/gpu/drm/drm_displayid_internal.h b/drivers/gpu/drm/drm_displayid_internal.h
-index 5b1b32f73516..dc257895f996 100644
+index 5b1b32f735166..dc257895f9967 100644
 --- a/drivers/gpu/drm/drm_displayid_internal.h
 +++ b/drivers/gpu/drm/drm_displayid_internal.h
 @@ -144,12 +144,16 @@ struct displayid_formula_timing_block {
@@ -3450,7 +3450,7 @@ index 5b1b32f73516..dc257895f996 100644
  
  /*
 diff --git a/drivers/gpu/drm/drm_edid.c b/drivers/gpu/drm/drm_edid.c
-index ff432ac6b569..c65d24369f1a 100644
+index ff432ac6b5692..c65d24369f1a0 100644
 --- a/drivers/gpu/drm/drm_edid.c
 +++ b/drivers/gpu/drm/drm_edid.c
 @@ -6544,7 +6544,7 @@ static void drm_parse_vesa_mso_data(struct drm_connector *connector,
@@ -3522,7 +3522,7 @@ index ff432ac6b569..c65d24369f1a 100644
  	kfree(info->vics);
  	info->vics = NULL;
 diff --git a/include/drm/drm_connector.h b/include/drm/drm_connector.h
-index 7eaec37ae1c7..6fa054be9326 100644
+index 7eaec37ae1c73..6fa054be93269 100644
 --- a/include/drm/drm_connector.h
 +++ b/include/drm/drm_connector.h
 @@ -836,7 +836,13 @@ struct drm_display_info {
@@ -3561,7 +3561,7 @@ Reviewed-by: Wayne Lin <Wayne.Lin@amd.com>
  3 files changed, 7 insertions(+)
 
 diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_helpers.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_helpers.c
-index 5b0245eb5fdb..74eb303da386 100644
+index 5b0245eb5fdb2..74eb303da386f 100644
 --- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_helpers.c
 +++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_helpers.c
 @@ -144,6 +144,8 @@ enum dc_edid_status dm_helpers_parse_edid_caps(
@@ -3574,7 +3574,7 @@ index 5b0245eb5fdb..74eb303da386 100644
  	if (sad_count <= 0)
  		return result;
 diff --git a/drivers/gpu/drm/amd/display/dc/core/dc_stream.c b/drivers/gpu/drm/amd/display/dc/core/dc_stream.c
-index baf820e6eae8..b956680d83b3 100644
+index baf820e6eae85..b956680d83b3f 100644
 --- a/drivers/gpu/drm/amd/display/dc/core/dc_stream.c
 +++ b/drivers/gpu/drm/amd/display/dc/core/dc_stream.c
 @@ -110,6 +110,8 @@ bool dc_stream_construct(struct dc_stream_state *stream,
@@ -3587,7 +3587,7 @@ index baf820e6eae8..b956680d83b3 100644
  	memset(&stream->timing.dsc_cfg, 0, sizeof(stream->timing.dsc_cfg));
  	stream->timing.dsc_cfg.num_slices_h = 0;
 diff --git a/drivers/gpu/drm/amd/display/dc/dc_types.h b/drivers/gpu/drm/amd/display/dc/dc_types.h
-index bddb16bb76d4..0fdae7282ce8 100644
+index bddb16bb76d41..0fdae7282ce80 100644
 --- a/drivers/gpu/drm/amd/display/dc/dc_types.h
 +++ b/drivers/gpu/drm/amd/display/dc/dc_types.h
 @@ -219,6 +219,9 @@ struct dc_edid_caps {
@@ -3615,7 +3615,7 @@ It spams output during boot
  1 file changed, 1 insertion(+), 3 deletions(-)
 
 diff --git a/arch/x86/kernel/irq.c b/arch/x86/kernel/irq.c
-index ec77be217eaf..0569d8674eba 100644
+index ec77be217eaf5..0569d8674eba6 100644
 --- a/arch/x86/kernel/irq.c
 +++ b/arch/x86/kernel/irq.c
 @@ -271,9 +271,7 @@ static struct irq_desc *reevaluate_vector(int vector)
@@ -3656,7 +3656,7 @@ Signed-off-by: Abhishek Pandit-Subedi <abhishekpandit@chromium.org>
  2 files changed, 38 insertions(+), 15 deletions(-)
 
 diff --git a/drivers/input/misc/uinput.c b/drivers/input/misc/uinput.c
-index d32fa4b508fc..7a982c0053bc 100644
+index d32fa4b508fc5..7a982c0053bc7 100644
 --- a/drivers/input/misc/uinput.c
 +++ b/drivers/input/misc/uinput.c
 @@ -20,6 +20,7 @@
@@ -3764,7 +3764,7 @@ index d32fa4b508fc..7a982c0053bc 100644
  
  	retval = -EINVAL;
 diff --git a/include/uapi/linux/uinput.h b/include/uapi/linux/uinput.h
-index c9e677e3af1d..84d4fa142830 100644
+index c9e677e3af1d2..84d4fa1428306 100644
 --- a/include/uapi/linux/uinput.h
 +++ b/include/uapi/linux/uinput.h
 @@ -142,9 +142,14 @@ struct uinput_abs_setup {
@@ -3797,7 +3797,7 @@ Subject: PCI: Add ACI override to allow GPU passthrough in older motherboards
  2 files changed, 110 insertions(+)
 
 diff --git a/Documentation/admin-guide/kernel-parameters.txt b/Documentation/admin-guide/kernel-parameters.txt
-index 03a550630644..3298e2251637 100644
+index 03a550630644f..3298e2251637d 100644
 --- a/Documentation/admin-guide/kernel-parameters.txt
 +++ b/Documentation/admin-guide/kernel-parameters.txt
 @@ -5114,6 +5114,14 @@ Kernel parameters
@@ -3816,7 +3816,7 @@ index 03a550630644..3298e2251637 100644
  				Safety option to keep boot IRQs enabled. This
  				should never be necessary.
 diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c
-index a1f5fe8e583f..90120446aa1e 100644
+index a1f5fe8e583fb..90120446aa1e8 100644
 --- a/drivers/pci/quirks.c
 +++ b/drivers/pci/quirks.c
 @@ -5110,6 +5110,106 @@ static int  pci_quirk_wangxun_nic_acs(struct pci_dev *dev, u16 acs_flags)
@@ -3953,7 +3953,7 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
  1 file changed, 9 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c
-index 90120446aa1e..03d2f6486e25 100644
+index 90120446aa1e8..03d2f6486e259 100644
 --- a/drivers/pci/quirks.c
 +++ b/drivers/pci/quirks.c
 @@ -5110,6 +5110,7 @@ static int  pci_quirk_wangxun_nic_acs(struct pci_dev *dev, u16 acs_flags)
@@ -4107,7 +4107,7 @@ Link: https://lore.kernel.org/all/20220921063638.2489-1-kprateek.nayak@amd.com/
  1 file changed, 5 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/acpi/processor_idle.c b/drivers/acpi/processor_idle.c
-index f6c72e3a2be1..593047d1f651 100644
+index f6c72e3a2be1b..593047d1f6512 100644
 --- a/drivers/acpi/processor_idle.c
 +++ b/drivers/acpi/processor_idle.c
 @@ -524,8 +524,11 @@ static __cpuidle void io_idle(unsigned long addr)
@@ -4138,7 +4138,7 @@ Subject: drm: panel-orientation-quirks: Add Aya Neo 2S orientation quirk
  1 file changed, 6 insertions(+)
 
 diff --git a/drivers/gpu/drm/drm_panel_orientation_quirks.c b/drivers/gpu/drm/drm_panel_orientation_quirks.c
-index 3a218fb592ce..734a49b9fdcf 100644
+index 3a218fb592cef..734a49b9fdcf6 100644
 --- a/drivers/gpu/drm/drm_panel_orientation_quirks.c
 +++ b/drivers/gpu/drm/drm_panel_orientation_quirks.c
 @@ -203,6 +203,12 @@ static const struct dmi_system_id orientation_data[] = {
@@ -4168,7 +4168,7 @@ Subject: drm: panel-orientation-quirks: Add AYANEO FLIP DS quirk
  1 file changed, 6 insertions(+)
 
 diff --git a/drivers/gpu/drm/drm_panel_orientation_quirks.c b/drivers/gpu/drm/drm_panel_orientation_quirks.c
-index 734a49b9fdcf..aae1634f52ee 100644
+index 734a49b9fdcf6..aae1634f52eef 100644
 --- a/drivers/gpu/drm/drm_panel_orientation_quirks.c
 +++ b/drivers/gpu/drm/drm_panel_orientation_quirks.c
 @@ -209,6 +209,12 @@ static const struct dmi_system_id orientation_data[] = {
@@ -4203,7 +4203,7 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
  1 file changed, 18 insertions(+)
 
 diff --git a/drivers/gpu/drm/drm_panel_orientation_quirks.c b/drivers/gpu/drm/drm_panel_orientation_quirks.c
-index aae1634f52ee..a32017d18474 100644
+index aae1634f52eef..a32017d184741 100644
 --- a/drivers/gpu/drm/drm_panel_orientation_quirks.c
 +++ b/drivers/gpu/drm/drm_panel_orientation_quirks.c
 @@ -498,6 +498,24 @@ static const struct dmi_system_id orientation_data[] = {
@@ -4250,7 +4250,7 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
  1 file changed, 6 insertions(+)
 
 diff --git a/drivers/gpu/drm/drm_panel_orientation_quirks.c b/drivers/gpu/drm/drm_panel_orientation_quirks.c
-index a32017d18474..3c86f9be5e83 100644
+index a32017d184741..3c86f9be5e83b 100644
 --- a/drivers/gpu/drm/drm_panel_orientation_quirks.c
 +++ b/drivers/gpu/drm/drm_panel_orientation_quirks.c
 @@ -516,6 +516,12 @@ static const struct dmi_system_id orientation_data[] = {
@@ -4281,7 +4281,7 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
  1 file changed, 6 insertions(+)
 
 diff --git a/drivers/gpu/drm/drm_panel_orientation_quirks.c b/drivers/gpu/drm/drm_panel_orientation_quirks.c
-index 3c86f9be5e83..5dffb1bdc5e2 100644
+index 3c86f9be5e83b..5dffb1bdc5e22 100644
 --- a/drivers/gpu/drm/drm_panel_orientation_quirks.c
 +++ b/drivers/gpu/drm/drm_panel_orientation_quirks.c
 @@ -522,6 +522,12 @@ static const struct dmi_system_id orientation_data[] = {
@@ -4317,7 +4317,7 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
  1 file changed, 12 insertions(+)
 
 diff --git a/drivers/gpu/drm/drm_panel_orientation_quirks.c b/drivers/gpu/drm/drm_panel_orientation_quirks.c
-index 5dffb1bdc5e2..fd159709d00e 100644
+index 5dffb1bdc5e22..fd159709d00e4 100644
 --- a/drivers/gpu/drm/drm_panel_orientation_quirks.c
 +++ b/drivers/gpu/drm/drm_panel_orientation_quirks.c
 @@ -528,6 +528,18 @@ static const struct dmi_system_id orientation_data[] = {
@@ -4359,7 +4359,7 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
  2 files changed, 3 insertions(+)
 
 diff --git a/drivers/hid/hid-ids.h b/drivers/hid/hid-ids.h
-index 1b634801fe7b..6785b3c2e030 100644
+index 1b634801fe7b7..6785b3c2e030a 100644
 --- a/drivers/hid/hid-ids.h
 +++ b/drivers/hid/hid-ids.h
 @@ -1079,6 +1079,7 @@
@@ -4371,7 +4371,7 @@ index 1b634801fe7b..6785b3c2e030 100644
  #define USB_VENDOR_ID_NTI               0x0757
  #define USB_DEVICE_ID_USB_SUN           0x0a00
 diff --git a/drivers/hid/hid-input.c b/drivers/hid/hid-input.c
-index e824c793f669..167626c86be1 100644
+index e824c793f6699..167626c86be17 100644
 --- a/drivers/hid/hid-input.c
 +++ b/drivers/hid/hid-input.c
 @@ -401,6 +401,8 @@ static const struct hid_device_id hid_battery_quirks[] = {
@@ -4401,7 +4401,7 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
  1 file changed, 6 insertions(+)
 
 diff --git a/drivers/gpu/drm/drm_panel_orientation_quirks.c b/drivers/gpu/drm/drm_panel_orientation_quirks.c
-index fd159709d00e..b06ab3cd0fd5 100644
+index fd159709d00e4..b06ab3cd0fd5c 100644
 --- a/drivers/gpu/drm/drm_panel_orientation_quirks.c
 +++ b/drivers/gpu/drm/drm_panel_orientation_quirks.c
 @@ -540,6 +540,12 @@ static const struct dmi_system_id orientation_data[] = {
@@ -4432,7 +4432,7 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
  1 file changed, 7 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/gpu/drm/drm_panel_orientation_quirks.c b/drivers/gpu/drm/drm_panel_orientation_quirks.c
-index b06ab3cd0fd5..3ec26fadec93 100644
+index b06ab3cd0fd5c..3ec26fadec938 100644
 --- a/drivers/gpu/drm/drm_panel_orientation_quirks.c
 +++ b/drivers/gpu/drm/drm_panel_orientation_quirks.c
 @@ -528,7 +528,7 @@ static const struct dmi_system_id orientation_data[] = {
@@ -4475,7 +4475,7 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
  1 file changed, 12 insertions(+)
 
 diff --git a/drivers/gpu/drm/drm_panel_orientation_quirks.c b/drivers/gpu/drm/drm_panel_orientation_quirks.c
-index 3ec26fadec93..96f2c435e970 100644
+index 3ec26fadec938..96f2c435e9700 100644
 --- a/drivers/gpu/drm/drm_panel_orientation_quirks.c
 +++ b/drivers/gpu/drm/drm_panel_orientation_quirks.c
 @@ -546,6 +546,18 @@ static const struct dmi_system_id orientation_data[] = {
@@ -4514,7 +4514,7 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
  1 file changed, 6 insertions(+)
 
 diff --git a/drivers/gpu/drm/drm_panel_orientation_quirks.c b/drivers/gpu/drm/drm_panel_orientation_quirks.c
-index 96f2c435e970..05b1c993c645 100644
+index 96f2c435e9700..05b1c993c6458 100644
 --- a/drivers/gpu/drm/drm_panel_orientation_quirks.c
 +++ b/drivers/gpu/drm/drm_panel_orientation_quirks.c
 @@ -321,6 +321,12 @@ static const struct dmi_system_id orientation_data[] = {
@@ -4545,7 +4545,7 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
  1 file changed, 25 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/gpu/drm/drm_panel_orientation_quirks.c b/drivers/gpu/drm/drm_panel_orientation_quirks.c
-index 05b1c993c645..79d89b17b12a 100644
+index 05b1c993c6458..79d89b17b12ab 100644
 --- a/drivers/gpu/drm/drm_panel_orientation_quirks.c
 +++ b/drivers/gpu/drm/drm_panel_orientation_quirks.c
 @@ -179,6 +179,12 @@ static const struct dmi_system_id orientation_data[] = {
@@ -4626,7 +4626,7 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
  1 file changed, 6 insertions(+)
 
 diff --git a/drivers/gpu/drm/drm_panel_orientation_quirks.c b/drivers/gpu/drm/drm_panel_orientation_quirks.c
-index 79d89b17b12a..7590b804d805 100644
+index 79d89b17b12ab..7590b804d8052 100644
 --- a/drivers/gpu/drm/drm_panel_orientation_quirks.c
 +++ b/drivers/gpu/drm/drm_panel_orientation_quirks.c
 @@ -215,6 +215,12 @@ static const struct dmi_system_id orientation_data[] = {
@@ -4657,7 +4657,7 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
  1 file changed, 6 insertions(+)
 
 diff --git a/drivers/gpu/drm/drm_panel_orientation_quirks.c b/drivers/gpu/drm/drm_panel_orientation_quirks.c
-index 7590b804d805..f508ffbd6d20 100644
+index 7590b804d8052..f508ffbd6d20a 100644
 --- a/drivers/gpu/drm/drm_panel_orientation_quirks.c
 +++ b/drivers/gpu/drm/drm_panel_orientation_quirks.c
 @@ -612,6 +612,12 @@ static const struct dmi_system_id orientation_data[] = {
@@ -4690,7 +4690,7 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
  1 file changed, 6 insertions(+)
 
 diff --git a/drivers/gpu/drm/drm_panel_orientation_quirks.c b/drivers/gpu/drm/drm_panel_orientation_quirks.c
-index f508ffbd6d20..ed1901de4a8e 100644
+index f508ffbd6d20a..ed1901de4a8ef 100644
 --- a/drivers/gpu/drm/drm_panel_orientation_quirks.c
 +++ b/drivers/gpu/drm/drm_panel_orientation_quirks.c
 @@ -540,6 +540,12 @@ static const struct dmi_system_id orientation_data[] = {
@@ -4725,7 +4725,7 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
  1 file changed, 6 insertions(+)
 
 diff --git a/drivers/gpu/drm/drm_panel_orientation_quirks.c b/drivers/gpu/drm/drm_panel_orientation_quirks.c
-index ed1901de4a8e..15820d1ecab3 100644
+index ed1901de4a8ef..15820d1ecab39 100644
 --- a/drivers/gpu/drm/drm_panel_orientation_quirks.c
 +++ b/drivers/gpu/drm/drm_panel_orientation_quirks.c
 @@ -503,6 +503,12 @@ static const struct dmi_system_id orientation_data[] = {
@@ -4756,7 +4756,7 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
  1 file changed, 6 insertions(+)
 
 diff --git a/drivers/gpu/drm/drm_panel_orientation_quirks.c b/drivers/gpu/drm/drm_panel_orientation_quirks.c
-index 15820d1ecab3..24741dfc594a 100644
+index 15820d1ecab39..24741dfc594a4 100644
 --- a/drivers/gpu/drm/drm_panel_orientation_quirks.c
 +++ b/drivers/gpu/drm/drm_panel_orientation_quirks.c
 @@ -540,6 +540,12 @@ static const struct dmi_system_id orientation_data[] = {
@@ -4787,7 +4787,7 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
  1 file changed, 6 insertions(+)
 
 diff --git a/drivers/gpu/drm/drm_panel_orientation_quirks.c b/drivers/gpu/drm/drm_panel_orientation_quirks.c
-index 24741dfc594a..7deff55b076c 100644
+index 24741dfc594a4..7deff55b076c0 100644
 --- a/drivers/gpu/drm/drm_panel_orientation_quirks.c
 +++ b/drivers/gpu/drm/drm_panel_orientation_quirks.c
 @@ -185,6 +185,12 @@ static const struct dmi_system_id orientation_data[] = {
@@ -4818,7 +4818,7 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
  1 file changed, 1 insertion(+)
 
 diff --git a/drivers/input/touchscreen/goodix.c b/drivers/input/touchscreen/goodix.c
-index f8798d11ec03..7fd600e2104e 100644
+index f8798d11ec030..7fd600e2104e0 100644
 --- a/drivers/input/touchscreen/goodix.c
 +++ b/drivers/input/touchscreen/goodix.c
 @@ -1524,6 +1524,7 @@ static DEFINE_SIMPLE_DEV_PM_OPS(goodix_pm_ops, goodix_suspend, goodix_resume);
@@ -4895,7 +4895,7 @@ Co-developed-by: bouhaa <boukehaarsma23@gmail.com>
  create mode 100644 sound/soc/codecs/aw87xxx/aw87xxx_pid_9b_reg.h
 
 diff --git a/sound/soc/codecs/Kconfig b/sound/soc/codecs/Kconfig
-index adb3fb923be3..3648f44f50f7 100644
+index adb3fb923be39..3648f44f50f79 100644
 --- a/sound/soc/codecs/Kconfig
 +++ b/sound/soc/codecs/Kconfig
 @@ -2870,4 +2870,6 @@ config SND_SOC_LPASS_TX_MACRO
@@ -4906,7 +4906,7 @@ index adb3fb923be3..3648f44f50f7 100644
 +
  endmenu
 diff --git a/sound/soc/codecs/Makefile b/sound/soc/codecs/Makefile
-index 3ddee5298721..b1134f373761 100644
+index 3ddee52987219..b1134f373761c 100644
 --- a/sound/soc/codecs/Makefile
 +++ b/sound/soc/codecs/Makefile
 @@ -869,6 +869,7 @@ obj-$(CONFIG_SND_SOC_WSA884X)	+= snd-soc-wsa884x.o
@@ -4919,7 +4919,7 @@ index 3ddee5298721..b1134f373761 100644
  obj-$(CONFIG_SND_SOC_SIMPLE_AMPLIFIER)	+= snd-soc-simple-amplifier.o
 diff --git a/sound/soc/codecs/aw87xxx/Kconfig b/sound/soc/codecs/aw87xxx/Kconfig
 new file mode 100644
-index 000000000000..bd0f208e2cfe
+index 0000000000000..bd0f208e2cfed
 --- /dev/null
 +++ b/sound/soc/codecs/aw87xxx/Kconfig
 @@ -0,0 +1,5 @@
@@ -4930,7 +4930,7 @@ index 000000000000..bd0f208e2cfe
 +	  This option enables support for AW87XXX Smart K PA.
 diff --git a/sound/soc/codecs/aw87xxx/Makefile b/sound/soc/codecs/aw87xxx/Makefile
 new file mode 100644
-index 000000000000..d32f319a5b01
+index 0000000000000..d32f319a5b014
 --- /dev/null
 +++ b/sound/soc/codecs/aw87xxx/Makefile
 @@ -0,0 +1,4 @@
@@ -4940,7 +4940,7 @@ index 000000000000..d32f319a5b01
 +
 diff --git a/sound/soc/codecs/aw87xxx/aw87xxx.c b/sound/soc/codecs/aw87xxx/aw87xxx.c
 new file mode 100644
-index 000000000000..837a60deab9d
+index 0000000000000..837a60deab9d9
 --- /dev/null
 +++ b/sound/soc/codecs/aw87xxx/aw87xxx.c
 @@ -0,0 +1,1554 @@
@@ -6500,7 +6500,7 @@ index 000000000000..837a60deab9d
 +MODULE_LICENSE("GPL v2");
 diff --git a/sound/soc/codecs/aw87xxx/aw87xxx.h b/sound/soc/codecs/aw87xxx/aw87xxx.h
 new file mode 100644
-index 000000000000..9638819cdc7e
+index 0000000000000..9638819cdc7ef
 --- /dev/null
 +++ b/sound/soc/codecs/aw87xxx/aw87xxx.h
 @@ -0,0 +1,130 @@
@@ -6636,7 +6636,7 @@ index 000000000000..9638819cdc7e
 +#endif
 diff --git a/sound/soc/codecs/aw87xxx/aw87xxx_acf_bin.c b/sound/soc/codecs/aw87xxx/aw87xxx_acf_bin.c
 new file mode 100644
-index 000000000000..00c7aedb7c11
+index 0000000000000..00c7aedb7c113
 --- /dev/null
 +++ b/sound/soc/codecs/aw87xxx/aw87xxx_acf_bin.c
 @@ -0,0 +1,1558 @@
@@ -8200,7 +8200,7 @@ index 000000000000..00c7aedb7c11
 +
 diff --git a/sound/soc/codecs/aw87xxx/aw87xxx_acf_bin.h b/sound/soc/codecs/aw87xxx/aw87xxx_acf_bin.h
 new file mode 100644
-index 000000000000..ebe0c77f5674
+index 0000000000000..ebe0c77f5674b
 --- /dev/null
 +++ b/sound/soc/codecs/aw87xxx/aw87xxx_acf_bin.h
 @@ -0,0 +1,191 @@
@@ -8397,7 +8397,7 @@ index 000000000000..ebe0c77f5674
 +#endif
 diff --git a/sound/soc/codecs/aw87xxx/aw87xxx_bin_parse.c b/sound/soc/codecs/aw87xxx/aw87xxx_bin_parse.c
 new file mode 100644
-index 000000000000..7eab9efde147
+index 0000000000000..7eab9efde1476
 --- /dev/null
 +++ b/sound/soc/codecs/aw87xxx/aw87xxx_bin_parse.c
 @@ -0,0 +1,515 @@
@@ -8918,7 +8918,7 @@ index 000000000000..7eab9efde147
 +}
 diff --git a/sound/soc/codecs/aw87xxx/aw87xxx_bin_parse.h b/sound/soc/codecs/aw87xxx/aw87xxx_bin_parse.h
 new file mode 100644
-index 000000000000..a99c2409e613
+index 0000000000000..a99c2409e6133
 --- /dev/null
 +++ b/sound/soc/codecs/aw87xxx/aw87xxx_bin_parse.h
 @@ -0,0 +1,73 @@
@@ -8997,7 +8997,7 @@ index 000000000000..a99c2409e613
 +#endif
 diff --git a/sound/soc/codecs/aw87xxx/aw87xxx_device.c b/sound/soc/codecs/aw87xxx/aw87xxx_device.c
 new file mode 100644
-index 000000000000..a4c9ad7d96dc
+index 0000000000000..a4c9ad7d96dca
 --- /dev/null
 +++ b/sound/soc/codecs/aw87xxx/aw87xxx_device.c
 @@ -0,0 +1,977 @@
@@ -9980,7 +9980,7 @@ index 000000000000..a4c9ad7d96dc
 +
 diff --git a/sound/soc/codecs/aw87xxx/aw87xxx_device.h b/sound/soc/codecs/aw87xxx/aw87xxx_device.h
 new file mode 100644
-index 000000000000..7c85f80a958e
+index 0000000000000..7c85f80a958e6
 --- /dev/null
 +++ b/sound/soc/codecs/aw87xxx/aw87xxx_device.h
 @@ -0,0 +1,149 @@
@@ -10135,7 +10135,7 @@ index 000000000000..7c85f80a958e
 +#endif
 diff --git a/sound/soc/codecs/aw87xxx/aw87xxx_dsp.c b/sound/soc/codecs/aw87xxx/aw87xxx_dsp.c
 new file mode 100644
-index 000000000000..93b02e30122d
+index 0000000000000..93b02e30122d8
 --- /dev/null
 +++ b/sound/soc/codecs/aw87xxx/aw87xxx_dsp.c
 @@ -0,0 +1,355 @@
@@ -10496,7 +10496,7 @@ index 000000000000..93b02e30122d
 +
 diff --git a/sound/soc/codecs/aw87xxx/aw87xxx_dsp.h b/sound/soc/codecs/aw87xxx/aw87xxx_dsp.h
 new file mode 100644
-index 000000000000..7acc4dc0dfd9
+index 0000000000000..7acc4dc0dfd9b
 --- /dev/null
 +++ b/sound/soc/codecs/aw87xxx/aw87xxx_dsp.h
 @@ -0,0 +1,65 @@
@@ -10567,7 +10567,7 @@ index 000000000000..7acc4dc0dfd9
 +#endif
 diff --git a/sound/soc/codecs/aw87xxx/aw87xxx_log.h b/sound/soc/codecs/aw87xxx/aw87xxx_log.h
 new file mode 100644
-index 000000000000..b3bde38a23c6
+index 0000000000000..b3bde38a23c67
 --- /dev/null
 +++ b/sound/soc/codecs/aw87xxx/aw87xxx_log.h
 @@ -0,0 +1,33 @@
@@ -10606,7 +10606,7 @@ index 000000000000..b3bde38a23c6
 +#endif
 diff --git a/sound/soc/codecs/aw87xxx/aw87xxx_monitor.c b/sound/soc/codecs/aw87xxx/aw87xxx_monitor.c
 new file mode 100644
-index 000000000000..f580506b2786
+index 0000000000000..f580506b27864
 --- /dev/null
 +++ b/sound/soc/codecs/aw87xxx/aw87xxx_monitor.c
 @@ -0,0 +1,1208 @@
@@ -11820,7 +11820,7 @@ index 000000000000..f580506b2786
 +
 diff --git a/sound/soc/codecs/aw87xxx/aw87xxx_monitor.h b/sound/soc/codecs/aw87xxx/aw87xxx_monitor.h
 new file mode 100644
-index 000000000000..daf9f2bfa09f
+index 0000000000000..daf9f2bfa09f5
 --- /dev/null
 +++ b/sound/soc/codecs/aw87xxx/aw87xxx_monitor.h
 @@ -0,0 +1,96 @@
@@ -11922,7 +11922,7 @@ index 000000000000..daf9f2bfa09f
 +#endif
 diff --git a/sound/soc/codecs/aw87xxx/aw87xxx_pid_18_reg.h b/sound/soc/codecs/aw87xxx/aw87xxx_pid_18_reg.h
 new file mode 100644
-index 000000000000..74d6548db91e
+index 0000000000000..74d6548db91e3
 --- /dev/null
 +++ b/sound/soc/codecs/aw87xxx/aw87xxx_pid_18_reg.h
 @@ -0,0 +1,2315 @@
@@ -14244,7 +14244,7 @@ index 000000000000..74d6548db91e
 \ No newline at end of file
 diff --git a/sound/soc/codecs/aw87xxx/aw87xxx_pid_39_reg.h b/sound/soc/codecs/aw87xxx/aw87xxx_pid_39_reg.h
 new file mode 100644
-index 000000000000..0dfd9751c39e
+index 0000000000000..0dfd9751c39e5
 --- /dev/null
 +++ b/sound/soc/codecs/aw87xxx/aw87xxx_pid_39_reg.h
 @@ -0,0 +1,67 @@
@@ -14317,7 +14317,7 @@ index 000000000000..0dfd9751c39e
 +#endif
 diff --git a/sound/soc/codecs/aw87xxx/aw87xxx_pid_59_3x9_reg.h b/sound/soc/codecs/aw87xxx/aw87xxx_pid_59_3x9_reg.h
 new file mode 100644
-index 000000000000..67f73477b892
+index 0000000000000..67f73477b892a
 --- /dev/null
 +++ b/sound/soc/codecs/aw87xxx/aw87xxx_pid_59_3x9_reg.h
 @@ -0,0 +1,93 @@
@@ -14416,7 +14416,7 @@ index 000000000000..67f73477b892
 +#endif
 diff --git a/sound/soc/codecs/aw87xxx/aw87xxx_pid_59_5x9_reg.h b/sound/soc/codecs/aw87xxx/aw87xxx_pid_59_5x9_reg.h
 new file mode 100644
-index 000000000000..6a0cae4c49ac
+index 0000000000000..6a0cae4c49acc
 --- /dev/null
 +++ b/sound/soc/codecs/aw87xxx/aw87xxx_pid_59_5x9_reg.h
 @@ -0,0 +1,94 @@
@@ -14516,7 +14516,7 @@ index 000000000000..6a0cae4c49ac
 +#endif
 diff --git a/sound/soc/codecs/aw87xxx/aw87xxx_pid_5a_reg.h b/sound/soc/codecs/aw87xxx/aw87xxx_pid_5a_reg.h
 new file mode 100644
-index 000000000000..020bf5496d01
+index 0000000000000..020bf5496d013
 --- /dev/null
 +++ b/sound/soc/codecs/aw87xxx/aw87xxx_pid_5a_reg.h
 @@ -0,0 +1,4124 @@
@@ -18647,7 +18647,7 @@ index 000000000000..020bf5496d01
 \ No newline at end of file
 diff --git a/sound/soc/codecs/aw87xxx/aw87xxx_pid_60_reg.h b/sound/soc/codecs/aw87xxx/aw87xxx_pid_60_reg.h
 new file mode 100644
-index 000000000000..ba47dd1ff546
+index 0000000000000..ba47dd1ff546f
 --- /dev/null
 +++ b/sound/soc/codecs/aw87xxx/aw87xxx_pid_60_reg.h
 @@ -0,0 +1,5246 @@
@@ -23900,7 +23900,7 @@ index 000000000000..ba47dd1ff546
 \ No newline at end of file
 diff --git a/sound/soc/codecs/aw87xxx/aw87xxx_pid_76_reg.h b/sound/soc/codecs/aw87xxx/aw87xxx_pid_76_reg.h
 new file mode 100644
-index 000000000000..13280cdb5b2e
+index 0000000000000..13280cdb5b2ef
 --- /dev/null
 +++ b/sound/soc/codecs/aw87xxx/aw87xxx_pid_76_reg.h
 @@ -0,0 +1,1205 @@
@@ -25112,7 +25112,7 @@ index 000000000000..13280cdb5b2e
 \ No newline at end of file
 diff --git a/sound/soc/codecs/aw87xxx/aw87xxx_pid_9b_reg.h b/sound/soc/codecs/aw87xxx/aw87xxx_pid_9b_reg.h
 new file mode 100644
-index 000000000000..27baeb96ce7c
+index 0000000000000..27baeb96ce7ca
 --- /dev/null
 +++ b/sound/soc/codecs/aw87xxx/aw87xxx_pid_9b_reg.h
 @@ -0,0 +1,81 @@
@@ -25211,7 +25211,7 @@ Subject: Codec: aw87xxx: add dmi match for handheld devices
  1 file changed, 49 insertions(+), 2 deletions(-)
 
 diff --git a/sound/soc/codecs/aw87xxx/aw87xxx.c b/sound/soc/codecs/aw87xxx/aw87xxx.c
-index 837a60deab9d..3d732400e449 100644
+index 837a60deab9d9..3d732400e4491 100644
 --- a/sound/soc/codecs/aw87xxx/aw87xxx.c
 +++ b/sound/soc/codecs/aw87xxx/aw87xxx.c
 @@ -33,6 +33,7 @@
@@ -25301,7 +25301,7 @@ Co-developed-by: linh1987
  1 file changed, 10 insertions(+)
 
 diff --git a/sound/hda/codecs/realtek/alc269.c b/sound/hda/codecs/realtek/alc269.c
-index 04064ffd820c..21824c1bbe00 100644
+index 04064ffd820c7..21824c1bbe008 100644
 --- a/sound/hda/codecs/realtek/alc269.c
 +++ b/sound/hda/codecs/realtek/alc269.c
 @@ -3855,6 +3855,7 @@ enum {
@@ -25358,7 +25358,7 @@ Co-developed-by: Bouke Sybren Haarsma <boukehaarsma23@gmail.com>
  1 file changed, 49 insertions(+)
 
 diff --git a/sound/hda/codecs/realtek/alc269.c b/sound/hda/codecs/realtek/alc269.c
-index 21824c1bbe00..671f9cbab1df 100644
+index 21824c1bbe008..671f9cbab1df3 100644
 --- a/sound/hda/codecs/realtek/alc269.c
 +++ b/sound/hda/codecs/realtek/alc269.c
 @@ -2833,6 +2833,20 @@ static void alc294_gx502_toggle_output(struct hda_codec *codec,
@@ -25461,7 +25461,7 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
  1 file changed, 3 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/iio/imu/bmi270/bmi270_i2c.c b/drivers/iio/imu/bmi270/bmi270_i2c.c
-index b92da4e0776f..fc2c69dcf2cd 100644
+index b92da4e0776fa..fc2c69dcf2cde 100644
 --- a/drivers/iio/imu/bmi270/bmi270_i2c.c
 +++ b/drivers/iio/imu/bmi270/bmi270_i2c.c
 @@ -41,9 +41,9 @@ MODULE_DEVICE_TABLE(i2c, bmi270_i2c_id);
@@ -25499,7 +25499,7 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
  2 files changed, 157 insertions(+), 16 deletions(-)
 
 diff --git a/drivers/hid/Kconfig b/drivers/hid/Kconfig
-index c1d9f7c6a5f2..9cb5a2bfb2f6 100644
+index c1d9f7c6a5f23..9cb5a2bfb2f66 100644
 --- a/drivers/hid/Kconfig
 +++ b/drivers/hid/Kconfig
 @@ -189,6 +189,7 @@ config HID_APPLETB_KBD
@@ -25511,7 +25511,7 @@ index c1d9f7c6a5f2..9cb5a2bfb2f6 100644
  	depends on ASUS_WMI || ASUS_WMI=n
  	select POWER_SUPPLY
 diff --git a/drivers/hid/hid-asus.c b/drivers/hid/hid-asus.c
-index b2332efabeb5..f2315aedcf82 100644
+index b2332efabeb57..f2315aedcf829 100644
 --- a/drivers/hid/hid-asus.c
 +++ b/drivers/hid/hid-asus.c
 @@ -24,6 +24,7 @@
@@ -25801,7 +25801,7 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
  2 files changed, 13 insertions(+)
 
 diff --git a/drivers/hid/hid-asus.c b/drivers/hid/hid-asus.c
-index f2315aedcf82..97fcff33f6f4 100644
+index f2315aedcf829..97fcff33f6f4f 100644
 --- a/drivers/hid/hid-asus.c
 +++ b/drivers/hid/hid-asus.c
 @@ -1197,6 +1197,7 @@ static int asus_input_mapping(struct hid_device *hdev,
@@ -25829,7 +25829,7 @@ index f2315aedcf82..97fcff33f6f4 100644
  		USB_VENDOR_ID_ASUSTEK, USB_DEVICE_ID_ASUSTEK_T101HA_KEYBOARD) },
  	{ }
 diff --git a/drivers/hid/hid-ids.h b/drivers/hid/hid-ids.h
-index 6785b3c2e030..2ca076c3fca3 100644
+index 6785b3c2e030a..2ca076c3fca36 100644
 --- a/drivers/hid/hid-ids.h
 +++ b/drivers/hid/hid-ids.h
 @@ -234,6 +234,9 @@
@@ -25864,7 +25864,7 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
  3 files changed, 5 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/platform/x86/asus-nb-wmi.c b/drivers/platform/x86/asus-nb-wmi.c
-index b4677c5bba5b..6bafabed6ef9 100644
+index b4677c5bba5b4..6bafabed6ef9c 100644
 --- a/drivers/platform/x86/asus-nb-wmi.c
 +++ b/drivers/platform/x86/asus-nb-wmi.c
 @@ -148,6 +148,7 @@ static struct quirk_entry quirk_asus_ignore_fan = {
@@ -25876,7 +25876,7 @@ index b4677c5bba5b..6bafabed6ef9 100644
  
  static struct quirk_entry quirk_asus_z13 = {
 diff --git a/drivers/platform/x86/asus-wmi.c b/drivers/platform/x86/asus-wmi.c
-index 0f8eb5be7c7a..96c662c7b57c 100644
+index 0f8eb5be7c7a1..96c662c7b57c1 100644
 --- a/drivers/platform/x86/asus-wmi.c
 +++ b/drivers/platform/x86/asus-wmi.c
 @@ -2060,7 +2060,9 @@ static int asus_wmi_led_init(struct asus_wmi *asus)
@@ -25891,7 +25891,7 @@ index 0f8eb5be7c7a..96c662c7b57c 100644
  	}
  
 diff --git a/drivers/platform/x86/asus-wmi.h b/drivers/platform/x86/asus-wmi.h
-index 5cd4392b964e..73710ae9a591 100644
+index 5cd4392b964eb..73710ae9a5919 100644
 --- a/drivers/platform/x86/asus-wmi.h
 +++ b/drivers/platform/x86/asus-wmi.h
 @@ -41,6 +41,7 @@ struct quirk_entry {
@@ -25930,7 +25930,7 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
  1 file changed, 45 insertions(+), 39 deletions(-)
 
 diff --git a/drivers/acpi/x86/s2idle.c b/drivers/acpi/x86/s2idle.c
-index b6b1dd76a06b..61a044b59776 100644
+index b6b1dd76a06ba..61a044b597761 100644
 --- a/drivers/acpi/x86/s2idle.c
 +++ b/drivers/acpi/x86/s2idle.c
 @@ -43,20 +43,20 @@ static const struct acpi_device_id lps0_device_ids[] = {
@@ -26119,7 +26119,7 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
  1 file changed, 37 insertions(+), 26 deletions(-)
 
 diff --git a/drivers/acpi/x86/s2idle.c b/drivers/acpi/x86/s2idle.c
-index 61a044b59776..f5aefba8b191 100644
+index 61a044b597761..f5aefba8b191f 100644
 --- a/drivers/acpi/x86/s2idle.c
 +++ b/drivers/acpi/x86/s2idle.c
 @@ -517,8 +517,10 @@ static struct acpi_scan_handler lps0_handler = {
@@ -26261,7 +26261,7 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
  2 files changed, 12 insertions(+)
 
 diff --git a/drivers/acpi/x86/s2idle.c b/drivers/acpi/x86/s2idle.c
-index f5aefba8b191..8b48f999e0e9 100644
+index f5aefba8b191f..8b48f999e0e96 100644
 --- a/drivers/acpi/x86/s2idle.c
 +++ b/drivers/acpi/x86/s2idle.c
 @@ -16,6 +16,7 @@
@@ -26297,7 +26297,7 @@ index f5aefba8b191..8b48f999e0e9 100644
  }
  
 diff --git a/include/linux/acpi.h b/include/linux/acpi.h
-index 4d2f0bed7a06..a416e5c5798a 100644
+index 4d2f0bed7a06d..a416e5c5798ae 100644
 --- a/include/linux/acpi.h
 +++ b/include/linux/acpi.h
 @@ -1154,6 +1154,7 @@ struct acpi_s2idle_dev_ops {
@@ -26339,7 +26339,7 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
  3 files changed, 66 insertions(+)
 
 diff --git a/drivers/platform/x86/asus-nb-wmi.c b/drivers/platform/x86/asus-nb-wmi.c
-index 6bafabed6ef9..e8618a190fa5 100644
+index 6bafabed6ef9c..e8618a190fa5e 100644
 --- a/drivers/platform/x86/asus-nb-wmi.c
 +++ b/drivers/platform/x86/asus-nb-wmi.c
 @@ -156,6 +156,10 @@ static struct quirk_entry quirk_asus_z13 = {
@@ -26397,7 +26397,7 @@ index 6bafabed6ef9..e8618a190fa5 100644
  };
  
 diff --git a/drivers/platform/x86/asus-wmi.c b/drivers/platform/x86/asus-wmi.c
-index 96c662c7b57c..4a7748a72ed2 100644
+index 96c662c7b57c1..4a7748a72ed21 100644
 --- a/drivers/platform/x86/asus-wmi.c
 +++ b/drivers/platform/x86/asus-wmi.c
 @@ -336,6 +336,8 @@ struct asus_wmi {
@@ -26441,7 +26441,7 @@ index 96c662c7b57c..4a7748a72ed2 100644
  	kfree(asus);
  }
 diff --git a/drivers/platform/x86/asus-wmi.h b/drivers/platform/x86/asus-wmi.h
-index 73710ae9a591..00b6b54abdda 100644
+index 73710ae9a5919..00b6b54abddaf 100644
 --- a/drivers/platform/x86/asus-wmi.h
 +++ b/drivers/platform/x86/asus-wmi.h
 @@ -53,6 +53,20 @@ struct quirk_entry {
@@ -26494,7 +26494,7 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
  1 file changed, 5 insertions(+), 110 deletions(-)
 
 diff --git a/drivers/hid/hid-asus.c b/drivers/hid/hid-asus.c
-index 97fcff33f6f4..86f95ef9b897 100644
+index 97fcff33f6f4f..86f95ef9b897a 100644
 --- a/drivers/hid/hid-asus.c
 +++ b/drivers/hid/hid-asus.c
 @@ -56,10 +56,6 @@ MODULE_DESCRIPTION("Asus HID Keyboard and TouchPad");
@@ -26697,7 +26697,7 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
  2 files changed, 132 deletions(-)
 
 diff --git a/drivers/platform/x86/asus-wmi.c b/drivers/platform/x86/asus-wmi.c
-index 4a7748a72ed2..9be55d1d20ec 100644
+index 4a7748a72ed21..9be55d1d20ec2 100644
 --- a/drivers/platform/x86/asus-wmi.c
 +++ b/drivers/platform/x86/asus-wmi.c
 @@ -139,33 +139,10 @@ module_param(fnlock_default, bool, 0444);
@@ -26883,7 +26883,7 @@ index 4a7748a72ed2..9be55d1d20ec 100644
  	platform_device_unregister(driver->platform_device);
  	platform_driver_unregister(&driver->platform_driver);
 diff --git a/include/linux/platform_data/x86/asus-wmi.h b/include/linux/platform_data/x86/asus-wmi.h
-index 554f41b827e1..938a27c6f66e 100644
+index 554f41b827e18..938a27c6f66e6 100644
 --- a/include/linux/platform_data/x86/asus-wmi.h
 +++ b/include/linux/platform_data/x86/asus-wmi.h
 @@ -188,8 +188,6 @@ enum asus_hid_event {
@@ -26932,7 +26932,7 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
 
 diff --git a/Documentation/ABI/testing/sysfs-class-hint b/Documentation/ABI/testing/sysfs-class-hint
 new file mode 100644
-index 000000000000..9d6ec956ebb4
+index 0000000000000..9d6ec956ebb43
 --- /dev/null
 +++ b/Documentation/ABI/testing/sysfs-class-hint
 @@ -0,0 +1,78 @@
@@ -27051,7 +27051,7 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
  create mode 100644 include/linux/hint.h
 
 diff --git a/MAINTAINERS b/MAINTAINERS
-index 985c66951475..bde99f937e6a 100644
+index 985c66951475d..bde99f937e6a8 100644
 --- a/MAINTAINERS
 +++ b/MAINTAINERS
 @@ -7349,6 +7349,14 @@ F:	drivers/devfreq/event/
@@ -27070,7 +27070,7 @@ index 985c66951475..bde99f937e6a 100644
  M:	Danilo Krummrich <dakr@kernel.org>
  M:	Alice Ryhl <aliceryhl@google.com>
 diff --git a/drivers/base/Kconfig b/drivers/base/Kconfig
-index 1786d87b29e2..c5316e8f98d0 100644
+index 1786d87b29e22..c5316e8f98d04 100644
 --- a/drivers/base/Kconfig
 +++ b/drivers/base/Kconfig
 @@ -222,6 +222,9 @@ config DMA_FENCE_TRACE
@@ -27084,7 +27084,7 @@ index 1786d87b29e2..c5316e8f98d0 100644
  	bool
  	help
 diff --git a/drivers/base/Makefile b/drivers/base/Makefile
-index 8074a10183dc..27557351fa20 100644
+index 8074a10183dcb..27557351fa208 100644
 --- a/drivers/base/Makefile
 +++ b/drivers/base/Makefile
 @@ -27,6 +27,7 @@ obj-$(CONFIG_GENERIC_MSI_IRQ) += platform-msi.o
@@ -27097,7 +27097,7 @@ index 8074a10183dc..27557351fa20 100644
  
 diff --git a/drivers/base/hint.c b/drivers/base/hint.c
 new file mode 100644
-index 000000000000..0be4116d68cc
+index 0000000000000..0be4116d68ccd
 --- /dev/null
 +++ b/drivers/base/hint.c
 @@ -0,0 +1,283 @@
@@ -27386,7 +27386,7 @@ index 000000000000..0be4116d68cc
 +MODULE_LICENSE("GPL");
 diff --git a/include/linux/hint.h b/include/linux/hint.h
 new file mode 100644
-index 000000000000..56686691442c
+index 0000000000000..56686691442cc
 --- /dev/null
 +++ b/include/linux/hint.h
 @@ -0,0 +1,38 @@
@@ -27460,7 +27460,7 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
  2 files changed, 186 insertions(+), 41 deletions(-)
 
 diff --git a/drivers/acpi/Kconfig b/drivers/acpi/Kconfig
-index 6f4b545f7377..08622ace9c67 100644
+index 6f4b545f7377e..08622ace9c675 100644
 --- a/drivers/acpi/Kconfig
 +++ b/drivers/acpi/Kconfig
 @@ -14,6 +14,7 @@ menuconfig ACPI
@@ -27472,7 +27472,7 @@ index 6f4b545f7377..08622ace9c67 100644
  	help
  	  Advanced Configuration and Power Interface (ACPI) support for 
 diff --git a/drivers/acpi/x86/s2idle.c b/drivers/acpi/x86/s2idle.c
-index 8b48f999e0e9..357d6f9406dc 100644
+index 8b48f999e0e96..357d6f9406dca 100644
 --- a/drivers/acpi/x86/s2idle.c
 +++ b/drivers/acpi/x86/s2idle.c
 @@ -19,6 +19,7 @@
@@ -27767,7 +27767,7 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
  1 file changed, 13 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/acpi/x86/s2idle.c b/drivers/acpi/x86/s2idle.c
-index 357d6f9406dc..06f08b5a21fd 100644
+index 357d6f9406dca..06f08b5a21fdf 100644
 --- a/drivers/acpi/x86/s2idle.c
 +++ b/drivers/acpi/x86/s2idle.c
 @@ -70,6 +70,7 @@ static int lps0_dsm_state;
@@ -27851,7 +27851,7 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
  1 file changed, 59 insertions(+)
 
 diff --git a/drivers/acpi/sleep.c b/drivers/acpi/sleep.c
-index 132a9df98471..f754fa1c1540 100644
+index 132a9df984713..f754fa1c15402 100644
 --- a/drivers/acpi/sleep.c
 +++ b/drivers/acpi/sleep.c
 @@ -818,8 +818,56 @@ bool acpi_s2idle_wake(void)
@@ -27946,7 +27946,7 @@ for the platform (should NOOP though).
  1 file changed, 6 deletions(-)
 
 diff --git a/drivers/hid/hid-asus.c b/drivers/hid/hid-asus.c
-index 86f95ef9b897..44ce46586e11 100644
+index 86f95ef9b897a..44ce46586e11d 100644
 --- a/drivers/hid/hid-asus.c
 +++ b/drivers/hid/hid-asus.c
 @@ -1523,12 +1523,6 @@ static const struct hid_device_id asus_devices[] = {
@@ -27978,7 +27978,7 @@ Patch is originally by Jonathan LoBue <jlobue10@gmail.com>.
  1 file changed, 38 insertions(+), 1 deletion(-)
 
 diff --git a/sound/hda/codecs/side-codecs/cs35l41_hda_property.c b/sound/hda/codecs/side-codecs/cs35l41_hda_property.c
-index 16d5ea77192f..1997c1aaaafd 100644
+index 16d5ea77192f0..1997c1aaaafd1 100644
 --- a/sound/hda/codecs/side-codecs/cs35l41_hda_property.c
 +++ b/sound/hda/codecs/side-codecs/cs35l41_hda_property.c
 @@ -6,8 +6,10 @@
@@ -28065,7 +28065,7 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
  1 file changed, 26 insertions(+), 27 deletions(-)
 
 diff --git a/drivers/platform/x86/msi-wmi-platform.c b/drivers/platform/x86/msi-wmi-platform.c
-index e912fcc12d12..8d0f9328c95f 100644
+index e912fcc12d124..8d0f9328c95f7 100644
 --- a/drivers/platform/x86/msi-wmi-platform.c
 +++ b/drivers/platform/x86/msi-wmi-platform.c
 @@ -22,6 +22,7 @@
@@ -28237,7 +28237,7 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
  1 file changed, 17 insertions(+), 10 deletions(-)
 
 diff --git a/drivers/platform/x86/msi-wmi-platform.c b/drivers/platform/x86/msi-wmi-platform.c
-index 8d0f9328c95f..94236214c3c0 100644
+index 8d0f9328c95f7..94236214c3c06 100644
 --- a/drivers/platform/x86/msi-wmi-platform.c
 +++ b/drivers/platform/x86/msi-wmi-platform.c
 @@ -141,7 +141,7 @@ static int msi_wmi_platform_parse_buffer(union acpi_object *obj, u8 *output, siz
@@ -28310,7 +28310,7 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
  1 file changed, 54 insertions(+)
 
 diff --git a/drivers/platform/x86/msi-wmi-platform.c b/drivers/platform/x86/msi-wmi-platform.c
-index 94236214c3c0..626d284d7324 100644
+index 94236214c3c06..626d284d7324f 100644
 --- a/drivers/platform/x86/msi-wmi-platform.c
 +++ b/drivers/platform/x86/msi-wmi-platform.c
 @@ -80,8 +80,12 @@ enum msi_wmi_platform_method {
@@ -28419,7 +28419,7 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
  2 files changed, 337 insertions(+), 17 deletions(-)
 
 diff --git a/Documentation/wmi/devices/msi-wmi-platform.rst b/Documentation/wmi/devices/msi-wmi-platform.rst
-index 73197b31926a..704bfdac5203 100644
+index 73197b31926a5..704bfdac5203e 100644
 --- a/Documentation/wmi/devices/msi-wmi-platform.rst
 +++ b/Documentation/wmi/devices/msi-wmi-platform.rst
 @@ -169,6 +169,32 @@ The fan RPM readings can be calculated with the following formula:
@@ -28456,7 +28456,7 @@ index 73197b31926a..704bfdac5203 100644
  --------------------
  
 diff --git a/drivers/platform/x86/msi-wmi-platform.c b/drivers/platform/x86/msi-wmi-platform.c
-index 626d284d7324..9d5564319adf 100644
+index 626d284d7324f..9d5564319adff 100644
 --- a/drivers/platform/x86/msi-wmi-platform.c
 +++ b/drivers/platform/x86/msi-wmi-platform.c
 @@ -16,13 +16,18 @@
@@ -28914,7 +28914,7 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
  2 files changed, 114 insertions(+)
 
 diff --git a/drivers/platform/x86/Kconfig b/drivers/platform/x86/Kconfig
-index 4cb7d97a9fcc..7132113957c0 100644
+index 4cb7d97a9fcc8..7132113957c04 100644
 --- a/drivers/platform/x86/Kconfig
 +++ b/drivers/platform/x86/Kconfig
 @@ -555,6 +555,7 @@ config MSI_WMI_PLATFORM
@@ -28926,7 +28926,7 @@ index 4cb7d97a9fcc..7132113957c0 100644
  	  Say Y here if you want to have support for WMI-based platform features
  	  like fan sensor access on MSI machines.
 diff --git a/drivers/platform/x86/msi-wmi-platform.c b/drivers/platform/x86/msi-wmi-platform.c
-index 9d5564319adf..f363a82ab04e 100644
+index 9d5564319adff..f363a82ab04e3 100644
 --- a/drivers/platform/x86/msi-wmi-platform.c
 +++ b/drivers/platform/x86/msi-wmi-platform.c
 @@ -17,6 +17,7 @@
@@ -29122,7 +29122,7 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
  2 files changed, 381 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/platform/x86/Kconfig b/drivers/platform/x86/Kconfig
-index 7132113957c0..1ce198133bf0 100644
+index 7132113957c04..1ce198133bf00 100644
 --- a/drivers/platform/x86/Kconfig
 +++ b/drivers/platform/x86/Kconfig
 @@ -556,6 +556,7 @@ config MSI_WMI_PLATFORM
@@ -29134,7 +29134,7 @@ index 7132113957c0..1ce198133bf0 100644
  	  Say Y here if you want to have support for WMI-based platform features
  	  like fan sensor access on MSI machines.
 diff --git a/drivers/platform/x86/msi-wmi-platform.c b/drivers/platform/x86/msi-wmi-platform.c
-index f363a82ab04e..f4afeab94c4c 100644
+index f363a82ab04e3..f4afeab94c4c5 100644
 --- a/drivers/platform/x86/msi-wmi-platform.c
 +++ b/drivers/platform/x86/msi-wmi-platform.c
 @@ -34,6 +34,8 @@
@@ -29590,7 +29590,7 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
  2 files changed, 112 insertions(+)
 
 diff --git a/drivers/platform/x86/Kconfig b/drivers/platform/x86/Kconfig
-index 1ce198133bf0..7d104b2d4b4a 100644
+index 1ce198133bf00..7d104b2d4b4a6 100644
 --- a/drivers/platform/x86/Kconfig
 +++ b/drivers/platform/x86/Kconfig
 @@ -552,6 +552,7 @@ config MSI_WMI
@@ -29602,7 +29602,7 @@ index 1ce198133bf0..7d104b2d4b4a 100644
  	depends on DMI
  	depends on HWMON
 diff --git a/drivers/platform/x86/msi-wmi-platform.c b/drivers/platform/x86/msi-wmi-platform.c
-index f4afeab94c4c..7cd967f57a0a 100644
+index f4afeab94c4c5..7cd967f57a0af 100644
 --- a/drivers/platform/x86/msi-wmi-platform.c
 +++ b/drivers/platform/x86/msi-wmi-platform.c
 @@ -31,6 +31,7 @@
@@ -29811,7 +29811,7 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
  1 file changed, 26 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/platform/x86/msi-wmi-platform.c b/drivers/platform/x86/msi-wmi-platform.c
-index 7cd967f57a0a..8ef2a831822f 100644
+index 7cd967f57a0af..8ef2a831822ff 100644
 --- a/drivers/platform/x86/msi-wmi-platform.c
 +++ b/drivers/platform/x86/msi-wmi-platform.c
 @@ -122,6 +122,7 @@ enum msi_wmi_platform_method {
@@ -29904,7 +29904,7 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
  1 file changed, 3 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/platform/x86/msi-wmi-platform.c b/drivers/platform/x86/msi-wmi-platform.c
-index 8ef2a831822f..51452a680d3e 100644
+index 8ef2a831822ff..51452a680d3e6 100644
 --- a/drivers/platform/x86/msi-wmi-platform.c
 +++ b/drivers/platform/x86/msi-wmi-platform.c
 @@ -1,8 +1,9 @@
@@ -29941,7 +29941,7 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
  1 file changed, 123 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/platform/x86/msi-wmi-platform.c b/drivers/platform/x86/msi-wmi-platform.c
-index 51452a680d3e..2dbaa3c1f55c 100644
+index 51452a680d3e6..2dbaa3c1f55c8 100644
 --- a/drivers/platform/x86/msi-wmi-platform.c
 +++ b/drivers/platform/x86/msi-wmi-platform.c
 @@ -124,17 +124,26 @@ struct msi_wmi_platform_quirk {
@@ -30152,7 +30152,7 @@ Signed-off-by: Antheas Kapenekakis <git@antheas.dev>
  1 file changed, 1 insertion(+)
 
 diff --git a/drivers/platform/x86/msi-wmi-platform.c b/drivers/platform/x86/msi-wmi-platform.c
-index 2dbaa3c1f55c..fc6569791ef9 100644
+index 2dbaa3c1f55c8..fc6569791ef93 100644
 --- a/drivers/platform/x86/msi-wmi-platform.c
 +++ b/drivers/platform/x86/msi-wmi-platform.c
 @@ -291,6 +291,7 @@ static const struct dmi_system_id msi_quirks[] = {
@@ -30185,7 +30185,7 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
  1 file changed, 26 insertions(+), 15 deletions(-)
 
 diff --git a/Documentation/ABI/testing/sysfs-class-firmware-attributes b/Documentation/ABI/testing/sysfs-class-firmware-attributes
-index 2713efa509b4..e0b43b14fa19 100644
+index 2713efa509b46..e0b43b14fa195 100644
 --- a/Documentation/ABI/testing/sysfs-class-firmware-attributes
 +++ b/Documentation/ABI/testing/sysfs-class-firmware-attributes
 @@ -388,31 +388,42 @@ What:		/sys/class/firmware-attributes/*/attributes/save_settings
@@ -30278,7 +30278,7 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
  create mode 100644 drivers/platform/x86/amd/dptc.c
 
 diff --git a/MAINTAINERS b/MAINTAINERS
-index bde99f937e6a..ffe23de642ce 100644
+index bde99f937e6a8..ffe23de642ce3 100644
 --- a/MAINTAINERS
 +++ b/MAINTAINERS
 @@ -1103,6 +1103,12 @@ S:	Supported
@@ -30295,7 +30295,7 @@ index bde99f937e6a..ffe23de642ce 100644
  M:	Huang Rui <ray.huang@amd.com>
  L:	linux-hwmon@vger.kernel.org
 diff --git a/drivers/platform/x86/amd/Kconfig b/drivers/platform/x86/amd/Kconfig
-index b813f9265368..d610092467fc 100644
+index b813f92653686..d610092467fc1 100644
 --- a/drivers/platform/x86/amd/Kconfig
 +++ b/drivers/platform/x86/amd/Kconfig
 @@ -44,3 +44,17 @@ config AMD_ISP_PLATFORM
@@ -30317,7 +30317,7 @@ index b813f9265368..d610092467fc 100644
 +
 +	  If built as a module, the module will be called amd_dptc.
 diff --git a/drivers/platform/x86/amd/Makefile b/drivers/platform/x86/amd/Makefile
-index f6ff0c837f34..862a609bfe38 100644
+index f6ff0c837f345..862a609bfe38c 100644
 --- a/drivers/platform/x86/amd/Makefile
 +++ b/drivers/platform/x86/amd/Makefile
 @@ -12,3 +12,5 @@ obj-$(CONFIG_AMD_PMF)		+= pmf/
@@ -30328,7 +30328,7 @@ index f6ff0c837f34..862a609bfe38 100644
 +amd_dptc-y			:= dptc.o
 diff --git a/drivers/platform/x86/amd/dptc.c b/drivers/platform/x86/amd/dptc.c
 new file mode 100644
-index 000000000000..b884cdfa3f82
+index 0000000000000..b884cdfa3f82c
 --- /dev/null
 +++ b/drivers/platform/x86/amd/dptc.c
 @@ -0,0 +1,746 @@
@@ -31105,7 +31105,7 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
  2 files changed, 108 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/platform/x86/amd/Kconfig b/drivers/platform/x86/amd/Kconfig
-index d610092467fc..41ffbd722524 100644
+index d610092467fc1..41ffbd722524d 100644
 --- a/drivers/platform/x86/amd/Kconfig
 +++ b/drivers/platform/x86/amd/Kconfig
 @@ -48,6 +48,7 @@ config AMD_ISP_PLATFORM
@@ -31117,7 +31117,7 @@ index d610092467fc..41ffbd722524 100644
  	help
  	  Driver for AMD AGESA ALIB Function 0x0C, the Dynamic Power and
 diff --git a/drivers/platform/x86/amd/dptc.c b/drivers/platform/x86/amd/dptc.c
-index b884cdfa3f82..f4db95affb1b 100644
+index b884cdfa3f82c..f4db95affb1bc 100644
 --- a/drivers/platform/x86/amd/dptc.c
 +++ b/drivers/platform/x86/amd/dptc.c
 @@ -23,6 +23,7 @@
@@ -31334,7 +31334,7 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
  1 file changed, 420 insertions(+)
 
 diff --git a/drivers/platform/x86/amd/dptc.c b/drivers/platform/x86/amd/dptc.c
-index f4db95affb1b..b2820f8652f1 100644
+index f4db95affb1bc..b2820f8652f10 100644
 --- a/drivers/platform/x86/amd/dptc.c
 +++ b/drivers/platform/x86/amd/dptc.c
 @@ -86,6 +86,81 @@ static const struct dptc_param_desc dptc_params[DPTC_NUM_PARAMS] = {
@@ -31801,7 +31801,7 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
  1 file changed, 8 insertions(+)
 
 diff --git a/drivers/hwmon/gpd-fan.c b/drivers/hwmon/gpd-fan.c
-index 1729729b135f..6ee7e6bf3531 100644
+index 1729729b135f8..6ee7e6bf35317 100644
 --- a/drivers/hwmon/gpd-fan.c
 +++ b/drivers/hwmon/gpd-fan.c
 @@ -156,6 +156,14 @@ static const struct dmi_system_id dmi_table[] = {
@@ -31841,7 +31841,7 @@ Signed-off-by: Vicki Pfau <vi@endrift.com>
  2 files changed, 13 insertions(+), 6 deletions(-)
 
 diff --git a/MAINTAINERS b/MAINTAINERS
-index ffe23de642ce..f338f04edb47 100644
+index ffe23de642ce3..f338f04edb47d 100644
 --- a/MAINTAINERS
 +++ b/MAINTAINERS
 @@ -11413,6 +11413,12 @@ S:	Maintained
@@ -31858,7 +31858,7 @@ index ffe23de642ce..f338f04edb47 100644
  M:	Marcus Folkesson <marcus.folkesson@gmail.com>
  L:	linux-input@vger.kernel.org
 diff --git a/drivers/hid/hid-steam.c b/drivers/hid/hid-steam.c
-index 197126d6e081..a854d6360a0e 100644
+index 197126d6e0810..a854d6360a0e3 100644
 --- a/drivers/hid/hid-steam.c
 +++ b/drivers/hid/hid-steam.c
 @@ -48,6 +48,7 @@
@@ -31931,7 +31931,7 @@ Signed-off-by: Vicki Pfau <vi@endrift.com>
  1 file changed, 128 insertions(+), 83 deletions(-)
 
 diff --git a/drivers/hid/hid-steam.c b/drivers/hid/hid-steam.c
-index a854d6360a0e..75d6be0be0a2 100644
+index a854d6360a0e3..75d6be0be0a29 100644
 --- a/drivers/hid/hid-steam.c
 +++ b/drivers/hid/hid-steam.c
 @@ -43,6 +43,7 @@
@@ -32247,7 +32247,7 @@ Signed-off-by: Vicki Pfau <vi@endrift.com>
  1 file changed, 8 insertions(+), 8 deletions(-)
 
 diff --git a/drivers/hid/hid-steam.c b/drivers/hid/hid-steam.c
-index 75d6be0be0a2..983d18d1de4f 100644
+index 75d6be0be0a29..983d18d1de4fe 100644
 --- a/drivers/hid/hid-steam.c
 +++ b/drivers/hid/hid-steam.c
 @@ -151,7 +151,7 @@ enum {
@@ -32302,7 +32302,7 @@ Signed-off-by: Vicki Pfau <vi@endrift.com>
  1 file changed, 175 insertions(+), 39 deletions(-)
 
 diff --git a/drivers/hid/hid-steam.c b/drivers/hid/hid-steam.c
-index 983d18d1de4f..1ceb044e170b 100644
+index 983d18d1de4fe..1ceb044e170b4 100644
 --- a/drivers/hid/hid-steam.c
 +++ b/drivers/hid/hid-steam.c
 @@ -70,13 +70,14 @@ static LIST_HEAD(steam_devices);
@@ -32654,7 +32654,7 @@ Signed-off-by: Vicki Pfau <vi@endrift.com>
  1 file changed, 26 insertions(+)
 
 diff --git a/drivers/hid/hid-steam.c b/drivers/hid/hid-steam.c
-index 1ceb044e170b..87b3817a2f69 100644
+index 1ceb044e170b4..87b3817a2f69d 100644
 --- a/drivers/hid/hid-steam.c
 +++ b/drivers/hid/hid-steam.c
 @@ -343,6 +343,7 @@ struct steam_device {
@@ -32753,7 +32753,7 @@ Signed-off-by: Vicki Pfau <vi@endrift.com>
  1 file changed, 27 insertions(+), 46 deletions(-)
 
 diff --git a/drivers/hid/hid-steam.c b/drivers/hid/hid-steam.c
-index 87b3817a2f69..12203d61922f 100644
+index 87b3817a2f69d..12203d61922f7 100644
 --- a/drivers/hid/hid-steam.c
 +++ b/drivers/hid/hid-steam.c
 @@ -348,7 +348,6 @@ struct steam_device {
@@ -32963,7 +32963,7 @@ Signed-off-by: Vicki Pfau <vi@endrift.com>
  1 file changed, 9 insertions(+), 7 deletions(-)
 
 diff --git a/drivers/hid/hid-steam.c b/drivers/hid/hid-steam.c
-index 12203d61922f..663fda8a86fd 100644
+index 12203d61922f7..663fda8a86fdb 100644
 --- a/drivers/hid/hid-steam.c
 +++ b/drivers/hid/hid-steam.c
 @@ -1156,6 +1156,9 @@ static void steam_unregister(struct steam_device *steam)
@@ -33027,7 +33027,7 @@ Signed-off-by: Vicki Pfau <vi@endrift.com>
  1 file changed, 33 insertions(+), 23 deletions(-)
 
 diff --git a/drivers/hid/hid-steam.c b/drivers/hid/hid-steam.c
-index 663fda8a86fd..222b5751040a 100644
+index 663fda8a86fdb..222b5751040a6 100644
 --- a/drivers/hid/hid-steam.c
 +++ b/drivers/hid/hid-steam.c
 @@ -246,14 +246,14 @@ enum {
@@ -33174,7 +33174,7 @@ Signed-off-by: Vicki Pfau <vi@endrift.com>
  1 file changed, 1 insertion(+), 2 deletions(-)
 
 diff --git a/drivers/hid/hid-steam.c b/drivers/hid/hid-steam.c
-index 222b5751040a..ddd439dd069b 100644
+index 222b5751040a6..ddd439dd069b3 100644
 --- a/drivers/hid/hid-steam.c
 +++ b/drivers/hid/hid-steam.c
 @@ -488,7 +488,7 @@ static int steam_get_serial(struct steam_device *steam)
@@ -33219,7 +33219,7 @@ Link: https://syzkaller.appspot.com/bug?extid=75f3f9bff8c510602d36
  1 file changed, 25 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/hid/hid-steam.c b/drivers/hid/hid-steam.c
-index ddd439dd069b..3b4a588c20ad 100644
+index ddd439dd069b3..3b4a588c20add 100644
 --- a/drivers/hid/hid-steam.c
 +++ b/drivers/hid/hid-steam.c
 @@ -357,6 +357,13 @@ static int steam_recv_report(struct steam_device *steam,
@@ -33290,7 +33290,7 @@ Signed-off-by: Vicki Pfau <vi@endrift.com>
  1 file changed, 41 insertions(+), 13 deletions(-)
 
 diff --git a/drivers/hid/hid-steam.c b/drivers/hid/hid-steam.c
-index 3b4a588c20ad..6199f67f3c4c 100644
+index 3b4a588c20add..6199f67f3c4cd 100644
 --- a/drivers/hid/hid-steam.c
 +++ b/drivers/hid/hid-steam.c
 @@ -501,6 +501,43 @@ static int steam_write_settings(struct steam_device *steam,
@@ -33400,7 +33400,7 @@ Signed-off-by: Vicki Pfau <vi@endrift.com>
  1 file changed, 38 insertions(+), 43 deletions(-)
 
 diff --git a/drivers/hid/hid-steam.c b/drivers/hid/hid-steam.c
-index 6199f67f3c4c..d4ebc1efc01e 100644
+index 6199f67f3c4cd..d4ebc1efc01e1 100644
 --- a/drivers/hid/hid-steam.c
 +++ b/drivers/hid/hid-steam.c
 @@ -334,6 +334,7 @@ struct steam_device {
@@ -33544,7 +33544,7 @@ Signed-off-by: Vicki Pfau <vi@endrift.com>
  2 files changed, 682 insertions(+), 105 deletions(-)
 
 diff --git a/drivers/hid/hid-ids.h b/drivers/hid/hid-ids.h
-index 2ca076c3fca3..33dc4a1655f1 100644
+index 2ca076c3fca36..33dc4a1655f10 100644
 --- a/drivers/hid/hid-ids.h
 +++ b/drivers/hid/hid-ids.h
 @@ -1334,6 +1334,10 @@
@@ -33559,7 +33559,7 @@ index 2ca076c3fca3..33dc4a1655f1 100644
  #define USB_VENDOR_ID_STEELSERIES	0x1038
  #define USB_DEVICE_ID_STEELSERIES_SRWS1	0x1410
 diff --git a/drivers/hid/hid-steam.c b/drivers/hid/hid-steam.c
-index d4ebc1efc01e..29de32051319 100644
+index d4ebc1efc01e1..29de320513191 100644
 --- a/drivers/hid/hid-steam.c
 +++ b/drivers/hid/hid-steam.c
 @@ -44,6 +44,7 @@
@@ -34742,7 +34742,7 @@ Signed-off-by: Vicki Pfau <vi@endrift.com>
  1 file changed, 4 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/hid/hid-steam.c b/drivers/hid/hid-steam.c
-index 29de32051319..461ebf37171b 100644
+index 29de320513191..461ebf37171b7 100644
 --- a/drivers/hid/hid-steam.c
 +++ b/drivers/hid/hid-steam.c
 @@ -1391,7 +1391,8 @@ static int steam_register(struct steam_device *steam)
@@ -34786,7 +34786,7 @@ Signed-off-by: Vicki Pfau <vi@endrift.com>
  1 file changed, 11 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/hid/hid-steam.c b/drivers/hid/hid-steam.c
-index 461ebf37171b..7226c0681ed1 100644
+index 461ebf37171b7..7226c0681ed18 100644
 --- a/drivers/hid/hid-steam.c
 +++ b/drivers/hid/hid-steam.c
 @@ -490,9 +490,13 @@ static int steam_recv_report_id(struct steam_device *steam,
@@ -34836,7 +34836,7 @@ Signed-off-by: Vicki Pfau <vi@endrift.com>
  1 file changed, 56 insertions(+), 49 deletions(-)
 
 diff --git a/drivers/hid/hid-steam.c b/drivers/hid/hid-steam.c
-index 7226c0681ed1..7bb892972447 100644
+index 7226c0681ed18..7bb892972447f 100644
 --- a/drivers/hid/hid-steam.c
 +++ b/drivers/hid/hid-steam.c
 @@ -403,6 +403,7 @@ struct steam_device {
@@ -35208,7 +35208,7 @@ Signed-off-by: Vicki Pfau <vi@endrift.com>
  1 file changed, 74 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/hid/hid-steam.c b/drivers/hid/hid-steam.c
-index 7bb892972447..ac08cb2d0368 100644
+index 7bb892972447f..ac08cb2d0368f 100644
 --- a/drivers/hid/hid-steam.c
 +++ b/drivers/hid/hid-steam.c
 @@ -1501,13 +1501,83 @@ static void steam_mode_switch_cb(struct work_struct *work)
@@ -35323,7 +35323,7 @@ device behavior.
  1 file changed, 4 insertions(+), 15 deletions(-)
 
 diff --git a/drivers/hid/hid-steam.c b/drivers/hid/hid-steam.c
-index ac08cb2d0368..e30bc59db15e 100644
+index ac08cb2d0368f..e30bc59db15e1 100644
 --- a/drivers/hid/hid-steam.c
 +++ b/drivers/hid/hid-steam.c
 @@ -1465,15 +1465,13 @@ static void steam_work_connect_cb(struct work_struct *work)
@@ -35424,7 +35424,7 @@ Signed-off-by: NaKyle <nakyle.wright@gmail.com>
  1 file changed, 18 insertions(+), 7 deletions(-)
 
 diff --git a/drivers/media/cec/platform/cros-ec/cros-ec-cec.c b/drivers/media/cec/platform/cros-ec/cros-ec-cec.c
-index 22282578ab99..3433950fccba 100644
+index 22282578ab997..3433950fccba0 100644
 --- a/drivers/media/cec/platform/cros-ec/cros-ec-cec.c
 +++ b/drivers/media/cec/platform/cros-ec/cros-ec-cec.c
 @@ -102,17 +102,28 @@ static void cros_ec_cec_read_message(struct cros_ec_cec_port *port)
@@ -35479,7 +35479,7 @@ Signed-off-by: NaKyle <nakyle.wright@gmail.com>
  1 file changed, 5 insertions(+)
 
 diff --git a/drivers/media/cec/platform/cros-ec/cros-ec-cec.c b/drivers/media/cec/platform/cros-ec/cros-ec-cec.c
-index 3433950fccba..a14961939dc6 100644
+index 3433950fccba0..a14961939dc61 100644
 --- a/drivers/media/cec/platform/cros-ec/cros-ec-cec.c
 +++ b/drivers/media/cec/platform/cros-ec/cros-ec-cec.c
 @@ -314,6 +314,11 @@ static const char *const port_ab_conns[] = { "Port A", "Port B", NULL };
@@ -35510,7 +35510,7 @@ Signed-off-by: NaKyle <nakyle.wright@gmail.com>
  1 file changed, 44 insertions(+), 1 deletion(-)
 
 diff --git a/include/linux/platform_data/cros_ec_commands.h b/include/linux/platform_data/cros_ec_commands.h
-index 749d985e9da2..f7e22e034f10 100644
+index 749d985e9da2d..f7e22e034f10d 100644
 --- a/include/linux/platform_data/cros_ec_commands.h
 +++ b/include/linux/platform_data/cros_ec_commands.h
 @@ -4686,7 +4686,10 @@ struct ec_response_cec_read {
@@ -35595,7 +35595,7 @@ Signed-off-by: NaKyle <nakyle.wright@gmail.com>
  2 files changed, 204 insertions(+)
 
 diff --git a/Documentation/ABI/testing/debugfs-cros-ec b/Documentation/ABI/testing/debugfs-cros-ec
-index 9a040c6f5e03..0588cc7382c1 100644
+index 9a040c6f5e030..0588cc7382c1e 100644
 --- a/Documentation/ABI/testing/debugfs-cros-ec
 +++ b/Documentation/ABI/testing/debugfs-cros-ec
 @@ -76,3 +76,36 @@ Description:
@@ -35636,7 +35636,7 @@ index 9a040c6f5e03..0588cc7382c1 100644
 +		Output will be in the format: "%d %d\n" with a line for each
 +		port.
 diff --git a/drivers/platform/chrome/cros_ec_sysfs.c b/drivers/platform/chrome/cros_ec_sysfs.c
-index f22e9523da3e..b240ea661bd4 100644
+index f22e9523da3e8..b240ea661bd4e 100644
 --- a/drivers/platform/chrome/cros_ec_sysfs.c
 +++ b/drivers/platform/chrome/cros_ec_sysfs.c
 @@ -355,6 +355,173 @@ static ssize_t ap_mode_entry_show(struct device *dev,
@@ -35863,7 +35863,7 @@ Signed-off-by: John Schoenick <johns@valvesoftware.com>
  create mode 100644 drivers/leds/rgb/leds-valve.c
 
 diff --git a/drivers/leds/rgb/Kconfig b/drivers/leds/rgb/Kconfig
-index 28ef4c487367..a764918356c1 100644
+index 28ef4c487367c..a764918356c10 100644
 --- a/drivers/leds/rgb/Kconfig
 +++ b/drivers/leds/rgb/Kconfig
 @@ -88,4 +88,13 @@ config LEDS_MT6370_RGB
@@ -35881,7 +35881,7 @@ index 28ef4c487367..a764918356c1 100644
 +
  endif # LEDS_CLASS_MULTICOLOR
 diff --git a/drivers/leds/rgb/Makefile b/drivers/leds/rgb/Makefile
-index be45991f63f5..945c82acb029 100644
+index be45991f63f50..945c82acb0292 100644
 --- a/drivers/leds/rgb/Makefile
 +++ b/drivers/leds/rgb/Makefile
 @@ -7,3 +7,4 @@ obj-$(CONFIG_LEDS_NCP5623)		+= leds-ncp5623.o
@@ -35891,7 +35891,7 @@ index be45991f63f5..945c82acb029 100644
 +obj-$(CONFIG_LEDS_VALVE)		+= leds-valve.o
 diff --git a/drivers/leds/rgb/leds-valve.c b/drivers/leds/rgb/leds-valve.c
 new file mode 100644
-index 000000000000..5683f833fc77
+index 0000000000000..5683f833fc774
 --- /dev/null
 +++ b/drivers/leds/rgb/leds-valve.c
 @@ -0,0 +1,439 @@
@@ -36360,7 +36360,7 @@ Signed-off-by: Nícolas F. R. A. Prado <nfraprado@collabora.com>
  1 file changed, 172 insertions(+), 31 deletions(-)
 
 diff --git a/drivers/leds/rgb/leds-valve.c b/drivers/leds/rgb/leds-valve.c
-index 5683f833fc77..ae099ff1b451 100644
+index 5683f833fc774..ae099ff1b451b 100644
 --- a/drivers/leds/rgb/leds-valve.c
 +++ b/drivers/leds/rgb/leds-valve.c
 @@ -20,25 +20,38 @@
@@ -36678,7 +36678,7 @@ Signed-off-by: Nícolas F. R. A. Prado <nfraprado@collabora.com>
  1 file changed, 106 insertions(+), 9 deletions(-)
 
 diff --git a/drivers/leds/rgb/leds-valve.c b/drivers/leds/rgb/leds-valve.c
-index ae099ff1b451..2c52046d237d 100644
+index ae099ff1b451b..2c52046d237da 100644
 --- a/drivers/leds/rgb/leds-valve.c
 +++ b/drivers/leds/rgb/leds-valve.c
 @@ -7,6 +7,7 @@
@@ -36865,7 +36865,7 @@ Signed-off-by: Florian Zitzelsberger <florianz@valvesoftware.com>
  1 file changed, 22 insertions(+), 17 deletions(-)
 
 diff --git a/drivers/leds/rgb/leds-valve.c b/drivers/leds/rgb/leds-valve.c
-index 2c52046d237d..d90ec18a9337 100644
+index 2c52046d237da..d90ec18a93370 100644
 --- a/drivers/leds/rgb/leds-valve.c
 +++ b/drivers/leds/rgb/leds-valve.c
 @@ -39,6 +39,7 @@
@@ -37008,7 +37008,7 @@ Signed-off-by: Florian Zitzelsberger <florianz@valvesoftware.com>
  1 file changed, 105 insertions(+), 16 deletions(-)
 
 diff --git a/drivers/leds/rgb/leds-valve.c b/drivers/leds/rgb/leds-valve.c
-index d90ec18a9337..af5205ce37e2 100644
+index d90ec18a93370..af5205ce37e29 100644
 --- a/drivers/leds/rgb/leds-valve.c
 +++ b/drivers/leds/rgb/leds-valve.c
 @@ -38,6 +38,7 @@
@@ -37216,7 +37216,7 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
-index c91638e65174..8c84aee9237b 100644
+index c91638e651746..8c84aee9237b8 100644
 --- a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
 +++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
 @@ -3184,7 +3184,7 @@ static int __init amdgpu_init(void)
@@ -37255,7 +37255,7 @@ Signed-off-by: Mario Limonciello <mario.limonciello@amd.com>
  4 files changed, 39 insertions(+), 13 deletions(-)
 
 diff --git a/Documentation/driver-api/pm/notifiers.rst b/Documentation/driver-api/pm/notifiers.rst
-index 186435c43b77..6a1912fbee21 100644
+index 186435c43b77e..6a1912fbee214 100644
 --- a/Documentation/driver-api/pm/notifiers.rst
 +++ b/Documentation/driver-api/pm/notifiers.rst
 @@ -32,6 +32,18 @@ will be called upon the following events by the PM core:
@@ -37292,7 +37292,7 @@ index 186435c43b77..6a1912fbee21 100644
  Moreover, if one of the notifiers fails for the ``PM_HIBERNATION_PREPARE`` or
  ``PM_SUSPEND_PREPARE`` event, the notifiers that have already succeeded for that
 diff --git a/include/linux/suspend.h b/include/linux/suspend.h
-index b02876f1ae38..c997974a4489 100644
+index b02876f1ae38a..c997974a44892 100644
 --- a/include/linux/suspend.h
 +++ b/include/linux/suspend.h
 @@ -433,12 +433,14 @@ static inline int is_hibernate_resume_dev(dev_t dev) { return 0; }
@@ -37317,7 +37317,7 @@ index b02876f1ae38..c997974a4489 100644
  extern struct mutex system_transition_mutex;
  
 diff --git a/kernel/power/hibernate.c b/kernel/power/hibernate.c
-index af8d07bafe02..93bfd979a5e0 100644
+index af8d07bafe02a..93bfd979a5e0d 100644
 --- a/kernel/power/hibernate.c
 +++ b/kernel/power/hibernate.c
 @@ -830,11 +830,15 @@ int hibernate(void)
@@ -37349,7 +37349,7 @@ index af8d07bafe02..93bfd979a5e0 100644
  		pm_pr_dbg("Checking hibernation image\n");
  		error = swsusp_check(false);
 diff --git a/kernel/power/suspend.c b/kernel/power/suspend.c
-index 57c44268698f..344dbb559938 100644
+index 57c44268698f7..344dbb5599382 100644
 --- a/kernel/power/suspend.c
 +++ b/kernel/power/suspend.c
 @@ -386,14 +386,20 @@ static int suspend_prepare(suspend_state_t state)
@@ -37404,7 +37404,7 @@ Signed-off-by: Mario Limonciello <mario.limonciello@amd.com>
  1 file changed, 12 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
-index 2ec69fa05cb1..b42bd414e7d1 100644
+index 2ec69fa05cb15..b42bd414e7d14 100644
 --- a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
 +++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
 @@ -5081,10 +5081,21 @@ static int amdgpu_device_pm_notifier(struct notifier_block *nb, unsigned long mo
@@ -37448,7 +37448,7 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
  4 files changed, 39 insertions(+), 31 deletions(-)
 
 diff --git a/drivers/input/evdev.c b/drivers/input/evdev.c
-index c7325226cb86..1063ef7fcd29 100644
+index c7325226cb866..1063ef7fcd298 100644
 --- a/drivers/input/evdev.c
 +++ b/drivers/input/evdev.c
 @@ -329,14 +329,14 @@ static void evdev_free(struct device *dev)
@@ -37482,7 +37482,7 @@ index c7325226cb86..1063ef7fcd29 100644
  			return evdev_ungrab(evdev, client);
  
 diff --git a/drivers/input/input.c b/drivers/input/input.c
-index 7b7490a1fbc6..339a3d8db9dc 100644
+index 7b7490a1fbc6d..339a3d8db9dc1 100644
 --- a/drivers/input/input.c
 +++ b/drivers/input/input.c
 @@ -509,29 +509,6 @@ void input_copy_abs(struct input_dev *dst, unsigned int dst_axis,
@@ -37552,7 +37552,7 @@ index 7b7490a1fbc6..339a3d8db9dc 100644
  {
  	guard(mutex)(&dev->mutex);
 diff --git a/drivers/input/tests/input_test.c b/drivers/input/tests/input_test.c
-index e105ce71a920..ff6d195baf13 100644
+index e105ce71a920a..ff6d195baf13a 100644
 --- a/drivers/input/tests/input_test.c
 +++ b/drivers/input/tests/input_test.c
 @@ -145,18 +145,18 @@ static void input_test_grab(struct kunit *test)
@@ -37578,7 +37578,7 @@ index e105ce71a920..ff6d195baf13 100644
  	input_put_device(input_dev);
  }
 diff --git a/include/linux/input.h b/include/linux/input.h
-index 7d7cb0593a63..ef4dd65d15af 100644
+index 7d7cb0593a63e..ef4dd65d15af3 100644
 --- a/include/linux/input.h
 +++ b/include/linux/input.h
 @@ -420,7 +420,7 @@ int input_handler_for_each_handle(struct input_handler *, void *data,
@@ -37605,7 +37605,7 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/drivers/watchdog/watchdog_dev.c b/drivers/watchdog/watchdog_dev.c
-index 834f65f4b59a..dc0f0112a995 100644
+index 834f65f4b59aa..dc0f0112a9955 100644
 --- a/drivers/watchdog/watchdog_dev.c
 +++ b/drivers/watchdog/watchdog_dev.c
 @@ -960,7 +960,7 @@ static int watchdog_release(struct inode *inode, struct file *file)
@@ -37634,7 +37634,7 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
  1 file changed, 9 insertions(+)
 
 diff --git a/drivers/acpi/ec.c b/drivers/acpi/ec.c
-index 2d94bae5c4d1..ac4508c65122 100644
+index 2d94bae5c4d15..ac4508c65122e 100644
 --- a/drivers/acpi/ec.c
 +++ b/drivers/acpi/ec.c
 @@ -2351,6 +2351,15 @@ static const struct dmi_system_id acpi_ec_no_wakeup[] = {
@@ -37673,7 +37673,7 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
  1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/gpu/drm/amd/pm/swsmu/smu11/cyan_skillfish_ppt.c b/drivers/gpu/drm/amd/pm/swsmu/smu11/cyan_skillfish_ppt.c
-index 4e70308a455e..1a354f8ddd89 100644
+index 4e70308a455ed..1a354f8ddd89c 100644
 --- a/drivers/gpu/drm/amd/pm/swsmu/smu11/cyan_skillfish_ppt.c
 +++ b/drivers/gpu/drm/amd/pm/swsmu/smu11/cyan_skillfish_ppt.c
 @@ -45,8 +45,8 @@
@@ -37705,7 +37705,7 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
  4 files changed, 8 insertions(+), 8 deletions(-)
 
 diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
-index ec0248cec5e4..f71220152d71 100644
+index ec0248cec5e43..f71220152d71d 100644
 --- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
 +++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
 @@ -4963,7 +4963,7 @@ static int amdgpu_dm_mode_config_init(struct amdgpu_device *adev)
@@ -37718,7 +37718,7 @@ index ec0248cec5e4..f71220152d71 100644
  		dc_state_release(state->context);
  		kfree(state);
 diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_color.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_color.c
-index cd1e58b8defc..b8a3020a5c37 100644
+index cd1e58b8defcb..b8a3020a5c37c 100644
 --- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_color.c
 +++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_color.c
 @@ -184,7 +184,7 @@ static inline struct fixed31_32 amdgpu_dm_fixpt_from_s3132(__u64 x)
@@ -37731,7 +37731,7 @@ index cd1e58b8defc..b8a3020a5c37 100644
   *
   * AMD driver supports pre-defined mathematical functions for transferring
 diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_crtc.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_crtc.c
-index 527d0ad69348..9a8316076e1e 100644
+index 527d0ad69348e..9a8316076e1e5 100644
 --- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_crtc.c
 +++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_crtc.c
 @@ -502,7 +502,7 @@ static int amdgpu_dm_crtc_late_register(struct drm_crtc *crtc)
@@ -37762,7 +37762,7 @@ index 527d0ad69348..9a8316076e1e 100644
  #endif
  	return 0;
 diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_plane.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_plane.c
-index 127207e18dcb..255859a814c8 100644
+index 127207e18dcb0..255859a814c86 100644
 --- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_plane.c
 +++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_plane.c
 @@ -1615,7 +1615,7 @@ static void amdgpu_dm_plane_drm_plane_destroy_state(struct drm_plane *plane,
@@ -37807,7 +37807,7 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
  1 file changed, 2 insertions(+)
 
 diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
-index f71220152d71..5f5001aac0ac 100644
+index f71220152d71d..5f5001aac0ac0 100644
 --- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
 +++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
 @@ -5064,6 +5064,8 @@ static void convert_custom_brightness(const struct amdgpu_dm_backlight_caps *cap
@@ -37834,7 +37834,7 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
  1 file changed, 7 insertions(+)
 
 diff --git a/drivers/platform/x86/ayaneo-ec.c b/drivers/platform/x86/ayaneo-ec.c
-index 41a24e091248..28cb09fe8491 100644
+index 41a24e0912486..28cb09fe8491c 100644
 --- a/drivers/platform/x86/ayaneo-ec.c
 +++ b/drivers/platform/x86/ayaneo-ec.c
 @@ -139,6 +139,13 @@ static const struct dmi_system_id dmi_table[] = {
@@ -37866,7 +37866,7 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
  1 file changed, 15 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/platform/x86/msi-wmi.c b/drivers/platform/x86/msi-wmi.c
-index 4a7ac85c4db4..20de3173ecca 100644
+index 4a7ac85c4db48..20de3173ecca2 100644
 --- a/drivers/platform/x86/msi-wmi.c
 +++ b/drivers/platform/x86/msi-wmi.c
 @@ -41,6 +41,7 @@ enum msi_scancodes {
@@ -37928,7 +37928,7 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/drivers/platform/x86/amd/pmc/pmc.c b/drivers/platform/x86/amd/pmc/pmc.c
-index cae3fcafd4d7..79870f371beb 100644
+index cae3fcafd4d7b..79870f371beb9 100644
 --- a/drivers/platform/x86/amd/pmc/pmc.c
 +++ b/drivers/platform/x86/amd/pmc/pmc.c
 @@ -637,7 +637,7 @@ static void amd_pmc_s2idle_check(void)
@@ -37955,7 +37955,7 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
  1 file changed, 3 insertions(+)
 
 diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
-index b42bd414e7d1..4da1e72c48f5 100644
+index b42bd414e7d14..4da1e72c48f52 100644
 --- a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
 +++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
 @@ -2717,6 +2717,9 @@ static int amdgpu_device_ip_early_init(struct amdgpu_device *adev)
@@ -37993,7 +37993,7 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
  11 files changed, 55 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
-index 8c84aee9237b..41dd1b85144f 100644
+index 8c84aee9237b8..41dd1b85144f8 100644
 --- a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
 +++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
 @@ -3183,7 +3183,6 @@ static int __init amdgpu_init(void)
@@ -38005,7 +38005,7 @@ index 8c84aee9237b..41dd1b85144f 100644
  			"reporting any bugs unrelated to overdrive.\n");
  	}
 diff --git a/drivers/gpu/drm/amd/pm/powerplay/hwmgr/smu10_hwmgr.c b/drivers/gpu/drm/amd/pm/powerplay/hwmgr/smu10_hwmgr.c
-index 2e671b45f174..179fe5f7736d 100644
+index 2e671b45f1740..179fe5f7736d6 100644
 --- a/drivers/gpu/drm/amd/pm/powerplay/hwmgr/smu10_hwmgr.c
 +++ b/drivers/gpu/drm/amd/pm/powerplay/hwmgr/smu10_hwmgr.c
 @@ -1561,6 +1561,12 @@ static int smu10_set_fine_grain_clk_vol(struct pp_hwmgr *hwmgr,
@@ -38022,7 +38022,7 @@ index 2e671b45f174..179fe5f7736d 100644
  		if (size != 2) {
  			pr_err("Input parameter number not correct\n");
 diff --git a/drivers/gpu/drm/amd/pm/powerplay/hwmgr/smu7_hwmgr.c b/drivers/gpu/drm/amd/pm/powerplay/hwmgr/smu7_hwmgr.c
-index bc6acdb52c26..e19c658d73c4 100644
+index bc6acdb52c269..e19c658d73c41 100644
 --- a/drivers/gpu/drm/amd/pm/powerplay/hwmgr/smu7_hwmgr.c
 +++ b/drivers/gpu/drm/amd/pm/powerplay/hwmgr/smu7_hwmgr.c
 @@ -5636,6 +5636,12 @@ static int smu7_odn_edit_dpm_table(struct pp_hwmgr *hwmgr,
@@ -38039,7 +38039,7 @@ index bc6acdb52c26..e19c658d73c4 100644
  		podn_dpm_table_in_backend = &data->odn_dpm_table.odn_core_clock_dpm_levels;
  		podn_vdd_dep_in_backend = &data->odn_dpm_table.vdd_dependency_on_sclk;
 diff --git a/drivers/gpu/drm/amd/pm/powerplay/hwmgr/vega10_hwmgr.c b/drivers/gpu/drm/amd/pm/powerplay/hwmgr/vega10_hwmgr.c
-index d9899cf7020b..4991a809e7ee 100644
+index d9899cf7020b6..4991a809e7ee0 100644
 --- a/drivers/gpu/drm/amd/pm/powerplay/hwmgr/vega10_hwmgr.c
 +++ b/drivers/gpu/drm/amd/pm/powerplay/hwmgr/vega10_hwmgr.c
 @@ -5468,6 +5468,12 @@ static int vega10_odn_edit_dpm_table(struct pp_hwmgr *hwmgr,
@@ -38056,7 +38056,7 @@ index d9899cf7020b..4991a809e7ee 100644
  		dpm_table = &data->dpm_table.gfx_table;
  		podn_vdd_dep_table = &data->odn_dpm_table.vdd_dep_on_sclk;
 diff --git a/drivers/gpu/drm/amd/pm/powerplay/inc/hwmgr.h b/drivers/gpu/drm/amd/pm/powerplay/inc/hwmgr.h
-index 2f49c95342a1..8d5a13abbb1f 100644
+index 2f49c95342a14..8d5a13abbb1fa 100644
 --- a/drivers/gpu/drm/amd/pm/powerplay/inc/hwmgr.h
 +++ b/drivers/gpu/drm/amd/pm/powerplay/inc/hwmgr.h
 @@ -801,6 +801,7 @@ struct pp_hwmgr {
@@ -38068,7 +38068,7 @@ index 2f49c95342a1..8d5a13abbb1f 100644
  	uint32_t default_power_limit;
  	uint32_t workload_mask;
 diff --git a/drivers/gpu/drm/amd/pm/swsmu/inc/amdgpu_smu.h b/drivers/gpu/drm/amd/pm/swsmu/inc/amdgpu_smu.h
-index a6303d093c50..be0e44e7eef9 100644
+index a6303d093c50e..be0e44e7eef99 100644
 --- a/drivers/gpu/drm/amd/pm/swsmu/inc/amdgpu_smu.h
 +++ b/drivers/gpu/drm/amd/pm/swsmu/inc/amdgpu_smu.h
 @@ -717,6 +717,7 @@ struct smu_context {
@@ -38080,7 +38080,7 @@ index a6303d093c50..be0e44e7eef9 100644
  	uint32_t default_power_limit;
  	uint32_t max_power_limit;
 diff --git a/drivers/gpu/drm/amd/pm/swsmu/smu11/navi10_ppt.c b/drivers/gpu/drm/amd/pm/swsmu/smu11/navi10_ppt.c
-index 163e09ca0730..d9fe1005174c 100644
+index 163e09ca07307..d9fe1005174c0 100644
 --- a/drivers/gpu/drm/amd/pm/swsmu/smu11/navi10_ppt.c
 +++ b/drivers/gpu/drm/amd/pm/swsmu/smu11/navi10_ppt.c
 @@ -2392,6 +2392,13 @@ static int navi10_od_edit_dpm_table(struct smu_context *smu, enum PP_OD_DPM_TABL
@@ -38098,7 +38098,7 @@ index 163e09ca0730..d9fe1005174c 100644
  
  	switch (type) {
 diff --git a/drivers/gpu/drm/amd/pm/swsmu/smu11/sienna_cichlid_ppt.c b/drivers/gpu/drm/amd/pm/swsmu/smu11/sienna_cichlid_ppt.c
-index cf030af18aad..221087ebc564 100644
+index cf030af18aad1..221087ebc5641 100644
 --- a/drivers/gpu/drm/amd/pm/swsmu/smu11/sienna_cichlid_ppt.c
 +++ b/drivers/gpu/drm/amd/pm/swsmu/smu11/sienna_cichlid_ppt.c
 @@ -2261,6 +2261,13 @@ static int sienna_cichlid_od_edit_dpm_table(struct smu_context *smu,
@@ -38116,7 +38116,7 @@ index cf030af18aad..221087ebc564 100644
  	case PP_OD_EDIT_SCLK_VDDC_TABLE:
  		if (!sienna_cichlid_is_od_feature_supported(od_settings,
 diff --git a/drivers/gpu/drm/amd/pm/swsmu/smu13/smu_v13_0_0_ppt.c b/drivers/gpu/drm/amd/pm/swsmu/smu13/smu_v13_0_0_ppt.c
-index 554f616328c3..888c7e1525a8 100644
+index 554f616328c37..888c7e1525a8c 100644
 --- a/drivers/gpu/drm/amd/pm/swsmu/smu13/smu_v13_0_0_ppt.c
 +++ b/drivers/gpu/drm/amd/pm/swsmu/smu13/smu_v13_0_0_ppt.c
 @@ -3045,6 +3045,13 @@ static int smu_v13_0_0_set_power_limit(struct smu_context *smu,
@@ -38134,7 +38134,7 @@ index 554f616328c3..888c7e1525a8 100644
  		if (ret)
  			return ret;
 diff --git a/drivers/gpu/drm/amd/pm/swsmu/smu13/smu_v13_0_7_ppt.c b/drivers/gpu/drm/amd/pm/swsmu/smu13/smu_v13_0_7_ppt.c
-index f331e87858c9..3315225cbae3 100644
+index f331e87858c97..3315225cbae3d 100644
 --- a/drivers/gpu/drm/amd/pm/swsmu/smu13/smu_v13_0_7_ppt.c
 +++ b/drivers/gpu/drm/amd/pm/swsmu/smu13/smu_v13_0_7_ppt.c
 @@ -2673,6 +2673,13 @@ static int smu_v13_0_7_set_power_limit(struct smu_context *smu,
@@ -38152,7 +38152,7 @@ index f331e87858c9..3315225cbae3 100644
  		if (ret)
  			return ret;
 diff --git a/drivers/gpu/drm/amd/pm/swsmu/smu14/smu_v14_0_2_ppt.c b/drivers/gpu/drm/amd/pm/swsmu/smu14/smu_v14_0_2_ppt.c
-index 58d12073f7b7..fd5f48aa0a78 100644
+index 58d12073f7b7e..fd5f48aa0a78d 100644
 --- a/drivers/gpu/drm/amd/pm/swsmu/smu14/smu_v14_0_2_ppt.c
 +++ b/drivers/gpu/drm/amd/pm/swsmu/smu14/smu_v14_0_2_ppt.c
 @@ -2766,6 +2766,13 @@ static int smu_v14_0_2_set_power_limit(struct smu_context *smu,
@@ -38184,7 +38184,7 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
  1 file changed, 6 insertions(+)
 
 diff --git a/drivers/gpu/drm/drm_panel_orientation_quirks.c b/drivers/gpu/drm/drm_panel_orientation_quirks.c
-index 7deff55b076c..6e7dac6f8e70 100644
+index 7deff55b076c0..6e7dac6f8e70e 100644
 --- a/drivers/gpu/drm/drm_panel_orientation_quirks.c
 +++ b/drivers/gpu/drm/drm_panel_orientation_quirks.c
 @@ -570,6 +570,12 @@ static const struct dmi_system_id orientation_data[] = {
@@ -38224,7 +38224,7 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/drivers/platform/x86/asus-wmi.c b/drivers/platform/x86/asus-wmi.c
-index 9be55d1d20ec..acbb2fcbb632 100644
+index 9be55d1d20ec2..acbb2fcbb6326 100644
 --- a/drivers/platform/x86/asus-wmi.c
 +++ b/drivers/platform/x86/asus-wmi.c
 @@ -1521,7 +1521,7 @@ static int asus_wmi_battery_add(struct power_supply *battery, struct acpi_batter
@@ -38257,7 +38257,7 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/arch/x86/kernel/cpu/amd.c b/arch/x86/kernel/cpu/amd.c
-index 820fee2658c6..c2249c172277 100644
+index 820fee2658c6a..c2249c1722772 100644
 --- a/arch/x86/kernel/cpu/amd.c
 +++ b/arch/x86/kernel/cpu/amd.c
 @@ -1041,7 +1041,7 @@ static void init_amd_zen5(struct cpuinfo_x86 *c)
@@ -38310,7 +38310,7 @@ Signed-off-by: Paul Moore <paul@paul-moore.com>
  1 file changed, 24 insertions(+), 18 deletions(-)
 
 diff --git a/security/selinux/hooks.c b/security/selinux/hooks.c
-index 6c154a4d94b9..89c556553f2e 100644
+index 6c154a4d94b9d..89c556553f2e2 100644
 --- a/security/selinux/hooks.c
 +++ b/security/selinux/hooks.c
 @@ -3972,9 +3972,9 @@ static int selinux_file_ioctl_compat(struct file *file, unsigned int cmd,
@@ -38452,7 +38452,7 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
  2 files changed, 140 insertions(+)
 
 diff --git a/Documentation/wmi/devices/lenovo-wmi-other.rst b/Documentation/wmi/devices/lenovo-wmi-other.rst
-index 01d471156738..9025cf732d58 100644
+index 01d4711567380..9025cf732d58f 100644
 --- a/Documentation/wmi/devices/lenovo-wmi-other.rst
 +++ b/Documentation/wmi/devices/lenovo-wmi-other.rst
 @@ -46,6 +46,9 @@ The following HWMON attributes are implemented:
@@ -38466,7 +38466,7 @@ index 01d471156738..9025cf732d58 100644
  its nearest multiple. The divisor itself is not necessary to be a power of two.
  
 diff --git a/drivers/platform/x86/lenovo/wmi-other.c b/drivers/platform/x86/lenovo/wmi-other.c
-index d1cab4d5787a..5775ef6a3af7 100644
+index d1cab4d5787af..5775ef6a3af7e 100644
 --- a/drivers/platform/x86/lenovo/wmi-other.c
 +++ b/drivers/platform/x86/lenovo/wmi-other.c
 @@ -59,6 +59,7 @@
@@ -38689,7 +38689,7 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
  create mode 100644 drivers/platform/x86/lenovo/wmi-gamezone-fan.c
 
 diff --git a/Documentation/wmi/devices/lenovo-wmi-gamezone.rst b/Documentation/wmi/devices/lenovo-wmi-gamezone.rst
-index 1769ad3d57b9..bb3576afd54d 100644
+index 1769ad3d57b99..bb3576afd54d3 100644
 --- a/Documentation/wmi/devices/lenovo-wmi-gamezone.rst
 +++ b/Documentation/wmi/devices/lenovo-wmi-gamezone.rst
 @@ -50,6 +50,25 @@ or the setting will have no effect. If another profile is set from the list
@@ -38719,7 +38719,7 @@ index 1769ad3d57b9..bb3576afd54d 100644
  ---------------------------
  
 diff --git a/drivers/platform/x86/lenovo/Kconfig b/drivers/platform/x86/lenovo/Kconfig
-index f885127b007f..6d9286768ef8 100644
+index f885127b007f1..6d9286768ef86 100644
 --- a/drivers/platform/x86/lenovo/Kconfig
 +++ b/drivers/platform/x86/lenovo/Kconfig
 @@ -260,6 +260,17 @@ config LENOVO_WMI_GAMEZONE
@@ -38741,7 +38741,7 @@ index f885127b007f..6d9286768ef8 100644
  	tristate "Lenovo Other Mode WMI Driver"
  	depends on ACPI_WMI
 diff --git a/drivers/platform/x86/lenovo/Makefile b/drivers/platform/x86/lenovo/Makefile
-index 91a9370f11b3..470d456fa32f 100644
+index 91a9370f11b3a..470d456fa32fc 100644
 --- a/drivers/platform/x86/lenovo/Makefile
 +++ b/drivers/platform/x86/lenovo/Makefile
 @@ -16,6 +16,7 @@ lenovo-target-$(CONFIG_LENOVO_WMI_CAPDATA)	+= wmi-capdata.o
@@ -38754,7 +38754,7 @@ index 91a9370f11b3..470d456fa32f 100644
  # Add 'lenovo' prefix to each module listed in lenovo-target-*
 diff --git a/drivers/platform/x86/lenovo/wmi-gamezone-fan.c b/drivers/platform/x86/lenovo/wmi-gamezone-fan.c
 new file mode 100644
-index 000000000000..20353a4b110c
+index 0000000000000..20353a4b110c3
 --- /dev/null
 +++ b/drivers/platform/x86/lenovo/wmi-gamezone-fan.c
 @@ -0,0 +1,296 @@
@@ -39090,7 +39090,7 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
 
 diff --git a/Documentation/wmi/devices/lenovo-wmi-lighting.rst b/Documentation/wmi/devices/lenovo-wmi-lighting.rst
 new file mode 100644
-index 000000000000..7acac398e74f
+index 0000000000000..7acac398e74f9
 --- /dev/null
 +++ b/Documentation/wmi/devices/lenovo-wmi-lighting.rst
 @@ -0,0 +1,44 @@
@@ -39139,7 +39139,7 @@ index 000000000000..7acac398e74f
 +Method 1 reads the current status for a lighting ID and method 2 writes a
 +three-byte lighting ID, state and brightness tuple.
 diff --git a/MAINTAINERS b/MAINTAINERS
-index f338f04edb47..071a4bcd888b 100644
+index f338f04edb47d..071a4bcd888b8 100644
 --- a/MAINTAINERS
 +++ b/MAINTAINERS
 @@ -14515,6 +14515,7 @@ M:	Derek J. Clark <derekjohn.clark@gmail.com>
@@ -39151,7 +39151,7 @@ index f338f04edb47..071a4bcd888b 100644
  F:	drivers/platform/x86/lenovo/*
  
 diff --git a/drivers/platform/x86/lenovo/Kconfig b/drivers/platform/x86/lenovo/Kconfig
-index 6d9286768ef8..997d2f8a92a3 100644
+index 6d9286768ef86..997d2f8a92a33 100644
 --- a/drivers/platform/x86/lenovo/Kconfig
 +++ b/drivers/platform/x86/lenovo/Kconfig
 @@ -271,6 +271,18 @@ config LENOVO_WMI_GAMEZONE_FAN
@@ -39174,7 +39174,7 @@ index 6d9286768ef8..997d2f8a92a3 100644
  	tristate "Lenovo Other Mode WMI Driver"
  	depends on ACPI_WMI
 diff --git a/drivers/platform/x86/lenovo/Makefile b/drivers/platform/x86/lenovo/Makefile
-index 470d456fa32f..2d50e9ce8340 100644
+index 470d456fa32fc..2d50e9ce83408 100644
 --- a/drivers/platform/x86/lenovo/Makefile
 +++ b/drivers/platform/x86/lenovo/Makefile
 @@ -17,6 +17,7 @@ lenovo-target-$(CONFIG_LENOVO_WMI_EVENTS)	+= wmi-events.o
@@ -39187,7 +39187,7 @@ index 470d456fa32f..2d50e9ce8340 100644
  # Add 'lenovo' prefix to each module listed in lenovo-target-*
 diff --git a/drivers/platform/x86/lenovo/wmi-lighting.c b/drivers/platform/x86/lenovo/wmi-lighting.c
 new file mode 100644
-index 000000000000..74b47b287f4c
+index 0000000000000..74b47b287f4c3
 --- /dev/null
 +++ b/drivers/platform/x86/lenovo/wmi-lighting.c
 @@ -0,0 +1,271 @@
@@ -39490,7 +39490,7 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
  4 files changed, 195 insertions(+), 1 deletion(-)
 
 diff --git a/Documentation/wmi/devices/lenovo-wmi-other.rst b/Documentation/wmi/devices/lenovo-wmi-other.rst
-index 9025cf732d58..dcef1fa232b0 100644
+index 9025cf732d58f..dcef1fa232b0c 100644
 --- a/Documentation/wmi/devices/lenovo-wmi-other.rst
 +++ b/Documentation/wmi/devices/lenovo-wmi-other.rst
 @@ -31,7 +31,8 @@ under the following path:
@@ -39514,7 +39514,7 @@ index 9025cf732d58..dcef1fa232b0 100644
  its nearest multiple. The divisor itself is not necessary to be a power of two.
  
 diff --git a/drivers/platform/x86/lenovo/Kconfig b/drivers/platform/x86/lenovo/Kconfig
-index 997d2f8a92a3..97bf3e7e95a8 100644
+index 997d2f8a92a33..97bf3e7e95a86 100644
 --- a/drivers/platform/x86/lenovo/Kconfig
 +++ b/drivers/platform/x86/lenovo/Kconfig
 @@ -286,6 +286,7 @@ config LENOVO_WMI_LIGHTING
@@ -39526,7 +39526,7 @@ index 997d2f8a92a3..97bf3e7e95a8 100644
  	select FW_ATTR_CLASS
  	select LENOVO_WMI_CAPDATA
 diff --git a/drivers/platform/x86/lenovo/wmi-capdata.h b/drivers/platform/x86/lenovo/wmi-capdata.h
-index c3e760b8c3c3..0168d88c8167 100644
+index c3e760b8c3c3d..0168d88c81676 100644
 --- a/drivers/platform/x86/lenovo/wmi-capdata.h
 +++ b/drivers/platform/x86/lenovo/wmi-capdata.h
 @@ -18,6 +18,7 @@
@@ -39538,7 +39538,7 @@ index c3e760b8c3c3..0168d88c8167 100644
  
  #define LWMI_TYPE_ID_NONE 0x00
 diff --git a/drivers/platform/x86/lenovo/wmi-other.c b/drivers/platform/x86/lenovo/wmi-other.c
-index 5775ef6a3af7..07db524c475b 100644
+index 5775ef6a3af7e..07db524c475b8 100644
 --- a/drivers/platform/x86/lenovo/wmi-other.c
 +++ b/drivers/platform/x86/lenovo/wmi-other.c
 @@ -42,9 +42,12 @@
@@ -39804,7 +39804,7 @@ Subject: draft patch for WIn5 failure
  3 files changed, 7 insertions(+)
 
 diff --git a/drivers/net/wireless/intel/iwlwifi/cfg/ax210.c b/drivers/net/wireless/intel/iwlwifi/cfg/ax210.c
-index 582f61661062..7eee22740e6a 100644
+index 582f61661062e..7eee22740e6a7 100644
 --- a/drivers/net/wireless/intel/iwlwifi/cfg/ax210.c
 +++ b/drivers/net/wireless/intel/iwlwifi/cfg/ax210.c
 @@ -71,6 +71,7 @@ const struct iwl_mac_cfg iwl_ty_mac_cfg = {
@@ -39816,7 +39816,7 @@ index 582f61661062..7eee22740e6a 100644
  	/* TODO: the following values need to be checked */
  	.xtal_latency = 500,
 diff --git a/drivers/net/wireless/intel/iwlwifi/iwl-config.h b/drivers/net/wireless/intel/iwlwifi/iwl-config.h
-index 45cf2bc68e41..109c05a21f4f 100644
+index 45cf2bc68e41d..109c05a21f4ff 100644
 --- a/drivers/net/wireless/intel/iwlwifi/iwl-config.h
 +++ b/drivers/net/wireless/intel/iwlwifi/iwl-config.h
 @@ -354,6 +354,7 @@ enum iwl_mac_cfg_ltr_delay {
@@ -39836,7 +39836,7 @@ index 45cf2bc68e41..109c05a21f4f 100644
  	    imr_enabled:1;
  };
 diff --git a/drivers/net/wireless/intel/iwlwifi/pcie/gen1_2/trans.c b/drivers/net/wireless/intel/iwlwifi/pcie/gen1_2/trans.c
-index 4560d92d76fe..1ec6ff1cc191 100644
+index 4560d92d76fe0..1ec6ff1cc1912 100644
 --- a/drivers/net/wireless/intel/iwlwifi/pcie/gen1_2/trans.c
 +++ b/drivers/net/wireless/intel/iwlwifi/pcie/gen1_2/trans.c
 @@ -3853,6 +3853,10 @@ iwl_trans_pcie_alloc(struct pci_dev *pdev,
@@ -39870,7 +39870,7 @@ Reviewed-by: Antheas Kapenekakis <lkml@antheas.dev>
  1 file changed, 7 insertions(+)
 
 diff --git a/drivers/platform/x86/oxpec.c b/drivers/platform/x86/oxpec.c
-index 6d4a53a2ed60..0806e5653f7c 100644
+index 6d4a53a2ed603..0806e5653f7c4 100644
 --- a/drivers/platform/x86/oxpec.c
 +++ b/drivers/platform/x86/oxpec.c
 @@ -282,6 +282,13 @@ static const struct dmi_system_id dmi_table[] = {
@@ -39911,7 +39911,7 @@ Reviewed-by: Antheas Kapenekakis <lkml@antheas.dev>
  1 file changed, 18 insertions(+)
 
 diff --git a/drivers/platform/x86/oxpec.c b/drivers/platform/x86/oxpec.c
-index 0806e5653f7c..00a5e64b2001 100644
+index 0806e5653f7c4..00a5e64b20015 100644
 --- a/drivers/platform/x86/oxpec.c
 +++ b/drivers/platform/x86/oxpec.c
 @@ -50,6 +50,7 @@ enum oxp_board {
@@ -40050,7 +40050,7 @@ Signed-off-by: Alexander Egorov <begeebe@gmail.com>
  2 files changed, 105 insertions(+)
 
 diff --git a/drivers/platform/x86/Kconfig b/drivers/platform/x86/Kconfig
-index 7d104b2d4b4a..2c4e318ec70a 100644
+index 7d104b2d4b4a6..2c4e318ec70a3 100644
 --- a/drivers/platform/x86/Kconfig
 +++ b/drivers/platform/x86/Kconfig
 @@ -1038,6 +1038,8 @@ config OXP_EC
@@ -40063,7 +40063,7 @@ index 7d104b2d4b4a..2c4e318ec70a 100644
  	help
  		Enables support for the platform EC of OneXPlayer and AOKZOE
 diff --git a/drivers/platform/x86/oxpec.c b/drivers/platform/x86/oxpec.c
-index 00a5e64b2001..5680c3bcd604 100644
+index 00a5e64b20015..5680c3bcd604e 100644
 --- a/drivers/platform/x86/oxpec.c
 +++ b/drivers/platform/x86/oxpec.c
 @@ -18,10 +18,12 @@
@@ -40230,7 +40230,7 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/arch/x86/kernel/cpu/bus_lock.c b/arch/x86/kernel/cpu/bus_lock.c
-index fb166662bc0d..8cb1e234b22f 100644
+index fb166662bc0d6..8cb1e234b22f2 100644
 --- a/arch/x86/kernel/cpu/bus_lock.c
 +++ b/arch/x86/kernel/cpu/bus_lock.c
 @@ -111,7 +111,7 @@ static bool split_lock_verify_msr(bool on)
@@ -40257,7 +40257,7 @@ Subject: lower tdp for ai max devices
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/drivers/platform/x86/amd/dptc.c b/drivers/platform/x86/amd/dptc.c
-index b2820f8652f1..6aafff33d060 100644
+index b2820f8652f10..6aafff33d0604 100644
 --- a/drivers/platform/x86/amd/dptc.c
 +++ b/drivers/platform/x86/amd/dptc.c
 @@ -172,7 +172,7 @@ static const struct dptc_device_limits limits_maxhh = {
@@ -40283,7 +40283,7 @@ Subject: add x2mini pro to dptc
  1 file changed, 17 insertions(+)
 
 diff --git a/drivers/platform/x86/amd/dptc.c b/drivers/platform/x86/amd/dptc.c
-index 6aafff33d060..4b486f30ca86 100644
+index 6aafff33d0604..4b486f30ca862 100644
 --- a/drivers/platform/x86/amd/dptc.c
 +++ b/drivers/platform/x86/amd/dptc.c
 @@ -405,6 +405,23 @@ static const struct dmi_system_id dptc_dmi_table[] = {
@@ -40324,7 +40324,7 @@ Subject: add ai max 388
  1 file changed, 1 insertion(+)
 
 diff --git a/drivers/platform/x86/amd/dptc.c b/drivers/platform/x86/amd/dptc.c
-index 4b486f30ca86..b069878f7ee8 100644
+index 4b486f30ca862..b069878f7ee88 100644
 --- a/drivers/platform/x86/amd/dptc.c
 +++ b/drivers/platform/x86/amd/dptc.c
 @@ -180,6 +180,7 @@ static const struct dptc_device_limits limits_maxhh = {
@@ -40350,7 +40350,7 @@ Valve disables it on steamos so they don't have to fix these issues (it's for "p
  1 file changed, 24 insertions(+)
 
 diff --git a/drivers/iommu/amd/init.c b/drivers/iommu/amd/init.c
-index f3fd7f39efb4..eae93bf28726 100644
+index f3fd7f39efb48..eae93bf28726c 100644
 --- a/drivers/iommu/amd/init.c
 +++ b/drivers/iommu/amd/init.c
 @@ -20,6 +20,7 @@
@@ -40412,7 +40412,7 @@ Subject: oxpec: add s2idle quirk for Apex / X2Mini Pro
  1 file changed, 37 insertions(+)
 
 diff --git a/drivers/platform/x86/oxpec.c b/drivers/platform/x86/oxpec.c
-index 5680c3bcd604..5a68c5bc3d5e 100644
+index 5680c3bcd604e..5a68c5bc3d5ec 100644
 --- a/drivers/platform/x86/oxpec.c
 +++ b/drivers/platform/x86/oxpec.c
 @@ -304,6 +304,28 @@ static const struct dmi_system_id dmi_table[] = {
@@ -40497,7 +40497,7 @@ Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
  2 files changed, 3 insertions(+)
 
 diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_helpers.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_helpers.c
-index 74eb303da386..489d6ff9bdf2 100644
+index 74eb303da386f..489d6ff9bdf27 100644
 --- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_helpers.c
 +++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_helpers.c
 @@ -1443,6 +1443,8 @@ static bool dm_is_freesync_pcon_whitelist(const uint32_t branch_dev_id)
@@ -40510,7 +40510,7 @@ index 74eb303da386..489d6ff9bdf2 100644
  		break;
  	default:
 diff --git a/drivers/gpu/drm/amd/display/include/ddc_service_types.h b/drivers/gpu/drm/amd/display/include/ddc_service_types.h
-index 1c603b12957f..53210e3aa0e0 100644
+index 1c603b12957f6..53210e3aa0e0d 100644
 --- a/drivers/gpu/drm/amd/display/include/ddc_service_types.h
 +++ b/drivers/gpu/drm/amd/display/include/ddc_service_types.h
 @@ -36,6 +36,7 @@
@@ -40552,7 +40552,7 @@ Link: https://patch.msgid.link/20260616212429.3620645-1-lizhi.hou@amd.com
  2 files changed, 23 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/accel/amdxdna/aie2_ctx.c b/drivers/accel/amdxdna/aie2_ctx.c
-index c0d348884f74..ace99555680a 100644
+index c0d348884f749..ace99555680ae 100644
 --- a/drivers/accel/amdxdna/aie2_ctx.c
 +++ b/drivers/accel/amdxdna/aie2_ctx.c
 @@ -747,7 +747,7 @@ static int aie2_hwctx_cu_config(struct amdxdna_hwctx *hwctx, void *buf, u32 size
@@ -40565,7 +40565,7 @@ index c0d348884f74..ace99555680a 100644
  		goto free_cus;
  
 diff --git a/drivers/accel/amdxdna/amdxdna_ctx.c b/drivers/accel/amdxdna/amdxdna_ctx.c
-index 838430903a3e..3f960ddbddb2 100644
+index 838430903a3ea..3f960ddbddb23 100644
 --- a/drivers/accel/amdxdna/amdxdna_ctx.c
 +++ b/drivers/accel/amdxdna/amdxdna_ctx.c
 @@ -341,16 +341,25 @@ int amdxdna_drm_config_hwctx_ioctl(struct drm_device *dev, void *data, struct dr
@@ -40644,7 +40644,7 @@ Link: https://patch.msgid.link/20260520223531.1403302-1-lizhi.hou@amd.com
  1 file changed, 8 insertions(+)
 
 diff --git a/drivers/accel/amdxdna/aie2_pci.c b/drivers/accel/amdxdna/aie2_pci.c
-index 4924a9da55b6..926e472d503f 100644
+index 4924a9da55b64..926e472d503f3 100644
 --- a/drivers/accel/amdxdna/aie2_pci.c
 +++ b/drivers/accel/amdxdna/aie2_pci.c
 @@ -499,6 +499,7 @@ static int aie2_init(struct amdxdna_dev *xdna)
@@ -40689,7 +40689,7 @@ Link: https://patch.msgid.link/20260226182545.3057330-1-lizhi.hou@amd.com
  1 file changed, 3 insertions(+)
 
 diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c
-index 03d2f6486e25..3b0b0ef06d9c 100644
+index 03d2f6486e259..3b0b0ef06d9c8 100644
 --- a/drivers/pci/quirks.c
 +++ b/drivers/pci/quirks.c
 @@ -5737,6 +5737,7 @@ DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_INTEL, 0x443, quirk_intel_qat_vf_cap);
@@ -40732,7 +40732,7 @@ Signed-off-by: Tomasz Pakuła <tomasz.pakula.oficjalny@gmail.com>
  2 files changed, 2 insertions(+)
 
 diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_helpers.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_helpers.c
-index 489d6ff9bdf2..a44d777396e9 100644
+index 489d6ff9bdf27..a44d777396e95 100644
 --- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_helpers.c
 +++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_helpers.c
 @@ -1445,6 +1445,7 @@ static bool dm_is_freesync_pcon_whitelist(const uint32_t branch_dev_id)
@@ -40744,7 +40744,7 @@ index 489d6ff9bdf2..a44d777396e9 100644
  		break;
  	default:
 diff --git a/drivers/gpu/drm/amd/display/include/ddc_service_types.h b/drivers/gpu/drm/amd/display/include/ddc_service_types.h
-index 53210e3aa0e0..c5776ae6d4cb 100644
+index 53210e3aa0e0d..c5776ae6d4cb4 100644
 --- a/drivers/gpu/drm/amd/display/include/ddc_service_types.h
 +++ b/drivers/gpu/drm/amd/display/include/ddc_service_types.h
 @@ -37,6 +37,7 @@
@@ -40779,7 +40779,7 @@ Signed-off-by: Tomasz Pakuła <tomasz.pakula.oficjalny@gmail.com>
  1 file changed, 70 insertions(+), 38 deletions(-)
 
 diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
-index 5f5001aac0ac..539a2360c541 100644
+index 5f5001aac0ac0..539a2360c5418 100644
 --- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
 +++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
 @@ -13221,13 +13221,13 @@ static int parse_amd_vsdb(struct amdgpu_dm_connector *aconnector,
@@ -40965,7 +40965,7 @@ Subject: Do not modify display_info in freesync_caps
  1 file changed, 28 insertions(+), 31 deletions(-)
 
 diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
-index 539a2360c541..eb296f10b880 100644
+index 539a2360c5418..eb296f10b8801 100644
 --- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
 +++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
 @@ -13126,7 +13126,7 @@ static bool parse_edid_cea(struct amdgpu_dm_connector *aconnector,
@@ -41102,7 +41102,7 @@ Subject: Modify display range if freesync capable
  1 file changed, 5 insertions(+)
 
 diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
-index eb296f10b880..fddb6c0fd439 100644
+index eb296f10b8801..fddb6c0fd4398 100644
 --- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
 +++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
 @@ -13396,6 +13396,11 @@ void amdgpu_dm_update_freesync_caps(struct drm_connector *connector,
@@ -41142,7 +41142,7 @@ Signed-off-by: Tomasz Pakuła <tomasz.pakula.oficjalny@gmail.com>
  1 file changed, 3 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
-index fddb6c0fd439..43ff480181a1 100644
+index fddb6c0fd4398..43ff480181a16 100644
 --- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
 +++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
 @@ -13345,12 +13345,11 @@ void amdgpu_dm_update_freesync_caps(struct drm_connector *connector,
@@ -41188,7 +41188,7 @@ Signed-off-by: Tomasz Pakuła <tomasz.pakula.oficjalny@gmail.com>
  1 file changed, 12 insertions(+), 20 deletions(-)
 
 diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
-index 43ff480181a1..fb6b73997f4a 100644
+index 43ff480181a16..fb6b73997f4a2 100644
 --- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
 +++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
 @@ -13338,6 +13338,8 @@ void amdgpu_dm_update_freesync_caps(struct drm_connector *connector,
@@ -41279,7 +41279,7 @@ Reviewed-by: Harry Wentland <harry.wentland@amd.com>
  1 file changed, 6 insertions(+)
 
 diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
-index fb6b73997f4a..e47611c401ff 100644
+index fb6b73997f4a2..e47611c401ff3 100644
 --- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
 +++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
 @@ -13352,6 +13352,12 @@ void amdgpu_dm_update_freesync_caps(struct drm_connector *connector,
@@ -41322,7 +41322,7 @@ Signed-off-by: Tomasz Pakuła <tomasz.pakula.oficjalny@gmail.com>
  1 file changed, 35 insertions(+)
 
 diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
-index e47611c401ff..f2411c1c9ae6 100644
+index e47611c401ff3..f2411c1c9ae6b 100644
 --- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
 +++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
 @@ -13285,6 +13285,37 @@ static void copy_range_to_amdgpu_connector(struct amdgpu_dm_connector *aconn,
@@ -41403,7 +41403,7 @@ Signed-off-by: Tomasz Pakuła <tomasz.pakula.oficjalny@gmail.com>
  1 file changed, 11 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
-index f2411c1c9ae6..934451e16efa 100644
+index f2411c1c9ae6b..934451e16efa8 100644
 --- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
 +++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
 @@ -13340,6 +13340,7 @@ void amdgpu_dm_update_freesync_caps(struct drm_connector *connector,
@@ -41488,7 +41488,7 @@ Signed-off-by: Tomasz Pakuła <tomasz.pakula.oficjalny@gmail.com>
  3 files changed, 21 insertions(+), 32 deletions(-)
 
 diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
-index 934451e16efa..fd6516eb6af2 100644
+index 934451e16efa8..fd6516eb6af2b 100644
 --- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
 +++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
 @@ -13340,8 +13340,8 @@ void amdgpu_dm_update_freesync_caps(struct drm_connector *connector,
@@ -41529,7 +41529,7 @@ index 934451e16efa..fd6516eb6af2 100644
  
  		aconn_range_from_vsdb(amdgpu_dm_connector, &vsdb_info);
 diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_helpers.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_helpers.c
-index a44d777396e9..e3b1f5e3cfe3 100644
+index a44d777396e95..e3b1f5e3cfe3f 100644
 --- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_helpers.c
 +++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_helpers.c
 @@ -1435,10 +1435,8 @@ void dm_helpers_dp_mst_update_branch_bandwidth(
@@ -41593,7 +41593,7 @@ index a44d777396e9..e3b1f5e3cfe3 100644
  
  bool dm_helpers_is_fullscreen(struct dc_context *ctx, struct dc_stream_state *stream)
 diff --git a/drivers/gpu/drm/amd/display/dc/dm_helpers.h b/drivers/gpu/drm/amd/display/dc/dm_helpers.h
-index 2818df555e62..d98966d93489 100644
+index 2818df555e627..d98966d934892 100644
 --- a/drivers/gpu/drm/amd/display/dc/dm_helpers.h
 +++ b/drivers/gpu/drm/amd/display/dc/dm_helpers.h
 @@ -220,10 +220,10 @@ int dm_helpers_dmub_set_config_sync(struct dc_context *ctx,
@@ -41637,7 +41637,7 @@ Tested-by: Bernhard Berger <bernhard.berger@gmail.com>
  2 files changed, 87 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/gpu/drm/drm_edid.c b/drivers/gpu/drm/drm_edid.c
-index c65d24369f1a..d0c1f84fdccf 100644
+index c65d24369f1a0..d0c1f84fdccff 100644
 --- a/drivers/gpu/drm/drm_edid.c
 +++ b/drivers/gpu/drm/drm_edid.c
 @@ -6152,6 +6152,33 @@ static void drm_parse_ycbcr420_deep_color_info(struct drm_connector *connector,
@@ -41703,7 +41703,7 @@ index c65d24369f1a..d0c1f84fdccf 100644
  
  static void drm_parse_hdmi_deep_color_info(struct drm_connector *connector,
 diff --git a/include/drm/drm_connector.h b/include/drm/drm_connector.h
-index 6fa054be9326..8ccfe47543e8 100644
+index 6fa054be93269..8ccfe47543e87 100644
 --- a/include/drm/drm_connector.h
 +++ b/include/drm/drm_connector.h
 @@ -254,6 +254,44 @@ struct drm_scdc {
@@ -41797,7 +41797,7 @@ Reviewed-by: Harry Wentland <harry.wentland@amd.com>
  3 files changed, 10 insertions(+), 9 deletions(-)
 
 diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
-index fd6516eb6af2..8c98f9ef976b 100644
+index fd6516eb6af2b..8c98f9ef976b1 100644
 --- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
 +++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
 @@ -9646,7 +9646,8 @@ static void update_freesync_state_on_stream(
@@ -41820,7 +41820,7 @@ index fd6516eb6af2..8c98f9ef976b 100644
  		amdgpu_dm_connector->vsdb_info = vsdb_info;
  
 diff --git a/drivers/gpu/drm/amd/display/modules/inc/mod_info_packet.h b/drivers/gpu/drm/amd/display/modules/inc/mod_info_packet.h
-index ddd64b7e4c04..5de8a6918e6a 100644
+index ddd64b7e4c047..5de8a6918e6a5 100644
 --- a/drivers/gpu/drm/amd/display/modules/inc/mod_info_packet.h
 +++ b/drivers/gpu/drm/amd/display/modules/inc/mod_info_packet.h
 @@ -48,11 +48,11 @@ void mod_build_hf_vsif_infopacket(const struct dc_stream_state *stream,
@@ -41841,7 +41841,7 @@ index ddd64b7e4c04..5de8a6918e6a 100644
  
  enum adaptive_sync_sdp_version {
 diff --git a/drivers/gpu/drm/amd/display/modules/info_packet/info_packet.c b/drivers/gpu/drm/amd/display/modules/info_packet/info_packet.c
-index 00473c6284d5..294f56d20062 100644
+index 00473c6284d5c..294f56d20062f 100644
 --- a/drivers/gpu/drm/amd/display/modules/info_packet/info_packet.c
 +++ b/drivers/gpu/drm/amd/display/modules/info_packet/info_packet.c
 @@ -590,7 +590,7 @@ void mod_build_adaptive_sync_infopacket(const struct dc_stream_state *stream,
@@ -41901,7 +41901,7 @@ Reviewed-by: Harry Wentland <harry.wentland@amd.com>
  1 file changed, 28 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
-index 8c98f9ef976b..3ed9b15a99ce 100644
+index 8c98f9ef976b1..3ed9b15a99ced 100644
 --- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
 +++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
 @@ -13279,6 +13279,22 @@ static void aconn_range_from_vsdb(struct amdgpu_dm_connector *aconn,
@@ -41998,7 +41998,7 @@ Signed-off-by: Tomasz Pakuła <tomasz.pakula.oficjalny@gmail.com>
  2 files changed, 20 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
-index 3ed9b15a99ce..e23c73694e48 100644
+index 3ed9b15a99ced..e23c73694e480 100644
 --- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
 +++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
 @@ -13280,15 +13280,28 @@ static void aconn_range_from_vsdb(struct amdgpu_dm_connector *aconn,
@@ -42045,7 +42045,7 @@ index 3ed9b15a99ce..e23c73694e48 100644
  			amdgpu_dm_connector->vsdb_info = vsdb_info;
  			aconn_range_from_vsdb(amdgpu_dm_connector, &vsdb_info);
 diff --git a/drivers/gpu/drm/amd/display/modules/inc/mod_info_packet.h b/drivers/gpu/drm/amd/display/modules/inc/mod_info_packet.h
-index 5de8a6918e6a..306eb7355c25 100644
+index 5de8a6918e6a5..306eb7355c253 100644
 --- a/drivers/gpu/drm/amd/display/modules/inc/mod_info_packet.h
 +++ b/drivers/gpu/drm/amd/display/modules/inc/mod_info_packet.h
 @@ -33,6 +33,8 @@ struct dc_stream_state;
@@ -42074,7 +42074,7 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
  1 file changed, 5 insertions(+)
 
 diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
-index e23c73694e48..58f4d057be40 100644
+index e23c73694e480..58f4d057be405 100644
 --- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
 +++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
 @@ -9699,6 +9699,7 @@ static void update_stream_irq_parameters(
@@ -42117,7 +42117,7 @@ Subject: amd-dptc: add non-plus AI Max variant
  1 file changed, 1 insertion(+)
 
 diff --git a/drivers/platform/x86/amd/dptc.c b/drivers/platform/x86/amd/dptc.c
-index b069878f7ee8..14f63ca2625a 100644
+index b069878f7ee88..14f63ca2625a3 100644
 --- a/drivers/platform/x86/amd/dptc.c
 +++ b/drivers/platform/x86/amd/dptc.c
 @@ -182,6 +182,7 @@ static const char * const dptc_soc_table[] = {
@@ -42143,7 +42143,7 @@ The Minisforum V3 supports DPTCi power control with a 28 W sustained limit. Matc
  1 file changed, 10 insertions(+)
 
 diff --git a/drivers/platform/x86/amd/dptc.c b/drivers/platform/x86/amd/dptc.c
-index 14f63ca2625a..778764ac170e 100644
+index 14f63ca2625a3..778764ac170eb 100644
 --- a/drivers/platform/x86/amd/dptc.c
 +++ b/drivers/platform/x86/amd/dptc.c
 @@ -201,6 +201,16 @@ static const char * const dptc_soc_table[] = {
@@ -42180,7 +42180,7 @@ Reported-by: Tiago Silva <tiago.paulo@live.com>
  1 file changed, 7 insertions(+)
 
 diff --git a/drivers/platform/x86/ayaneo-ec.c b/drivers/platform/x86/ayaneo-ec.c
-index 28cb09fe8491..08e679347e9b 100644
+index 28cb09fe8491c..08e679347e9b4 100644
 --- a/drivers/platform/x86/ayaneo-ec.c
 +++ b/drivers/platform/x86/ayaneo-ec.c
 @@ -76,6 +76,13 @@ static const struct ayaneo_ec_quirk quirk_ayaneo3 = {
@@ -42211,7 +42211,7 @@ Subject: PCI: bwctrl: export pcie_set_target_speed
  1 file changed, 1 insertion(+)
 
 diff --git a/drivers/pci/pcie/bwctrl.c b/drivers/pci/pcie/bwctrl.c
-index c4c8d260bf96..b2949ed59916 100644
+index c4c8d260bf969..b2949ed599165 100644
 --- a/drivers/pci/pcie/bwctrl.c
 +++ b/drivers/pci/pcie/bwctrl.c
 @@ -178,6 +178,7 @@ int pcie_set_target_speed(struct pci_dev *port, enum pci_bus_speed speed_req,
@@ -42242,7 +42242,7 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/drivers/hid/hid-asus.c b/drivers/hid/hid-asus.c
-index 44ce46586e11..6f31cd846c53 100644
+index 44ce46586e11d..6f31cd846c53b 100644
 --- a/drivers/hid/hid-asus.c
 +++ b/drivers/hid/hid-asus.c
 @@ -51,7 +51,7 @@ MODULE_DESCRIPTION("Asus HID Keyboard and TouchPad");
@@ -42281,7 +42281,7 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
  2 files changed, 68 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/hid/hid-asus.c b/drivers/hid/hid-asus.c
-index 6f31cd846c53..4da15c021bfe 100644
+index 6f31cd846c53b..4da15c021bfe5 100644
 --- a/drivers/hid/hid-asus.c
 +++ b/drivers/hid/hid-asus.c
 @@ -101,6 +101,7 @@ MODULE_DESCRIPTION("Asus HID Keyboard and TouchPad");
@@ -42425,7 +42425,7 @@ index 6f31cd846c53..4da15c021bfe 100644
  module_hid_driver(asus_driver);
  
 diff --git a/drivers/hid/hid-ids.h b/drivers/hid/hid-ids.h
-index 33dc4a1655f1..b72de3cd93fd 100644
+index 33dc4a1655f10..b72de3cd93fde 100644
 --- a/drivers/hid/hid-ids.h
 +++ b/drivers/hid/hid-ids.h
 @@ -234,6 +234,7 @@
@@ -42460,7 +42460,7 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
  1 file changed, 11 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/hid/hid-asus.c b/drivers/hid/hid-asus.c
-index 4da15c021bfe..4eeb994d1fd4 100644
+index 4da15c021bfe5..4eeb994d1fd45 100644
 --- a/drivers/hid/hid-asus.c
 +++ b/drivers/hid/hid-asus.c
 @@ -698,11 +698,16 @@ static void asus_kbd_rgb_work(struct asus_kbd_leds *led)
@@ -42535,7 +42535,7 @@ Subject: add new 8bitdo kernel driver
  create mode 100644 drivers/hid/hid-8bitdo.c
 
 diff --git a/drivers/hid/Kconfig b/drivers/hid/Kconfig
-index 9cb5a2bfb2f6..8b481b7d9798 100644
+index 9cb5a2bfb2f66..8b481b7d9798d 100644
 --- a/drivers/hid/Kconfig
 +++ b/drivers/hid/Kconfig
 @@ -105,6 +105,20 @@ config HID_HAPTIC
@@ -42560,7 +42560,7 @@ index 9cb5a2bfb2f6..8b481b7d9798 100644
  	tristate "A4TECH mice"
  	default !EXPERT
 diff --git a/drivers/hid/Makefile b/drivers/hid/Makefile
-index e01838239ae6..1cebb74b9e53 100644
+index e01838239ae64..1cebb74b9e530 100644
 --- a/drivers/hid/Makefile
 +++ b/drivers/hid/Makefile
 @@ -12,6 +12,7 @@ obj-$(CONFIG_HID)		+= hid.o
@@ -42573,7 +42573,7 @@ index e01838239ae6..1cebb74b9e53 100644
  
 diff --git a/drivers/hid/hid-8bitdo.c b/drivers/hid/hid-8bitdo.c
 new file mode 100644
-index 000000000000..ada6b674377e
+index 0000000000000..ada6b674377eb
 --- /dev/null
 +++ b/drivers/hid/hid-8bitdo.c
 @@ -0,0 +1,866 @@
@@ -43444,7 +43444,7 @@ index 000000000000..ada6b674377e
 +MODULE_DESCRIPTION("8BitDo SDL-mode controller driver");
 +MODULE_LICENSE("GPL");
 diff --git a/drivers/hid/hid-ids.h b/drivers/hid/hid-ids.h
-index b72de3cd93fd..cd4a6be0ac41 100644
+index b72de3cd93fde..cd4a6be0ac41d 100644
 --- a/drivers/hid/hid-ids.h
 +++ b/drivers/hid/hid-ids.h
 @@ -23,7 +23,15 @@
@@ -43521,7 +43521,7 @@ Link: https://patch.msgid.link/20260610193825.2933-1-alexander.kaplan@sms-medipo
  1 file changed, 12 insertions(+)
 
 diff --git a/drivers/gpu/drm/display/drm_dp_helper.c b/drivers/gpu/drm/display/drm_dp_helper.c
-index a697cc227e28..51e713473ccb 100644
+index a697cc227e289..51e713473ccbb 100644
 --- a/drivers/gpu/drm/display/drm_dp_helper.c
 +++ b/drivers/gpu/drm/display/drm_dp_helper.c
 @@ -3651,6 +3651,18 @@ int drm_dp_get_pcon_max_frl_bw(const u8 dpcd[DP_RECEIVER_CAP_SIZE],
@@ -43557,7 +43557,7 @@ Subject: quirk AMD speakers to hopefully avoid crackle during suspend / resume
  1 file changed, 11 insertions(+)
 
 diff --git a/sound/hda/common/controller.c b/sound/hda/common/controller.c
-index 5934e5cdfdfd..c7d93e5575ac 100644
+index 5934e5cdfdfd8..c7d93e5575acc 100644
 --- a/sound/hda/common/controller.c
 +++ b/sound/hda/common/controller.c
 @@ -606,6 +606,17 @@ static int azx_pcm_open(struct snd_pcm_substream *substream)
@@ -43606,7 +43606,7 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
  1 file changed, 53 insertions(+), 15 deletions(-)
 
 diff --git a/drivers/platform/x86/oxpec.c b/drivers/platform/x86/oxpec.c
-index 5a68c5bc3d5e..562dc0f08458 100644
+index 5a68c5bc3d5ec..562dc0f084581 100644
 --- a/drivers/platform/x86/oxpec.c
 +++ b/drivers/platform/x86/oxpec.c
 @@ -53,6 +53,7 @@ enum oxp_board {
@@ -43870,7 +43870,7 @@ Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
  3 files changed, 68 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/gpu/drm/amd/pm/swsmu/amdgpu_smu.c b/drivers/gpu/drm/amd/pm/swsmu/amdgpu_smu.c
-index b05c8bbdf2f3..4896936d6354 100644
+index b05c8bbdf2f31..4896936d6354b 100644
 --- a/drivers/gpu/drm/amd/pm/swsmu/amdgpu_smu.c
 +++ b/drivers/gpu/drm/amd/pm/swsmu/amdgpu_smu.c
 @@ -1348,6 +1348,14 @@ static void smu_feature_cap_init(struct smu_context *smu)
@@ -43907,7 +43907,7 @@ index b05c8bbdf2f3..4896936d6354 100644
  }
  
 diff --git a/drivers/gpu/drm/amd/pm/swsmu/inc/amdgpu_smu.h b/drivers/gpu/drm/amd/pm/swsmu/inc/amdgpu_smu.h
-index be0e44e7eef9..7620a8b72700 100644
+index be0e44e7eef99..7620a8b727004 100644
 --- a/drivers/gpu/drm/amd/pm/swsmu/inc/amdgpu_smu.h
 +++ b/drivers/gpu/drm/amd/pm/swsmu/inc/amdgpu_smu.h
 @@ -748,6 +748,9 @@ struct smu_context {
@@ -43942,7 +43942,7 @@ index be0e44e7eef9..7620a8b72700 100644
  
  typedef enum {
 diff --git a/drivers/gpu/drm/amd/pm/swsmu/smu14/smu_v14_0_0_ppt.c b/drivers/gpu/drm/amd/pm/swsmu/smu14/smu_v14_0_0_ppt.c
-index 2353524b8821..e829fbd8b110 100644
+index 2353524b88213..e829fbd8b110c 100644
 --- a/drivers/gpu/drm/amd/pm/swsmu/smu14/smu_v14_0_0_ppt.c
 +++ b/drivers/gpu/drm/amd/pm/swsmu/smu14/smu_v14_0_0_ppt.c
 @@ -1697,6 +1697,50 @@ static int smu_v14_0_0_restore_user_od_settings(struct smu_context *smu)
@@ -44004,6 +44004,58 @@ index 2353524b8821..e829fbd8b110 100644
  };
  
  static void smu_v14_0_0_init_msg_ctl(struct smu_context *smu)
+-- 
+2.55.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Wed, 9 Sep 2026 11:59:14 +0200
+Subject: platform/x86: thinkpad_acpi: Enable fan control by default
+
+---
+ drivers/platform/x86/lenovo/thinkpad_acpi.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/platform/x86/lenovo/thinkpad_acpi.c b/drivers/platform/x86/lenovo/thinkpad_acpi.c
+index 8982d92dfd977..27253d123a69e 100644
+--- a/drivers/platform/x86/lenovo/thinkpad_acpi.c
++++ b/drivers/platform/x86/lenovo/thinkpad_acpi.c
+@@ -7957,7 +7957,7 @@ enum fan_control_commands {
+ 						 * and also watchdog cmd */
+ };
+ 
+-static bool fan_control_allowed;
++static bool fan_control_allowed = true;
+ 
+ static enum fan_status_access_mode fan_status_access_mode;
+ static enum fan_control_access_mode fan_control_access_mode;
+@@ -11998,7 +11998,7 @@ MODULE_PARM_DESC(force_load,
+ 
+ module_param_named(fan_control, fan_control_allowed, bool, 0444);
+ MODULE_PARM_DESC(fan_control,
+-		 "Enables setting fan parameters features when true");
++		 "Enables setting fan parameters features when true (default: true)");
+ 
+ module_param_named(brightness_mode, brightness_mode, uint, 0444);
+ MODULE_PARM_DESC(brightness_mode,
+-- 
+2.55.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Wed, 9 Sep 2026 12:08:43 +0200
+Subject: add local version so we do not get spurious .test
+
+---
+ localversion | 0
+ 1 file changed, 0 insertions(+), 0 deletions(-)
+ create mode 100644 localversion
+
+diff --git a/localversion b/localversion
+new file mode 100644
+index 0000000000000..e69de29bb2d1d
 -- 
 2.55.0
 

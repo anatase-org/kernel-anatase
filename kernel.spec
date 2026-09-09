@@ -190,13 +190,13 @@ Summary: The Linux kernel
 %define specrpmversion 7.0.12
 %define specversion 7.0.12
 %define patchversion 7.0
-%define pkgrelease an28
+%define pkgrelease an29
 %define kversion 7
 %define tarfile_release 7.0.12
 # This is needed to do merge window version magic
 %define patchlevel 0
 # This allows pkg_release to have configurable %%{?dist} tag
-%define specrelease an28%{?buildid}%{?dist}
+%define specrelease an29%{?buildid}%{?dist}
 # This defines the kabi tarball version
 %define kabiversion 7.0.12
 
@@ -4946,7 +4946,10 @@ fi\
 #
 #
 %changelog
-* Sat Sep 05 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.0.12-an28]
+* Wed Sep 09 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.0.12-an29]
+- force overwrite (Antheas Kapenekakis)
+- add local version so we do not get spurious .test (Antheas Kapenekakis)
+- platform/x86: thinkpad_acpi: Enable fan control by default (Antheas Kapenekakis)
 - drm/amd: Create a device link between APU display and XHCI devices (Mario Limonciello)
 - platform/x86: oxpec: Fix Apex charge limit control (Antheas Kapenekakis)
 - quirk AMD speakers to hopefully avoid crackle during suspend / resume (Antheas Kapenekakis)

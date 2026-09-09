@@ -1,10 +1,10 @@
 # ----------------------------------------
 # Module: ayaneo_platform
-# Version: 687e5e362003
+# Version: 687e5e3
 # ----------------------------------------
 diff --git a/drivers/custom/ayaneo_platform/Kconfig b/drivers/custom/ayaneo_platform/Kconfig
 new file mode 100644
-index 000000000000..ae06caf85090
+index 0000000..ae06caf
 --- /dev/null
 +++ b/drivers/custom/ayaneo_platform/Kconfig
 @@ -0,0 +1,8 @@
@@ -18,7 +18,7 @@ index 000000000000..ae06caf85090
 +	  multicolor LED sysfs interface.
 diff --git a/drivers/custom/ayaneo_platform/Makefile b/drivers/custom/ayaneo_platform/Makefile
 new file mode 100644
-index 000000000000..2e9842d766c5
+index 0000000..2e9842d
 --- /dev/null
 +++ b/drivers/custom/ayaneo_platform/Makefile
 @@ -0,0 +1,108 @@
@@ -132,7 +132,7 @@ index 000000000000..2e9842d766c5
 +	@rm -rf $(DKMS_ROOT_PATH)
 diff --git a/drivers/custom/ayaneo_platform/ayaneo-platform.c b/drivers/custom/ayaneo_platform/ayaneo-platform.c
 new file mode 100644
-index 000000000000..17eb0c0a8fba
+index 0000000..17eb0c0
 --- /dev/null
 +++ b/drivers/custom/ayaneo_platform/ayaneo-platform.c
 @@ -0,0 +1,1425 @@
@@ -1563,11 +1563,11 @@ index 000000000000..17eb0c0a8fba
 +MODULE_LICENSE("GPL");
 # ----------------------------------------
 # Module: ayn_platform
-# Version: fee1bab81d4e
+# Version: fee1bab
 # ----------------------------------------
 diff --git a/drivers/custom/ayn_platform/Kconfig b/drivers/custom/ayn_platform/Kconfig
 new file mode 100644
-index 000000000000..b08b31733983
+index 0000000..b08b317
 --- /dev/null
 +++ b/drivers/custom/ayn_platform/Kconfig
 @@ -0,0 +1,10 @@
@@ -1583,7 +1583,7 @@ index 000000000000..b08b31733983
 +	  via a multicolor LED sysfs interface.
 diff --git a/drivers/custom/ayn_platform/Makefile b/drivers/custom/ayn_platform/Makefile
 new file mode 100644
-index 000000000000..62a2fe123bfb
+index 0000000..62a2fe1
 --- /dev/null
 +++ b/drivers/custom/ayn_platform/Makefile
 @@ -0,0 +1,108 @@
@@ -1697,7 +1697,7 @@ index 000000000000..62a2fe123bfb
 +	@rm -rf $(DKMS_ROOT_PATH)
 diff --git a/drivers/custom/ayn_platform/ayn-platform.c b/drivers/custom/ayn_platform/ayn-platform.c
 new file mode 100644
-index 000000000000..ab50e5dcbc0b
+index 0000000..ab50e5d
 --- /dev/null
 +++ b/drivers/custom/ayn_platform/ayn-platform.c
 @@ -0,0 +1,767 @@
@@ -2474,7 +2474,7 @@ index 000000000000..ab50e5dcbc0b
 # ----------------------------------------
 diff --git a/drivers/custom/bmi260/Makefile b/drivers/custom/bmi260/Makefile
 new file mode 100644
-index 000000000000..9ffaba87b5fe
+index 0000000..9ffaba8
 --- /dev/null
 +++ b/drivers/custom/bmi260/Makefile
 @@ -0,0 +1,15 @@
@@ -2495,7 +2495,7 @@ index 000000000000..9ffaba87b5fe
 +	$(MAKE) -C $(KERNEL_SRC) M=$(shell pwd) $@
 diff --git a/drivers/custom/bmi260/bmi260.h b/drivers/custom/bmi260/bmi260.h
 new file mode 100644
-index 000000000000..54bf47185d3f
+index 0000000..54bf471
 --- /dev/null
 +++ b/drivers/custom/bmi260/bmi260.h
 @@ -0,0 +1,62 @@
@@ -2563,7 +2563,7 @@ index 000000000000..54bf47185d3f
 +#endif  /* BMI260_H_ */
 diff --git a/drivers/custom/bmi260/bmi260_config.h b/drivers/custom/bmi260/bmi260_config.h
 new file mode 100644
-index 000000000000..c5ce53fedd56
+index 0000000..c5ce53f
 --- /dev/null
 +++ b/drivers/custom/bmi260/bmi260_config.h
 @@ -0,0 +1,718 @@
@@ -3287,7 +3287,7 @@ index 000000000000..c5ce53fedd56
 +};
 diff --git a/drivers/custom/bmi260/bmi260_core.c b/drivers/custom/bmi260/bmi260_core.c
 new file mode 100644
-index 000000000000..d27414814710
+index 0000000..d274148
 --- /dev/null
 +++ b/drivers/custom/bmi260/bmi260_core.c
 @@ -0,0 +1,1022 @@
@@ -4315,7 +4315,7 @@ index 000000000000..d27414814710
 +MODULE_LICENSE("GPL v2");
 diff --git a/drivers/custom/bmi260/bmi260_i2c.c b/drivers/custom/bmi260/bmi260_i2c.c
 new file mode 100644
-index 000000000000..23c6233239a0
+index 0000000..23c6233
 --- /dev/null
 +++ b/drivers/custom/bmi260/bmi260_i2c.c
 @@ -0,0 +1,78 @@
@@ -4403,7 +4403,7 @@ index 000000000000..23c6233239a0
 # ----------------------------------------
 diff --git a/drivers/custom/evdi/module/Kconfig b/drivers/custom/evdi/module/Kconfig
 new file mode 100644
-index 000000000000..4b8a6dec6938
+index 0000000..4b8a6de
 --- /dev/null
 +++ b/drivers/custom/evdi/module/Kconfig
 @@ -0,0 +1,34 @@
@@ -4443,7 +4443,7 @@ index 000000000000..4b8a6dec6938
 +
 diff --git a/drivers/custom/evdi/module/Makefile b/drivers/custom/evdi/module/Makefile
 new file mode 100644
-index 000000000000..13106a29dbc7
+index 0000000..13106a2
 --- /dev/null
 +++ b/drivers/custom/evdi/module/Makefile
 @@ -0,0 +1,119 @@
@@ -4568,7 +4568,7 @@ index 000000000000..13106a29dbc7
 +endif # ifneq ($(DKMS_BUILD),)
 diff --git a/drivers/custom/evdi/module/conftest.sh b/drivers/custom/evdi/module/conftest.sh
 new file mode 100755
-index 000000000000..6d4ec0235d29
+index 0000000..6d4ec02
 --- /dev/null
 +++ b/drivers/custom/evdi/module/conftest.sh
 @@ -0,0 +1,401 @@
@@ -4975,7 +4975,7 @@ index 000000000000..6d4ec0235d29
 +echo "#endif /* EVDI_DETECT_H */" >> "$OUT"
 diff --git a/drivers/custom/evdi/module/evdi_connector.c b/drivers/custom/evdi/module/evdi_connector.c
 new file mode 100644
-index 000000000000..18689217d44b
+index 0000000..1868921
 --- /dev/null
 +++ b/drivers/custom/evdi/module/evdi_connector.c
 @@ -0,0 +1,207 @@
@@ -5188,7 +5188,7 @@ index 000000000000..18689217d44b
 +}
 diff --git a/drivers/custom/evdi/module/evdi_cursor.c b/drivers/custom/evdi/module/evdi_cursor.c
 new file mode 100644
-index 000000000000..74c2a48094f9
+index 0000000..74c2a48
 --- /dev/null
 +++ b/drivers/custom/evdi/module/evdi_cursor.c
 @@ -0,0 +1,290 @@
@@ -5484,7 +5484,7 @@ index 000000000000..74c2a48094f9
 +
 diff --git a/drivers/custom/evdi/module/evdi_cursor.h b/drivers/custom/evdi/module/evdi_cursor.h
 new file mode 100644
-index 000000000000..789efc57d9c6
+index 0000000..789efc5
 --- /dev/null
 +++ b/drivers/custom/evdi/module/evdi_cursor.h
 @@ -0,0 +1,61 @@
@@ -5551,7 +5551,7 @@ index 000000000000..789efc57d9c6
 +#endif
 diff --git a/drivers/custom/evdi/module/evdi_debug.c b/drivers/custom/evdi/module/evdi_debug.c
 new file mode 100644
-index 000000000000..0f941d35bebf
+index 0000000..0f941d3
 --- /dev/null
 +++ b/drivers/custom/evdi/module/evdi_debug.c
 @@ -0,0 +1,35 @@
@@ -5592,7 +5592,7 @@ index 000000000000..0f941d35bebf
 +}
 diff --git a/drivers/custom/evdi/module/evdi_debug.h b/drivers/custom/evdi/module/evdi_debug.h
 new file mode 100644
-index 000000000000..fff629b5a73d
+index 0000000..fff629b
 --- /dev/null
 +++ b/drivers/custom/evdi/module/evdi_debug.h
 @@ -0,0 +1,63 @@
@@ -5661,7 +5661,7 @@ index 000000000000..fff629b5a73d
 +#endif /* EVDI_DEBUG_H */
 diff --git a/drivers/custom/evdi/module/evdi_drm.h b/drivers/custom/evdi/module/evdi_drm.h
 new file mode 100644
-index 000000000000..501269379627
+index 0000000..5012693
 --- /dev/null
 +++ b/drivers/custom/evdi/module/evdi_drm.h
 @@ -0,0 +1,139 @@
@@ -5806,7 +5806,7 @@ index 000000000000..501269379627
 +#endif /* __EVDI_UAPI_DRM_H__ */
 diff --git a/drivers/custom/evdi/module/evdi_drm_drv.c b/drivers/custom/evdi/module/evdi_drm_drv.c
 new file mode 100644
-index 000000000000..59f7319818ef
+index 0000000..59f7319
 --- /dev/null
 +++ b/drivers/custom/evdi/module/evdi_drm_drv.c
 @@ -0,0 +1,290 @@
@@ -6102,7 +6102,7 @@ index 000000000000..59f7319818ef
 +
 diff --git a/drivers/custom/evdi/module/evdi_drm_drv.h b/drivers/custom/evdi/module/evdi_drm_drv.h
 new file mode 100644
-index 000000000000..ad6ff9e63257
+index 0000000..ad6ff9e
 --- /dev/null
 +++ b/drivers/custom/evdi/module/evdi_drm_drv.h
 @@ -0,0 +1,188 @@
@@ -6296,7 +6296,7 @@ index 000000000000..ad6ff9e63257
 +#endif
 diff --git a/drivers/custom/evdi/module/evdi_encoder.c b/drivers/custom/evdi/module/evdi_encoder.c
 new file mode 100644
-index 000000000000..9424b38b7aa8
+index 0000000..9424b38
 --- /dev/null
 +++ b/drivers/custom/evdi/module/evdi_encoder.c
 @@ -0,0 +1,73 @@
@@ -6375,7 +6375,7 @@ index 000000000000..9424b38b7aa8
 +}
 diff --git a/drivers/custom/evdi/module/evdi_fb.c b/drivers/custom/evdi/module/evdi_fb.c
 new file mode 100644
-index 000000000000..b53405d32a7c
+index 0000000..b53405d
 --- /dev/null
 +++ b/drivers/custom/evdi/module/evdi_fb.c
 @@ -0,0 +1,309 @@
@@ -6690,7 +6690,7 @@ index 000000000000..b53405d32a7c
 +}
 diff --git a/drivers/custom/evdi/module/evdi_gem.c b/drivers/custom/evdi/module/evdi_gem.c
 new file mode 100644
-index 000000000000..fa9d3d42e8b5
+index 0000000..fa9d3d4
 --- /dev/null
 +++ b/drivers/custom/evdi/module/evdi_gem.c
 @@ -0,0 +1,589 @@
@@ -7285,7 +7285,7 @@ index 000000000000..fa9d3d42e8b5
 +
 diff --git a/drivers/custom/evdi/module/evdi_i2c.c b/drivers/custom/evdi/module/evdi_i2c.c
 new file mode 100644
-index 000000000000..633d344d5f18
+index 0000000..633d344
 --- /dev/null
 +++ b/drivers/custom/evdi/module/evdi_i2c.c
 @@ -0,0 +1,57 @@
@@ -7348,7 +7348,7 @@ index 000000000000..633d344d5f18
 +}
 diff --git a/drivers/custom/evdi/module/evdi_i2c.h b/drivers/custom/evdi/module/evdi_i2c.h
 new file mode 100644
-index 000000000000..e8718c3f5292
+index 0000000..e8718c3
 --- /dev/null
 +++ b/drivers/custom/evdi/module/evdi_i2c.h
 @@ -0,0 +1,20 @@
@@ -7374,7 +7374,7 @@ index 000000000000..e8718c3f5292
 +#endif  /* EVDI_I2C_H */
 diff --git a/drivers/custom/evdi/module/evdi_ioc32.c b/drivers/custom/evdi/module/evdi_ioc32.c
 new file mode 100644
-index 000000000000..04d9f40f67bf
+index 0000000..04d9f40
 --- /dev/null
 +++ b/drivers/custom/evdi/module/evdi_ioc32.c
 @@ -0,0 +1,135 @@
@@ -7515,7 +7515,7 @@ index 000000000000..04d9f40f67bf
 +}
 diff --git a/drivers/custom/evdi/module/evdi_modeset.c b/drivers/custom/evdi/module/evdi_modeset.c
 new file mode 100644
-index 000000000000..6fe779f86890
+index 0000000..6fe779f
 --- /dev/null
 +++ b/drivers/custom/evdi/module/evdi_modeset.c
 @@ -0,0 +1,551 @@
@@ -8072,7 +8072,7 @@ index 000000000000..6fe779f86890
 +}
 diff --git a/drivers/custom/evdi/module/evdi_painter.c b/drivers/custom/evdi/module/evdi_painter.c
 new file mode 100644
-index 000000000000..5cc69ad417cd
+index 0000000..5cc69ad
 --- /dev/null
 +++ b/drivers/custom/evdi/module/evdi_painter.c
 @@ -0,0 +1,1535 @@
@@ -9613,7 +9613,7 @@ index 000000000000..5cc69ad417cd
 +}
 diff --git a/drivers/custom/evdi/module/evdi_params.c b/drivers/custom/evdi/module/evdi_params.c
 new file mode 100644
-index 000000000000..6ef92862b470
+index 0000000..6ef9286
 --- /dev/null
 +++ b/drivers/custom/evdi/module/evdi_params.c
 @@ -0,0 +1,25 @@
@@ -9644,7 +9644,7 @@ index 000000000000..6ef92862b470
 +
 diff --git a/drivers/custom/evdi/module/evdi_params.h b/drivers/custom/evdi/module/evdi_params.h
 new file mode 100644
-index 000000000000..5d67c6b712ab
+index 0000000..5d67c6b
 --- /dev/null
 +++ b/drivers/custom/evdi/module/evdi_params.h
 @@ -0,0 +1,15 @@
@@ -9665,7 +9665,7 @@ index 000000000000..5d67c6b712ab
 +#endif /* EVDI_PARAMS_H */
 diff --git a/drivers/custom/evdi/module/evdi_platform_dev.c b/drivers/custom/evdi/module/evdi_platform_dev.c
 new file mode 100644
-index 000000000000..62140c5ee1bd
+index 0000000..62140c5
 --- /dev/null
 +++ b/drivers/custom/evdi/module/evdi_platform_dev.c
 @@ -0,0 +1,150 @@
@@ -9821,7 +9821,7 @@ index 000000000000..62140c5ee1bd
 +}
 diff --git a/drivers/custom/evdi/module/evdi_platform_dev.h b/drivers/custom/evdi/module/evdi_platform_dev.h
 new file mode 100644
-index 000000000000..73bd399dc75c
+index 0000000..73bd399
 --- /dev/null
 +++ b/drivers/custom/evdi/module/evdi_platform_dev.h
 @@ -0,0 +1,47 @@
@@ -9874,7 +9874,7 @@ index 000000000000..73bd399dc75c
 +
 diff --git a/drivers/custom/evdi/module/evdi_platform_drv.c b/drivers/custom/evdi/module/evdi_platform_drv.c
 new file mode 100644
-index 000000000000..b83f12fe44e1
+index 0000000..b83f12f
 --- /dev/null
 +++ b/drivers/custom/evdi/module/evdi_platform_drv.c
 @@ -0,0 +1,261 @@
@@ -10141,7 +10141,7 @@ index 000000000000..b83f12fe44e1
 +module_exit(evdi_exit);
 diff --git a/drivers/custom/evdi/module/evdi_platform_drv.h b/drivers/custom/evdi/module/evdi_platform_drv.h
 new file mode 100644
-index 000000000000..c9faf4cc4eba
+index 0000000..c9faf4c
 --- /dev/null
 +++ b/drivers/custom/evdi/module/evdi_platform_drv.h
 @@ -0,0 +1,44 @@
@@ -10191,7 +10191,7 @@ index 000000000000..c9faf4cc4eba
 +
 diff --git a/drivers/custom/evdi/module/evdi_sysfs.c b/drivers/custom/evdi/module/evdi_sysfs.c
 new file mode 100644
-index 000000000000..a643434dbb4d
+index 0000000..a643434
 --- /dev/null
 +++ b/drivers/custom/evdi/module/evdi_sysfs.c
 @@ -0,0 +1,267 @@
@@ -10464,7 +10464,7 @@ index 000000000000..a643434dbb4d
 +
 diff --git a/drivers/custom/evdi/module/evdi_sysfs.h b/drivers/custom/evdi/module/evdi_sysfs.h
 new file mode 100644
-index 000000000000..9207bf77e3a0
+index 0000000..9207bf7
 --- /dev/null
 +++ b/drivers/custom/evdi/module/evdi_sysfs.h
 @@ -0,0 +1,28 @@
@@ -10498,7 +10498,7 @@ index 000000000000..9207bf77e3a0
 +#endif
 diff --git a/drivers/custom/evdi/module/tests/Makefile b/drivers/custom/evdi/module/tests/Makefile
 new file mode 100644
-index 000000000000..5714ba7ac2c1
+index 0000000..5714ba7
 --- /dev/null
 +++ b/drivers/custom/evdi/module/tests/Makefile
 @@ -0,0 +1,5 @@
@@ -10509,7 +10509,7 @@ index 000000000000..5714ba7ac2c1
 +
 diff --git a/drivers/custom/evdi/module/tests/evdi_fake_compositor.c b/drivers/custom/evdi/module/tests/evdi_fake_compositor.c
 new file mode 100644
-index 000000000000..afa14735cf7f
+index 0000000..afa1473
 --- /dev/null
 +++ b/drivers/custom/evdi/module/tests/evdi_fake_compositor.c
 @@ -0,0 +1,72 @@
@@ -10587,7 +10587,7 @@ index 000000000000..afa14735cf7f
 +
 diff --git a/drivers/custom/evdi/module/tests/evdi_fake_compositor.h b/drivers/custom/evdi/module/tests/evdi_fake_compositor.h
 new file mode 100644
-index 000000000000..efe8354175a3
+index 0000000..efe8354
 --- /dev/null
 +++ b/drivers/custom/evdi/module/tests/evdi_fake_compositor.h
 @@ -0,0 +1,37 @@
@@ -10630,7 +10630,7 @@ index 000000000000..efe8354175a3
 +
 diff --git a/drivers/custom/evdi/module/tests/evdi_fake_user_client.c b/drivers/custom/evdi/module/tests/evdi_fake_user_client.c
 new file mode 100644
-index 000000000000..76e4c128830f
+index 0000000..76e4c12
 --- /dev/null
 +++ b/drivers/custom/evdi/module/tests/evdi_fake_user_client.c
 @@ -0,0 +1,89 @@
@@ -10725,7 +10725,7 @@ index 000000000000..76e4c128830f
 +
 diff --git a/drivers/custom/evdi/module/tests/evdi_fake_user_client.h b/drivers/custom/evdi/module/tests/evdi_fake_user_client.h
 new file mode 100644
-index 000000000000..f8db226c2bcf
+index 0000000..f8db226
 --- /dev/null
 +++ b/drivers/custom/evdi/module/tests/evdi_fake_user_client.h
 @@ -0,0 +1,37 @@
@@ -10768,7 +10768,7 @@ index 000000000000..f8db226c2bcf
 +
 diff --git a/drivers/custom/evdi/module/tests/evdi_test.c b/drivers/custom/evdi/module/tests/evdi_test.c
 new file mode 100644
-index 000000000000..4fbe566d223a
+index 0000000..4fbe566
 --- /dev/null
 +++ b/drivers/custom/evdi/module/tests/evdi_test.c
 @@ -0,0 +1,121 @@
@@ -10895,7 +10895,7 @@ index 000000000000..4fbe566d223a
 +MODULE_LICENSE("GPL");
 diff --git a/drivers/custom/evdi/module/tests/evdi_test.h b/drivers/custom/evdi/module/tests/evdi_test.h
 new file mode 100644
-index 000000000000..e33ecaffd854
+index 0000000..e33ecaf
 --- /dev/null
 +++ b/drivers/custom/evdi/module/tests/evdi_test.h
 @@ -0,0 +1,52 @@
@@ -10953,7 +10953,7 @@ index 000000000000..e33ecaffd854
 +
 diff --git a/drivers/custom/evdi/module/tests/test_evdi_vt_switch.c b/drivers/custom/evdi/module/tests/test_evdi_vt_switch.c
 new file mode 100644
-index 000000000000..675325d1380e
+index 0000000..675325d
 --- /dev/null
 +++ b/drivers/custom/evdi/module/tests/test_evdi_vt_switch.c
 @@ -0,0 +1,176 @@
@@ -11139,7 +11139,7 @@ index 000000000000..675325d1380e
 # ----------------------------------------
 diff --git a/drivers/custom/fanatecff/Kbuild b/drivers/custom/fanatecff/Kbuild
 new file mode 100644
-index 000000000000..341ab3d4df42
+index 0000000..341ab3d
 --- /dev/null
 +++ b/drivers/custom/fanatecff/Kbuild
 @@ -0,0 +1,2 @@
@@ -11147,7 +11147,7 @@ index 000000000000..341ab3d4df42
 +hid-fanatec-y := hid-ftec.o hid-ftecff.o hid-ftecff-tuning.o
 diff --git a/drivers/custom/fanatecff/Makefile b/drivers/custom/fanatecff/Makefile
 new file mode 100644
-index 000000000000..686e32a6379c
+index 0000000..686e32a
 --- /dev/null
 +++ b/drivers/custom/fanatecff/Makefile
 @@ -0,0 +1,27 @@
@@ -11180,7 +11180,7 @@ index 000000000000..686e32a6379c
 +	depmod
 diff --git a/drivers/custom/fanatecff/hid-ftec-pid.h b/drivers/custom/fanatecff/hid-ftec-pid.h
 new file mode 100644
-index 000000000000..9e887d67b08b
+index 0000000..9e887d6
 --- /dev/null
 +++ b/drivers/custom/fanatecff/hid-ftec-pid.h
 @@ -0,0 +1,346 @@
@@ -11532,7 +11532,7 @@ index 000000000000..9e887d67b08b
 +
 diff --git a/drivers/custom/fanatecff/hid-ftec.c b/drivers/custom/fanatecff/hid-ftec.c
 new file mode 100644
-index 000000000000..4ca907ca4c07
+index 0000000..4ca907c
 --- /dev/null
 +++ b/drivers/custom/fanatecff/hid-ftec.c
 @@ -0,0 +1,1175 @@
@@ -12713,7 +12713,7 @@ index 000000000000..4ca907ca4c07
 +MODULE_DESCRIPTION("A driver for the Fanatec CSL Elite");
 diff --git a/drivers/custom/fanatecff/hid-ftec.h b/drivers/custom/fanatecff/hid-ftec.h
 new file mode 100644
-index 000000000000..455e4850eccc
+index 0000000..455e485
 --- /dev/null
 +++ b/drivers/custom/fanatecff/hid-ftec.h
 @@ -0,0 +1,180 @@
@@ -12899,7 +12899,7 @@ index 000000000000..455e4850eccc
 +#endif
 diff --git a/drivers/custom/fanatecff/hid-ftecff-tuning.c b/drivers/custom/fanatecff/hid-ftecff-tuning.c
 new file mode 100644
-index 000000000000..525d535fc9fa
+index 0000000..525d535
 --- /dev/null
 +++ b/drivers/custom/fanatecff/hid-ftecff-tuning.c
 @@ -0,0 +1,395 @@
@@ -13300,7 +13300,7 @@ index 000000000000..525d535fc9fa
 +}
 diff --git a/drivers/custom/fanatecff/hid-ftecff.c b/drivers/custom/fanatecff/hid-ftecff.c
 new file mode 100644
-index 000000000000..0d778c61355b
+index 0000000..0d778c6
 --- /dev/null
 +++ b/drivers/custom/fanatecff/hid-ftecff.c
 @@ -0,0 +1,1398 @@
@@ -14704,11 +14704,11 @@ index 000000000000..0d778c61355b
 +}
 # ----------------------------------------
 # Module: hid-tmff2
-# Version: c5b9b79d4e61
+# Version: c5b9b79
 # ----------------------------------------
 diff --git a/drivers/custom/hid-tmff2/Kbuild b/drivers/custom/hid-tmff2/Kbuild
 new file mode 100644
-index 000000000000..8cabb2b4c189
+index 0000000..8cabb2b
 --- /dev/null
 +++ b/drivers/custom/hid-tmff2/Kbuild
 @@ -0,0 +1,8 @@
@@ -14722,7 +14722,7 @@ index 000000000000..8cabb2b4c189
 +		src/tmtspc/hid-tmtspc.o
 diff --git a/drivers/custom/hid-tmff2/Makefile b/drivers/custom/hid-tmff2/Makefile
 new file mode 100644
-index 000000000000..ad52621189ae
+index 0000000..ad52621
 --- /dev/null
 +++ b/drivers/custom/hid-tmff2/Makefile
 @@ -0,0 +1,24 @@
@@ -14752,7 +14752,7 @@ index 000000000000..ad52621189ae
 +	$(MAKE) -C deps/hid-tminit KDIR="$(KDIR)" $(MAKECMDGOALS)
 diff --git a/drivers/custom/hid-tmff2/src/hid-tmff2.c b/drivers/custom/hid-tmff2/src/hid-tmff2.c
 new file mode 100644
-index 000000000000..55e21736ba1b
+index 0000000..55e2173
 --- /dev/null
 +++ b/drivers/custom/hid-tmff2/src/hid-tmff2.c
 @@ -0,0 +1,858 @@
@@ -15616,7 +15616,7 @@ index 000000000000..55e21736ba1b
 +MODULE_LICENSE("GPL");
 diff --git a/drivers/custom/hid-tmff2/src/hid-tmff2.h b/drivers/custom/hid-tmff2/src/hid-tmff2.h
 new file mode 100644
-index 000000000000..58ab8f39d21c
+index 0000000..58ab8f3
 --- /dev/null
 +++ b/drivers/custom/hid-tmff2/src/hid-tmff2.h
 @@ -0,0 +1,154 @@
@@ -15776,7 +15776,7 @@ index 000000000000..58ab8f39d21c
 +#endif
 diff --git a/drivers/custom/hid-tmff2/src/tmt248/hid-tmt248.c b/drivers/custom/hid-tmff2/src/tmt248/hid-tmt248.c
 new file mode 100644
-index 000000000000..9ac43d9d5b93
+index 0000000..9ac43d9
 --- /dev/null
 +++ b/drivers/custom/hid-tmff2/src/tmt248/hid-tmt248.c
 @@ -0,0 +1,336 @@
@@ -16118,7 +16118,7 @@ index 000000000000..9ac43d9d5b93
 +}
 diff --git a/drivers/custom/hid-tmff2/src/tmt300rs/hid-tmt300rs.c b/drivers/custom/hid-tmff2/src/tmt300rs/hid-tmt300rs.c
 new file mode 100644
-index 000000000000..78e1939ac223
+index 0000000..78e1939
 --- /dev/null
 +++ b/drivers/custom/hid-tmff2/src/tmt300rs/hid-tmt300rs.c
 @@ -0,0 +1,1568 @@
@@ -17692,7 +17692,7 @@ index 000000000000..78e1939ac223
 +}
 diff --git a/drivers/custom/hid-tmff2/src/tmt300rs/hid-tmt300rs.h b/drivers/custom/hid-tmff2/src/tmt300rs/hid-tmt300rs.h
 new file mode 100644
-index 000000000000..2305f4b4c88e
+index 0000000..2305f4b
 --- /dev/null
 +++ b/drivers/custom/hid-tmff2/src/tmt300rs/hid-tmt300rs.h
 @@ -0,0 +1,9 @@
@@ -17707,7 +17707,7 @@ index 000000000000..2305f4b4c88e
 +#endif
 diff --git a/drivers/custom/hid-tmff2/src/tmtspc/hid-tmtspc.c b/drivers/custom/hid-tmff2/src/tmtspc/hid-tmtspc.c
 new file mode 100644
-index 000000000000..a51ec0199040
+index 0000000..a51ec01
 --- /dev/null
 +++ b/drivers/custom/hid-tmff2/src/tmtspc/hid-tmtspc.c
 @@ -0,0 +1,343 @@
@@ -18056,7 +18056,7 @@ index 000000000000..a51ec0199040
 +}
 diff --git a/drivers/custom/hid-tmff2/src/tmtsxw/hid-tmtsxw.c b/drivers/custom/hid-tmff2/src/tmtsxw/hid-tmtsxw.c
 new file mode 100644
-index 000000000000..b8ee1fdea466
+index 0000000..b8ee1fd
 --- /dev/null
 +++ b/drivers/custom/hid-tmff2/src/tmtsxw/hid-tmtsxw.c
 @@ -0,0 +1,324 @@
@@ -18386,7 +18386,7 @@ index 000000000000..b8ee1fdea466
 +}
 diff --git a/drivers/custom/hid-tmff2/src/tmtx/hid-tmtx.c b/drivers/custom/hid-tmff2/src/tmtx/hid-tmtx.c
 new file mode 100644
-index 000000000000..857886c62152
+index 0000000..857886c
 --- /dev/null
 +++ b/drivers/custom/hid-tmff2/src/tmtx/hid-tmtx.c
 @@ -0,0 +1,324 @@
@@ -18720,7 +18720,7 @@ index 000000000000..857886c62152
 # ----------------------------------------
 diff --git a/drivers/custom/lg4ff/Kbuild b/drivers/custom/lg4ff/Kbuild
 new file mode 100644
-index 000000000000..673c45615fa7
+index 0000000..673c456
 --- /dev/null
 +++ b/drivers/custom/lg4ff/Kbuild
 @@ -0,0 +1,6 @@
@@ -18732,7 +18732,7 @@ index 000000000000..673c45615fa7
 +ccflags-y := -Idrivers/hid
 diff --git a/drivers/custom/lg4ff/Makefile b/drivers/custom/lg4ff/Makefile
 new file mode 100644
-index 000000000000..c97e309b3a91
+index 0000000..c97e309
 --- /dev/null
 +++ b/drivers/custom/lg4ff/Makefile
 @@ -0,0 +1,27 @@
@@ -18765,7 +18765,7 @@ index 000000000000..c97e309b3a91
 +
 diff --git a/drivers/custom/lg4ff/hid-ids.h b/drivers/custom/lg4ff/hid-ids.h
 new file mode 100644
-index 000000000000..45071de0d3dd
+index 0000000..45071de
 --- /dev/null
 +++ b/drivers/custom/lg4ff/hid-ids.h
 @@ -0,0 +1,1433 @@
@@ -20204,7 +20204,7 @@ index 000000000000..45071de0d3dd
 +#endif
 diff --git a/drivers/custom/lg4ff/hid-lg.c b/drivers/custom/lg4ff/hid-lg.c
 new file mode 100644
-index 000000000000..ad114214d85e
+index 0000000..ad11421
 --- /dev/null
 +++ b/drivers/custom/lg4ff/hid-lg.c
 @@ -0,0 +1,958 @@
@@ -21168,7 +21168,7 @@ index 000000000000..ad114214d85e
 +MODULE_VERSION(VERSION);
 diff --git a/drivers/custom/lg4ff/hid-lg.h b/drivers/custom/lg4ff/hid-lg.h
 new file mode 100644
-index 000000000000..df1f83ea9783
+index 0000000..df1f83e
 --- /dev/null
 +++ b/drivers/custom/lg4ff/hid-lg.h
 @@ -0,0 +1,30 @@
@@ -21204,7 +21204,7 @@ index 000000000000..df1f83ea9783
 +#endif
 diff --git a/drivers/custom/lg4ff/hid-lg2ff.c b/drivers/custom/lg4ff/hid-lg2ff.c
 new file mode 100644
-index 000000000000..73d07e35f12a
+index 0000000..73d07e3
 --- /dev/null
 +++ b/drivers/custom/lg4ff/hid-lg2ff.c
 @@ -0,0 +1,95 @@
@@ -21305,7 +21305,7 @@ index 000000000000..73d07e35f12a
 +}
 diff --git a/drivers/custom/lg4ff/hid-lg3ff.c b/drivers/custom/lg4ff/hid-lg3ff.c
 new file mode 100644
-index 000000000000..b7e1949f3cf7
+index 0000000..b7e1949
 --- /dev/null
 +++ b/drivers/custom/lg4ff/hid-lg3ff.c
 @@ -0,0 +1,151 @@
@@ -21462,7 +21462,7 @@ index 000000000000..b7e1949f3cf7
 +
 diff --git a/drivers/custom/lg4ff/hid-lg4ff.c b/drivers/custom/lg4ff/hid-lg4ff.c
 new file mode 100644
-index 000000000000..b7721fbcb34c
+index 0000000..b7721fb
 --- /dev/null
 +++ b/drivers/custom/lg4ff/hid-lg4ff.c
 @@ -0,0 +1,2571 @@
@@ -24039,7 +24039,7 @@ index 000000000000..b7721fbcb34c
 +}
 diff --git a/drivers/custom/lg4ff/hid-lg4ff.h b/drivers/custom/lg4ff/hid-lg4ff.h
 new file mode 100644
-index 000000000000..e5c55d515ac2
+index 0000000..e5c55d5
 --- /dev/null
 +++ b/drivers/custom/lg4ff/hid-lg4ff.h
 @@ -0,0 +1,23 @@
@@ -24068,7 +24068,7 @@ index 000000000000..e5c55d515ac2
 +#endif
 diff --git a/drivers/custom/lg4ff/hid-lgff.c b/drivers/custom/lg4ff/hid-lgff.c
 new file mode 100644
-index 000000000000..aed4ddc397a9
+index 0000000..aed4ddc
 --- /dev/null
 +++ b/drivers/custom/lg4ff/hid-lgff.c
 @@ -0,0 +1,156 @@
@@ -24230,7 +24230,7 @@ index 000000000000..aed4ddc397a9
 +}
 diff --git a/drivers/custom/lg4ff/usbhid/usbhid.h b/drivers/custom/lg4ff/usbhid/usbhid.h
 new file mode 100644
-index 000000000000..8620408bd7af
+index 0000000..8620408
 --- /dev/null
 +++ b/drivers/custom/lg4ff/usbhid/usbhid.h
 @@ -0,0 +1,96 @@
@@ -24332,11 +24332,11 @@ index 000000000000..8620408bd7af
 +
 # ----------------------------------------
 # Module: razer
-# Version: 878ab5a561d1
+# Version: 878ab5a5
 # ----------------------------------------
 diff --git a/drivers/custom/razer/driver/Makefile b/drivers/custom/razer/driver/Makefile
 new file mode 100644
-index 000000000000..5d7c515f232a
+index 00000000..5d7c515f
 --- /dev/null
 +++ b/drivers/custom/razer/driver/Makefile
 @@ -0,0 +1,17 @@
@@ -24359,7 +24359,7 @@ index 000000000000..5d7c515f232a
 +	make -C "$(KERNEL_SOURCE_DIR)" M="$(PWD)" clean
 diff --git a/drivers/custom/razer/driver/razeraccessory_driver.c b/drivers/custom/razer/driver/razeraccessory_driver.c
 new file mode 100644
-index 000000000000..b980c1c9d1ec
+index 00000000..b980c1c9
 --- /dev/null
 +++ b/drivers/custom/razer/driver/razeraccessory_driver.c
 @@ -0,0 +1,2891 @@
@@ -27256,7 +27256,7 @@ index 000000000000..b980c1c9d1ec
 +module_hid_driver(razer_accessory_driver);
 diff --git a/drivers/custom/razer/driver/razeraccessory_driver.h b/drivers/custom/razer/driver/razeraccessory_driver.h
 new file mode 100644
-index 000000000000..17a42fc17297
+index 00000000..17a42fc1
 --- /dev/null
 +++ b/drivers/custom/razer/driver/razeraccessory_driver.h
 @@ -0,0 +1,63 @@
@@ -27325,7 +27325,7 @@ index 000000000000..17a42fc17297
 +#endif
 diff --git a/drivers/custom/razer/driver/razerchromacommon.c b/drivers/custom/razer/driver/razerchromacommon.c
 new file mode 100644
-index 000000000000..4a0a9bdad48c
+index 00000000..4a0a9bda
 --- /dev/null
 +++ b/drivers/custom/razer/driver/razerchromacommon.c
 @@ -0,0 +1,1612 @@
@@ -28943,7 +28943,7 @@ index 000000000000..4a0a9bdad48c
 +}
 diff --git a/drivers/custom/razer/driver/razerchromacommon.h b/drivers/custom/razer/driver/razerchromacommon.h
 new file mode 100644
-index 000000000000..cda79dcc722e
+index 00000000..cda79dcc
 --- /dev/null
 +++ b/drivers/custom/razer/driver/razerchromacommon.h
 @@ -0,0 +1,158 @@
@@ -29107,7 +29107,7 @@ index 000000000000..cda79dcc722e
 +#endif
 diff --git a/drivers/custom/razer/driver/razercommon.c b/drivers/custom/razer/driver/razercommon.c
 new file mode 100644
-index 000000000000..4e8548ae4d03
+index 00000000..4e8548ae
 --- /dev/null
 +++ b/drivers/custom/razer/driver/razercommon.c
 @@ -0,0 +1,293 @@
@@ -29406,7 +29406,7 @@ index 000000000000..4e8548ae4d03
 +}
 diff --git a/drivers/custom/razer/driver/razercommon.h b/drivers/custom/razer/driver/razercommon.h
 new file mode 100644
-index 000000000000..f1ef4bbf52f1
+index 00000000..f1ef4bbf
 --- /dev/null
 +++ b/drivers/custom/razer/driver/razercommon.h
 @@ -0,0 +1,175 @@
@@ -29587,7 +29587,7 @@ index 000000000000..f1ef4bbf52f1
 +#endif /* DRIVER_RAZERCOMMON_H_ */
 diff --git a/drivers/custom/razer/driver/razerkbd_driver.c b/drivers/custom/razer/driver/razerkbd_driver.c
 new file mode 100644
-index 000000000000..3cdd197e806b
+index 00000000..3cdd197e
 --- /dev/null
 +++ b/drivers/custom/razer/driver/razerkbd_driver.c
 @@ -0,0 +1,6220 @@
@@ -35813,7 +35813,7 @@ index 000000000000..3cdd197e806b
 +module_hid_driver(razer_kbd_driver);
 diff --git a/drivers/custom/razer/driver/razerkbd_driver.h b/drivers/custom/razer/driver/razerkbd_driver.h
 new file mode 100644
-index 000000000000..a35a468fada7
+index 00000000..a35a468f
 --- /dev/null
 +++ b/drivers/custom/razer/driver/razerkbd_driver.h
 @@ -0,0 +1,192 @@
@@ -36011,7 +36011,7 @@ index 000000000000..a35a468fada7
 +#endif
 diff --git a/drivers/custom/razer/driver/razerkraken_driver.c b/drivers/custom/razer/driver/razerkraken_driver.c
 new file mode 100644
-index 000000000000..551167d74a19
+index 00000000..551167d7
 --- /dev/null
 +++ b/drivers/custom/razer/driver/razerkraken_driver.c
 @@ -0,0 +1,895 @@
@@ -36912,7 +36912,7 @@ index 000000000000..551167d74a19
 +module_hid_driver(razer_kraken_driver);
 diff --git a/drivers/custom/razer/driver/razerkraken_driver.h b/drivers/custom/razer/driver/razerkraken_driver.h
 new file mode 100644
-index 000000000000..399b66897653
+index 00000000..399b6689
 --- /dev/null
 +++ b/drivers/custom/razer/driver/razerkraken_driver.h
 @@ -0,0 +1,157 @@
@@ -37075,7 +37075,7 @@ index 000000000000..399b66897653
 +#endif
 diff --git a/drivers/custom/razer/driver/razermouse_driver.c b/drivers/custom/razer/driver/razermouse_driver.c
 new file mode 100644
-index 000000000000..aa6aef36d7cc
+index 00000000..aa6aef36
 --- /dev/null
 +++ b/drivers/custom/razer/driver/razermouse_driver.c
 @@ -0,0 +1,8412 @@
@@ -45493,7 +45493,7 @@ index 000000000000..aa6aef36d7cc
 +module_hid_driver(razer_mouse_driver);
 diff --git a/drivers/custom/razer/driver/razermouse_driver.h b/drivers/custom/razer/driver/razermouse_driver.h
 new file mode 100644
-index 000000000000..66612ff1affe
+index 00000000..66612ff1
 --- /dev/null
 +++ b/drivers/custom/razer/driver/razermouse_driver.h
 @@ -0,0 +1,191 @@
@@ -45690,7 +45690,7 @@ index 000000000000..66612ff1affe
 +#endif
 diff --git a/drivers/custom/razer/driver/usb_hid_keys.h b/drivers/custom/razer/driver/usb_hid_keys.h
 new file mode 100644
-index 000000000000..a5fbb68e0a64
+index 00000000..a5fbb68e
 --- /dev/null
 +++ b/drivers/custom/razer/driver/usb_hid_keys.h
 @@ -0,0 +1,39 @@
@@ -45735,7 +45735,7 @@ index 000000000000..a5fbb68e0a64
 +#endif // __USB_HID_KEYS_H
 diff --git a/drivers/custom/razer/install_files/udev/99-razer.rules b/drivers/custom/razer/install_files/udev/99-razer.rules
 new file mode 100644
-index 000000000000..ca66a2049ec1
+index 00000000..ca66a204
 --- /dev/null
 +++ b/drivers/custom/razer/install_files/udev/99-razer.rules
 @@ -0,0 +1,39 @@
@@ -45780,7 +45780,7 @@ index 000000000000..ca66a2049ec1
 +LABEL="razer_end"
 diff --git a/drivers/custom/razer/install_files/udev/razer_mount b/drivers/custom/razer/install_files/udev/razer_mount
 new file mode 100755
-index 000000000000..3fc0fef19aac
+index 00000000..3fc0fef1
 --- /dev/null
 +++ b/drivers/custom/razer/install_files/udev/razer_mount
 @@ -0,0 +1,62 @@
@@ -45848,11 +45848,11 @@ index 000000000000..3fc0fef19aac
 +
 # ----------------------------------------
 # Module: system76
-# Version: 90ea5e69af3b
+# Version: 90ea5e6
 # ----------------------------------------
 diff --git a/drivers/custom/system76/Kbuild b/drivers/custom/system76/Kbuild
 new file mode 100644
-index 000000000000..b44f80c69b3e
+index 0000000..b44f80c
 --- /dev/null
 +++ b/drivers/custom/system76/Kbuild
 @@ -0,0 +1,3 @@
@@ -45861,7 +45861,7 @@ index 000000000000..b44f80c69b3e
 +obj-y := src/
 diff --git a/drivers/custom/system76/Makefile b/drivers/custom/system76/Makefile
 new file mode 100644
-index 000000000000..5d289e435877
+index 0000000..5d289e4
 --- /dev/null
 +++ b/drivers/custom/system76/Makefile
 @@ -0,0 +1,23 @@
@@ -45890,7 +45890,7 @@ index 000000000000..5d289e435877
 +		src/system76.c
 diff --git a/drivers/custom/system76/src/Kbuild b/drivers/custom/system76/src/Kbuild
 new file mode 100644
-index 000000000000..c038a7c345a2
+index 0000000..c038a7c
 --- /dev/null
 +++ b/drivers/custom/system76/src/Kbuild
 @@ -0,0 +1,4 @@
@@ -45900,7 +45900,7 @@ index 000000000000..c038a7c345a2
 +obj-m += clevo-acpi.o
 diff --git a/drivers/custom/system76/src/ap-led.c b/drivers/custom/system76/src/ap-led.c
 new file mode 100644
-index 000000000000..181ac0dcc827
+index 0000000..181ac0d
 --- /dev/null
 +++ b/drivers/custom/system76/src/ap-led.c
 @@ -0,0 +1,113 @@
@@ -46019,7 +46019,7 @@ index 000000000000..181ac0dcc827
 +}
 diff --git a/drivers/custom/system76/src/clevo-acpi.c b/drivers/custom/system76/src/clevo-acpi.c
 new file mode 100644
-index 000000000000..d620af4094a0
+index 0000000..d620af4
 --- /dev/null
 +++ b/drivers/custom/system76/src/clevo-acpi.c
 @@ -0,0 +1,567 @@
@@ -46592,7 +46592,7 @@ index 000000000000..d620af4094a0
 +MODULE_VERSION("0.1.0");
 diff --git a/drivers/custom/system76/src/hwmon.c b/drivers/custom/system76/src/hwmon.c
 new file mode 100644
-index 000000000000..89463cda08e0
+index 0000000..89463cd
 --- /dev/null
 +++ b/drivers/custom/system76/src/hwmon.c
 @@ -0,0 +1,275 @@
@@ -46873,7 +46873,7 @@ index 000000000000..89463cda08e0
 +#endif // CONFIG_HWMON
 diff --git a/drivers/custom/system76/src/input.c b/drivers/custom/system76/src/input.c
 new file mode 100644
-index 000000000000..3c278eda3389
+index 0000000..3c278ed
 --- /dev/null
 +++ b/drivers/custom/system76/src/input.c
 @@ -0,0 +1,154 @@
@@ -47033,7 +47033,7 @@ index 000000000000..3c278eda3389
 +}
 diff --git a/drivers/custom/system76/src/kb-led.c b/drivers/custom/system76/src/kb-led.c
 new file mode 100644
-index 000000000000..7393bd2e14f2
+index 0000000..7393bd2
 --- /dev/null
 +++ b/drivers/custom/system76/src/kb-led.c
 @@ -0,0 +1,415 @@
@@ -47454,7 +47454,7 @@ index 000000000000..7393bd2e14f2
 +}
 diff --git a/drivers/custom/system76/src/system76.c b/drivers/custom/system76/src/system76.c
 new file mode 100644
-index 000000000000..f20d9847ccdd
+index 0000000..f20d984
 --- /dev/null
 +++ b/drivers/custom/system76/src/system76.c
 @@ -0,0 +1,384 @@
@@ -47844,11 +47844,11 @@ index 000000000000..f20d9847ccdd
 +MODULE_VERSION("1.0.0");
 # ----------------------------------------
 # Module: system76_io
-# Version: fc71f154ab8d
+# Version: fc71f15
 # ----------------------------------------
 diff --git a/drivers/custom/system76_io/Makefile b/drivers/custom/system76_io/Makefile
 new file mode 100644
-index 000000000000..65445c80c86f
+index 0000000..65445c8
 --- /dev/null
 +++ b/drivers/custom/system76_io/Makefile
 @@ -0,0 +1,8 @@
@@ -47862,7 +47862,7 @@ index 000000000000..65445c80c86f
 +	$(MAKE) -C "$(KERNEL_DIR)" M="$(PWD)" clean
 diff --git a/drivers/custom/system76_io/system76-io.c b/drivers/custom/system76_io/system76-io.c
 new file mode 100644
-index 000000000000..40b655f8ce03
+index 0000000..40b655f
 --- /dev/null
 +++ b/drivers/custom/system76_io/system76-io.c
 @@ -0,0 +1,304 @@
@@ -48172,7 +48172,7 @@ index 000000000000..40b655f8ce03
 +MODULE_DESCRIPTION("System76 Io driver");
 diff --git a/drivers/custom/system76_io/system76-io_dev.c b/drivers/custom/system76_io/system76-io_dev.c
 new file mode 100644
-index 000000000000..11c4df17c0b6
+index 0000000..11c4df1
 --- /dev/null
 +++ b/drivers/custom/system76_io/system76-io_dev.c
 @@ -0,0 +1,310 @@
@@ -48488,7 +48488,7 @@ index 000000000000..11c4df17c0b6
 +}
 diff --git a/drivers/custom/system76_io/system76-io_hwmon.c b/drivers/custom/system76_io/system76-io_hwmon.c
 new file mode 100644
-index 000000000000..25602d31b554
+index 0000000..25602d3
 --- /dev/null
 +++ b/drivers/custom/system76_io/system76-io_hwmon.c
 @@ -0,0 +1,180 @@
@@ -48674,7 +48674,7 @@ index 000000000000..25602d31b554
 +ATTRIBUTE_GROUPS(io);
 diff --git a/drivers/custom/system76_io/system76-thelio-io.c b/drivers/custom/system76_io/system76-thelio-io.c
 new file mode 100644
-index 000000000000..4d9c2229cd3d
+index 0000000..4d9c222
 --- /dev/null
 +++ b/drivers/custom/system76_io/system76-thelio-io.c
 @@ -0,0 +1,424 @@
@@ -49108,7 +49108,7 @@ index 000000000000..4d9c2229cd3d
 # ----------------------------------------
 diff --git a/drivers/custom/t150/files/etc/udev/rules.d/10-t150.rules b/drivers/custom/t150/files/etc/udev/rules.d/10-t150.rules
 new file mode 100644
-index 000000000000..049a3914d9fc
+index 0000000..049a391
 --- /dev/null
 +++ b/drivers/custom/t150/files/etc/udev/rules.d/10-t150.rules
 @@ -0,0 +1,6 @@
@@ -49120,7 +49120,7 @@ index 000000000000..049a3914d9fc
 +#SUBSYSTEM=="input", ATTRS{name}=="Thrustmaster T150 steering wheel", MODE="0666", ENV{ID_VENDOR_ID}="044f"
 diff --git a/drivers/custom/t150/hid-t150/Makefile b/drivers/custom/t150/hid-t150/Makefile
 new file mode 100644
-index 000000000000..7834b98bcaef
+index 0000000..7834b98
 --- /dev/null
 +++ b/drivers/custom/t150/hid-t150/Makefile
 @@ -0,0 +1,8 @@
@@ -49134,7 +49134,7 @@ index 000000000000..7834b98bcaef
 +	$(MAKE) -C $(KDIR) M=$(shell pwd) clean
 diff --git a/drivers/custom/t150/hid-t150/attributes.c b/drivers/custom/t150/hid-t150/attributes.c
 new file mode 100644
-index 000000000000..b34c035e6698
+index 0000000..b34c035
 --- /dev/null
 +++ b/drivers/custom/t150/hid-t150/attributes.c
 @@ -0,0 +1,188 @@
@@ -49328,7 +49328,7 @@ index 000000000000..b34c035e6698
 +}
 diff --git a/drivers/custom/t150/hid-t150/attributes.h b/drivers/custom/t150/hid-t150/attributes.h
 new file mode 100644
-index 000000000000..119b95ced577
+index 0000000..119b95c
 --- /dev/null
 +++ b/drivers/custom/t150/hid-t150/attributes.h
 @@ -0,0 +1,49 @@
@@ -49383,7 +49383,7 @@ index 000000000000..119b95ced577
 +static DEVICE_ATTR(firmware_version, 0444, t150_show_fw_version, 0);
 diff --git a/drivers/custom/t150/hid-t150/forcefeedback.c b/drivers/custom/t150/hid-t150/forcefeedback.c
 new file mode 100644
-index 000000000000..c1f3cb8e9c90
+index 0000000..c1f3cb8
 --- /dev/null
 +++ b/drivers/custom/t150/hid-t150/forcefeedback.c
 @@ -0,0 +1,429 @@
@@ -49818,7 +49818,7 @@ index 000000000000..c1f3cb8e9c90
 +}
 diff --git a/drivers/custom/t150/hid-t150/forcefeedback.h b/drivers/custom/t150/hid-t150/forcefeedback.h
 new file mode 100644
-index 000000000000..8865ad4a7f23
+index 0000000..8865ad4
 --- /dev/null
 +++ b/drivers/custom/t150/hid-t150/forcefeedback.h
 @@ -0,0 +1,173 @@
@@ -49997,7 +49997,7 @@ index 000000000000..8865ad4a7f23
 +};
 diff --git a/drivers/custom/t150/hid-t150/hid-t150.c b/drivers/custom/t150/hid-t150/hid-t150.c
 new file mode 100644
-index 000000000000..e155196db628
+index 0000000..e155196
 --- /dev/null
 +++ b/drivers/custom/t150/hid-t150/hid-t150.c
 @@ -0,0 +1,220 @@
@@ -50223,7 +50223,7 @@ index 000000000000..e155196db628
 +MODULE_DESCRIPTION("ThrustMaster T150 steering wheel driver");
 diff --git a/drivers/custom/t150/hid-t150/hid-t150.h b/drivers/custom/t150/hid-t150/hid-t150.h
 new file mode 100644
-index 000000000000..d4fba46f8d07
+index 0000000..d4fba46
 --- /dev/null
 +++ b/drivers/custom/t150/hid-t150/hid-t150.h
 @@ -0,0 +1,81 @@
@@ -50310,7 +50310,7 @@ index 000000000000..d4fba46f8d07
 +}
 diff --git a/drivers/custom/t150/hid-t150/input.c b/drivers/custom/t150/hid-t150/input.c
 new file mode 100644
-index 000000000000..aae66338f6f4
+index 0000000..aae6633
 --- /dev/null
 +++ b/drivers/custom/t150/hid-t150/input.c
 @@ -0,0 +1,83 @@
@@ -50399,7 +50399,7 @@ index 000000000000..aae66338f6f4
 +}
 diff --git a/drivers/custom/t150/hid-t150/input.h b/drivers/custom/t150/hid-t150/input.h
 new file mode 100644
-index 000000000000..b0140e95a07f
+index 0000000..b0140e9
 --- /dev/null
 +++ b/drivers/custom/t150/hid-t150/input.h
 @@ -0,0 +1,12 @@
@@ -50417,7 +50417,7 @@ index 000000000000..b0140e95a07f
 +static uint16_t *packet_input_close = 0; 
 diff --git a/drivers/custom/t150/hid-t150/packet.h b/drivers/custom/t150/hid-t150/packet.h
 new file mode 100644
-index 000000000000..6022fd0fb057
+index 0000000..6022fd0
 --- /dev/null
 +++ b/drivers/custom/t150/hid-t150/packet.h
 @@ -0,0 +1,10 @@
@@ -50434,7 +50434,7 @@ index 000000000000..6022fd0fb057
 \ No newline at end of file
 diff --git a/drivers/custom/t150/hid-t150/settings.c b/drivers/custom/t150/hid-t150/settings.c
 new file mode 100644
-index 000000000000..0024e5796766
+index 0000000..0024e57
 --- /dev/null
 +++ b/drivers/custom/t150/hid-t150/settings.c
 @@ -0,0 +1,195 @@
@@ -50635,7 +50635,7 @@ index 000000000000..0024e5796766
 +}
 diff --git a/drivers/custom/t150/hid-t150/settings.h b/drivers/custom/t150/hid-t150/settings.h
 new file mode 100644
-index 000000000000..c85654a7346e
+index 0000000..c85654a
 --- /dev/null
 +++ b/drivers/custom/t150/hid-t150/settings.h
 @@ -0,0 +1,36 @@
@@ -50677,18 +50677,18 @@ index 000000000000..c85654a7346e
 +static int t150_setup_task(struct t150 *t150);
 # ----------------------------------------
 # Module: v4l2loopback
-# Version: 9ef83fb9bc88
+# Version: 9ef83fb
 # ----------------------------------------
 diff --git a/drivers/custom/v4l2loopback/Kbuild b/drivers/custom/v4l2loopback/Kbuild
 new file mode 100644
-index 000000000000..9aad4eb75294
+index 0000000..9aad4eb
 --- /dev/null
 +++ b/drivers/custom/v4l2loopback/Kbuild
 @@ -0,0 +1 @@
 +obj-m		:= v4l2loopback.o
 diff --git a/drivers/custom/v4l2loopback/Makefile b/drivers/custom/v4l2loopback/Makefile
 new file mode 100644
-index 000000000000..6d86646d5d04
+index 0000000..6d86646
 --- /dev/null
 +++ b/drivers/custom/v4l2loopback/Makefile
 @@ -0,0 +1,139 @@
@@ -50833,7 +50833,7 @@ index 000000000000..6d86646d5d04
 +endif # !kbuild
 diff --git a/drivers/custom/v4l2loopback/doc/missingformats.h b/drivers/custom/v4l2loopback/doc/missingformats.h
 new file mode 100644
-index 000000000000..89de33cbe2b8
+index 0000000..89de33c
 --- /dev/null
 +++ b/drivers/custom/v4l2loopback/doc/missingformats.h
 @@ -0,0 +1,291 @@
@@ -51130,7 +51130,7 @@ index 000000000000..89de33cbe2b8
 +#endif /* V4L2_PIX_FMT_SBGGR16 */
 diff --git a/drivers/custom/v4l2loopback/examples/ondemandcam.c b/drivers/custom/v4l2loopback/examples/ondemandcam.c
 new file mode 100644
-index 000000000000..eae56bb7658f
+index 0000000..eae56bb
 --- /dev/null
 +++ b/drivers/custom/v4l2loopback/examples/ondemandcam.c
 @@ -0,0 +1,130 @@
@@ -51266,7 +51266,7 @@ index 000000000000..eae56bb7658f
 +}
 diff --git a/drivers/custom/v4l2loopback/examples/test.c b/drivers/custom/v4l2loopback/examples/test.c
 new file mode 100644
-index 000000000000..ca0b4f549305
+index 0000000..ca0b4f5
 --- /dev/null
 +++ b/drivers/custom/v4l2loopback/examples/test.c
 @@ -0,0 +1,188 @@
@@ -51460,7 +51460,7 @@ index 000000000000..ca0b4f549305
 +}
 diff --git a/drivers/custom/v4l2loopback/examples/yuv420_infiniteloop.c b/drivers/custom/v4l2loopback/examples/yuv420_infiniteloop.c
 new file mode 100644
-index 000000000000..78a30c0be7e8
+index 0000000..78a30c0
 --- /dev/null
 +++ b/drivers/custom/v4l2loopback/examples/yuv420_infiniteloop.c
 @@ -0,0 +1,121 @@
@@ -51587,7 +51587,7 @@ index 000000000000..78a30c0be7e8
 +}
 diff --git a/drivers/custom/v4l2loopback/examples/yuv4mpeg_to_v4l2.c b/drivers/custom/v4l2loopback/examples/yuv4mpeg_to_v4l2.c
 new file mode 100644
-index 000000000000..d1d9bdfc0430
+index 0000000..d1d9bdf
 --- /dev/null
 +++ b/drivers/custom/v4l2loopback/examples/yuv4mpeg_to_v4l2.c
 @@ -0,0 +1,184 @@
@@ -51777,7 +51777,7 @@ index 000000000000..d1d9bdfc0430
 +}
 diff --git a/drivers/custom/v4l2loopback/tests/common.h b/drivers/custom/v4l2loopback/tests/common.h
 new file mode 100644
-index 000000000000..3878deabe30b
+index 0000000..3878dea
 --- /dev/null
 +++ b/drivers/custom/v4l2loopback/tests/common.h
 @@ -0,0 +1,154 @@
@@ -51937,7 +51937,7 @@ index 000000000000..3878deabe30b
 +}
 diff --git a/drivers/custom/v4l2loopback/tests/consumer.c b/drivers/custom/v4l2loopback/tests/consumer.c
 new file mode 100644
-index 000000000000..434b1d27b8af
+index 0000000..434b1d2
 --- /dev/null
 +++ b/drivers/custom/v4l2loopback/tests/consumer.c
 @@ -0,0 +1,632 @@
@@ -52575,7 +52575,7 @@ index 000000000000..434b1d27b8af
 +}
 diff --git a/drivers/custom/v4l2loopback/tests/producer.c b/drivers/custom/v4l2loopback/tests/producer.c
 new file mode 100644
-index 000000000000..03c73e4acc37
+index 0000000..03c73e4
 --- /dev/null
 +++ b/drivers/custom/v4l2loopback/tests/producer.c
 @@ -0,0 +1,720 @@
@@ -53301,7 +53301,7 @@ index 000000000000..03c73e4acc37
 +}
 diff --git a/drivers/custom/v4l2loopback/tests/test_dqbuf.c b/drivers/custom/v4l2loopback/tests/test_dqbuf.c
 new file mode 100644
-index 000000000000..b67cf0438a9e
+index 0000000..b67cf04
 --- /dev/null
 +++ b/drivers/custom/v4l2loopback/tests/test_dqbuf.c
 @@ -0,0 +1,134 @@
@@ -53441,7 +53441,7 @@ index 000000000000..b67cf0438a9e
 +}
 diff --git a/drivers/custom/v4l2loopback/utils/Makefile b/drivers/custom/v4l2loopback/utils/Makefile
 new file mode 100644
-index 000000000000..99c68620b16f
+index 0000000..99c6862
 --- /dev/null
 +++ b/drivers/custom/v4l2loopback/utils/Makefile
 @@ -0,0 +1,28 @@
@@ -53475,7 +53475,7 @@ index 000000000000..99c68620b16f
 +v4l2loopback-ctl: v4l2loopback-ctl.o
 diff --git a/drivers/custom/v4l2loopback/utils/v4l2loopback-ctl.c b/drivers/custom/v4l2loopback/utils/v4l2loopback-ctl.c
 new file mode 100644
-index 000000000000..ba996021baab
+index 0000000..ba99602
 --- /dev/null
 +++ b/drivers/custom/v4l2loopback/utils/v4l2loopback-ctl.c
 @@ -0,0 +1,1579 @@
@@ -55060,7 +55060,7 @@ index 000000000000..ba996021baab
 +}
 diff --git a/drivers/custom/v4l2loopback/v4l2loopback.c b/drivers/custom/v4l2loopback/v4l2loopback.c
 new file mode 100644
-index 000000000000..af9ec3e39e59
+index 0000000..af9ec3e
 --- /dev/null
 +++ b/drivers/custom/v4l2loopback/v4l2loopback.c
 @@ -0,0 +1,3375 @@
@@ -58441,7 +58441,7 @@ index 000000000000..af9ec3e39e59
 +module_exit(v4l2loopback_cleanup_module);
 diff --git a/drivers/custom/v4l2loopback/v4l2loopback.h b/drivers/custom/v4l2loopback/v4l2loopback.h
 new file mode 100644
-index 000000000000..0006385a3298
+index 0000000..0006385
 --- /dev/null
 +++ b/drivers/custom/v4l2loopback/v4l2loopback.h
 @@ -0,0 +1,108 @@
@@ -58555,7 +58555,7 @@ index 000000000000..0006385a3298
 +#endif /* _V4L2LOOPBACK_H */
 diff --git a/drivers/custom/v4l2loopback/v4l2loopback_formats.h b/drivers/custom/v4l2loopback/v4l2loopback_formats.h
 new file mode 100644
-index 000000000000..ac2f1cbc062c
+index 0000000..ac2f1cb
 --- /dev/null
 +++ b/drivers/custom/v4l2loopback/v4l2loopback_formats.h
 @@ -0,0 +1,453 @@
@@ -59014,11 +59014,11 @@ index 000000000000..ac2f1cbc062c
 +};
 # ----------------------------------------
 # Module: xone
-# Version: 9053b2a0f66f
+# Version: 9053b2a
 # ----------------------------------------
 diff --git a/drivers/custom/xone/Kbuild b/drivers/custom/xone/Kbuild
 new file mode 100644
-index 000000000000..9a45c80af092
+index 0000000..9a45c80
 --- /dev/null
 +++ b/drivers/custom/xone/Kbuild
 @@ -0,0 +1,17 @@
@@ -59041,7 +59041,7 @@ index 000000000000..9a45c80af092
 +	xone_gip_pdp_jaguar.o
 diff --git a/drivers/custom/xone/Makefile b/drivers/custom/xone/Makefile
 new file mode 100644
-index 000000000000..fead9075836e
+index 0000000..fead907
 --- /dev/null
 +++ b/drivers/custom/xone/Makefile
 @@ -0,0 +1,34 @@
@@ -59081,7 +59081,7 @@ index 000000000000..fead9075836e
 +	./install/firmware.sh --skip-disclaimer
 diff --git a/drivers/custom/xone/auth/auth.c b/drivers/custom/xone/auth/auth.c
 new file mode 100644
-index 000000000000..307225e436f3
+index 0000000..307225e
 --- /dev/null
 +++ b/drivers/custom/xone/auth/auth.c
 @@ -0,0 +1,665 @@
@@ -59752,7 +59752,7 @@ index 000000000000..307225e436f3
 +EXPORT_SYMBOL_GPL(gip_auth_start_handshake);
 diff --git a/drivers/custom/xone/auth/auth.h b/drivers/custom/xone/auth/auth.h
 new file mode 100644
-index 000000000000..85d2c8165fb0
+index 0000000..85d2c81
 --- /dev/null
 +++ b/drivers/custom/xone/auth/auth.h
 @@ -0,0 +1,50 @@
@@ -59808,7 +59808,7 @@ index 000000000000..85d2c8165fb0
 +int gip_auth_start_handshake(struct gip_auth *auth, struct gip_client *client);
 diff --git a/drivers/custom/xone/auth/crypto.c b/drivers/custom/xone/auth/crypto.c
 new file mode 100644
-index 000000000000..64dd7388a4aa
+index 0000000..64dd738
 --- /dev/null
 +++ b/drivers/custom/xone/auth/crypto.c
 @@ -0,0 +1,244 @@
@@ -60058,7 +60058,7 @@ index 000000000000..64dd7388a4aa
 +}
 diff --git a/drivers/custom/xone/auth/crypto.h b/drivers/custom/xone/auth/crypto.h
 new file mode 100644
-index 000000000000..a34972e35b28
+index 0000000..a34972e
 --- /dev/null
 +++ b/drivers/custom/xone/auth/crypto.h
 @@ -0,0 +1,21 @@
@@ -60085,7 +60085,7 @@ index 000000000000..a34972e35b28
 +			  int pubkey_len, u8 *secret_hash);
 diff --git a/drivers/custom/xone/bus/bus.c b/drivers/custom/xone/bus/bus.c
 new file mode 100644
-index 000000000000..8baa71ea97ef
+index 0000000..8baa71e
 --- /dev/null
 +++ b/drivers/custom/xone/bus/bus.c
 @@ -0,0 +1,353 @@
@@ -60444,7 +60444,7 @@ index 000000000000..8baa71ea97ef
 +MODULE_LICENSE("GPL");
 diff --git a/drivers/custom/xone/bus/bus.h b/drivers/custom/xone/bus/bus.h
 new file mode 100644
-index 000000000000..95c483fb131c
+index 0000000..95c483f
 --- /dev/null
 +++ b/drivers/custom/xone/bus/bus.h
 @@ -0,0 +1,131 @@
@@ -60581,7 +60581,7 @@ index 000000000000..95c483fb131c
 +void gip_unregister_driver(struct gip_driver *drv);
 diff --git a/drivers/custom/xone/bus/protocol.c b/drivers/custom/xone/bus/protocol.c
 new file mode 100644
-index 000000000000..9152be5cae56
+index 0000000..9152be5
 --- /dev/null
 +++ b/drivers/custom/xone/bus/protocol.c
 @@ -0,0 +1,1714 @@
@@ -62301,7 +62301,7 @@ index 000000000000..9152be5cae56
 +EXPORT_SYMBOL_GPL(gip_process_buffer);
 diff --git a/drivers/custom/xone/bus/protocol.h b/drivers/custom/xone/bus/protocol.h
 new file mode 100644
-index 000000000000..805a7e47a034
+index 0000000..805a7e4
 --- /dev/null
 +++ b/drivers/custom/xone/bus/protocol.h
 @@ -0,0 +1,143 @@
@@ -62450,7 +62450,7 @@ index 000000000000..805a7e47a034
 +int gip_process_buffer(struct gip_adapter *adap, void *data, int len);
 diff --git a/drivers/custom/xone/driver/chatpad.c b/drivers/custom/xone/driver/chatpad.c
 new file mode 100644
-index 000000000000..9a7e72f4148b
+index 0000000..9a7e72f
 --- /dev/null
 +++ b/drivers/custom/xone/driver/chatpad.c
 @@ -0,0 +1,204 @@
@@ -62660,7 +62660,7 @@ index 000000000000..9a7e72f4148b
 +MODULE_LICENSE("GPL");
 diff --git a/drivers/custom/xone/driver/common.c b/drivers/custom/xone/driver/common.c
 new file mode 100644
-index 000000000000..ab3e6c01c361
+index 0000000..ab3e6c0
 --- /dev/null
 +++ b/drivers/custom/xone/driver/common.c
 @@ -0,0 +1,222 @@
@@ -62888,7 +62888,7 @@ index 000000000000..ab3e6c01c361
 +EXPORT_SYMBOL_GPL(gip_init_input);
 diff --git a/drivers/custom/xone/driver/common.h b/drivers/custom/xone/driver/common.h
 new file mode 100644
-index 000000000000..b97b4571a58c
+index 0000000..b97b457
 --- /dev/null
 +++ b/drivers/custom/xone/driver/common.h
 @@ -0,0 +1,48 @@
@@ -62942,7 +62942,7 @@ index 000000000000..b97b4571a58c
 +		   const char *name);
 diff --git a/drivers/custom/xone/driver/gamepad.c b/drivers/custom/xone/driver/gamepad.c
 new file mode 100644
-index 000000000000..dec6856f654d
+index 0000000..dec6856
 --- /dev/null
 +++ b/drivers/custom/xone/driver/gamepad.c
 @@ -0,0 +1,563 @@
@@ -63511,7 +63511,7 @@ index 000000000000..dec6856f654d
 +MODULE_LICENSE("GPL");
 diff --git a/drivers/custom/xone/driver/headset.c b/drivers/custom/xone/driver/headset.c
 new file mode 100644
-index 000000000000..44e7572553e9
+index 0000000..44e7572
 --- /dev/null
 +++ b/drivers/custom/xone/driver/headset.c
 @@ -0,0 +1,602 @@
@@ -64119,7 +64119,7 @@ index 000000000000..44e7572553e9
 +MODULE_LICENSE("GPL");
 diff --git a/drivers/custom/xone/driver/madcatz_glam.c b/drivers/custom/xone/driver/madcatz_glam.c
 new file mode 100644
-index 000000000000..50d067ce5201
+index 0000000..50d067c
 --- /dev/null
 +++ b/drivers/custom/xone/driver/madcatz_glam.c
 @@ -0,0 +1,206 @@
@@ -64331,7 +64331,7 @@ index 000000000000..50d067ce5201
 +MODULE_LICENSE("GPL");
 diff --git a/drivers/custom/xone/driver/madcatz_strat.c b/drivers/custom/xone/driver/madcatz_strat.c
 new file mode 100644
-index 000000000000..445dd194429e
+index 0000000..445dd19
 --- /dev/null
 +++ b/drivers/custom/xone/driver/madcatz_strat.c
 @@ -0,0 +1,203 @@
@@ -64540,7 +64540,7 @@ index 000000000000..445dd194429e
 +MODULE_LICENSE("GPL");
 diff --git a/drivers/custom/xone/driver/pdp_jaguar.c b/drivers/custom/xone/driver/pdp_jaguar.c
 new file mode 100644
-index 000000000000..b98caf5fa614
+index 0000000..b98caf5
 --- /dev/null
 +++ b/drivers/custom/xone/driver/pdp_jaguar.c
 @@ -0,0 +1,206 @@
@@ -64752,14 +64752,14 @@ index 000000000000..b98caf5fa614
 +MODULE_LICENSE("GPL");
 diff --git a/drivers/custom/xone/install/modprobe.conf b/drivers/custom/xone/install/modprobe.conf
 new file mode 100644
-index 000000000000..11da85aced6c
+index 0000000..11da85a
 --- /dev/null
 +++ b/drivers/custom/xone/install/modprobe.conf
 @@ -0,0 +1 @@
 +blacklist mt76x2u
 diff --git a/drivers/custom/xone/transport/dongle.c b/drivers/custom/xone/transport/dongle.c
 new file mode 100644
-index 000000000000..fb5494b2ba34
+index 0000000..fb5494b
 --- /dev/null
 +++ b/drivers/custom/xone/transport/dongle.c
 @@ -0,0 +1,1587 @@
@@ -66352,7 +66352,7 @@ index 000000000000..fb5494b2ba34
 +MODULE_LICENSE("GPL");
 diff --git a/drivers/custom/xone/transport/mt76.c b/drivers/custom/xone/transport/mt76.c
 new file mode 100644
-index 000000000000..ecdbde45423a
+index 0000000..ecdbde4
 --- /dev/null
 +++ b/drivers/custom/xone/transport/mt76.c
 @@ -0,0 +1,1341 @@
@@ -67699,7 +67699,7 @@ index 000000000000..ecdbde45423a
 +}
 diff --git a/drivers/custom/xone/transport/mt76.h b/drivers/custom/xone/transport/mt76.h
 new file mode 100644
-index 000000000000..933a64ed68dd
+index 0000000..933a64e
 --- /dev/null
 +++ b/drivers/custom/xone/transport/mt76.h
 @@ -0,0 +1,83 @@
@@ -67788,7 +67788,7 @@ index 000000000000..933a64ed68dd
 +int xone_mt76_remove_client(struct xone_mt76 *mt, u8 wcid);
 diff --git a/drivers/custom/xone/transport/mt76_defs.h b/drivers/custom/xone/transport/mt76_defs.h
 new file mode 100644
-index 000000000000..f5fe65b149aa
+index 0000000..f5fe65b
 --- /dev/null
 +++ b/drivers/custom/xone/transport/mt76_defs.h
 @@ -0,0 +1,1064 @@
