@@ -6,12 +6,14 @@ Subject: [NA] add dev tools
 ---
  README       | 168 ---------------------------------------------------
  README.md    |  19 ++++++
+ localversion |   0
  sync-arch.sh |  22 +++++++
  sync-ko.sh   |  25 ++++++++
  sync.sh      | 126 ++++++++++++++++++++++++++++++++++++++
- 5 files changed, 192 insertions(+), 168 deletions(-)
+ 6 files changed, 192 insertions(+), 168 deletions(-)
  delete mode 100644 README
  create mode 100644 README.md
+ create mode 100644 localversion
  create mode 100755 sync-arch.sh
  create mode 100755 sync-ko.sh
  create mode 100755 sync.sh
@@ -216,6 +218,9 @@ index 0000000000000..ca4adb32e3998
 +> [!WARNING]
 +> Do not open Pull Requests or issues in this repository. They will be closed.
 \ No newline at end of file
+diff --git a/localversion b/localversion
+new file mode 100644
+index 0000000000000..e69de29bb2d1d
 diff --git a/sync-arch.sh b/sync-arch.sh
 new file mode 100755
 index 0000000000000..9a9c605bfee99
@@ -40403,83 +40408,6 @@ index f3fd7f39efb48..eae93bf28726c 100644
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
-From: Antheas Kapenekakis <lkml@antheas.dev>
-Date: Fri, 14 Aug 2026 15:08:27 +0200
-Subject: oxpec: add s2idle quirk for Apex / X2Mini Pro
-
----
- drivers/platform/x86/oxpec.c | 37 ++++++++++++++++++++++++++++++++++++
- 1 file changed, 37 insertions(+)
-
-diff --git a/drivers/platform/x86/oxpec.c b/drivers/platform/x86/oxpec.c
-index 5680c3bcd604e..5a68c5bc3d5ec 100644
---- a/drivers/platform/x86/oxpec.c
-+++ b/drivers/platform/x86/oxpec.c
-@@ -304,6 +304,28 @@ static const struct dmi_system_id dmi_table[] = {
- 	{},
- };
- 
-+static const struct dmi_system_id oxp_lps0_delay_quirks[] = {
-+	{
-+		.matches = {
-+			DMI_MATCH(DMI_BOARD_VENDOR, "ONE-NETBOOK"),
-+			DMI_EXACT_MATCH(DMI_BOARD_NAME, "ONEXPLAYER APEX"),
-+		},
-+	},
-+	{
-+		.matches = {
-+			DMI_MATCH(DMI_BOARD_VENDOR, "ONE-NETBOOK"),
-+			DMI_EXACT_MATCH(DMI_BOARD_NAME, "ONEXPLAYER X2Mini PRO"),
-+		},
-+	},
-+	{}
-+};
-+
-+static struct acpi_s2idle_dev_ops oxp_s2idle_dev_ops = {
-+	.begin_delay = 2000,
-+};
-+
-+static bool oxp_lps0_dev_registered;
-+
- #define OXP_KEYBOARD_VID_QINHENG	0x1a86
- #define OXP_KEYBOARD_PID_K2445		0x1305
- #define OXP_KEYBOARD_VID_HAILUCK	0x258a
-@@ -1072,15 +1094,30 @@ static int oxp_platform_probe(struct platform_device *pdev)
- 		break;
- 	}
- 
-+	if (dmi_check_system(oxp_lps0_delay_quirks)) {
-+		ret = acpi_register_lps0_dev(&oxp_s2idle_dev_ops);
-+		if (!ret)
-+			oxp_lps0_dev_registered = true;
-+	}
-+
- 	return 0;
- }
- 
-+static void oxp_platform_remove(struct platform_device *pdev)
-+{
-+	if (oxp_lps0_dev_registered) {
-+		acpi_unregister_lps0_dev(&oxp_s2idle_dev_ops);
-+		oxp_lps0_dev_registered = false;
-+	}
-+}
-+
- static struct platform_driver oxp_platform_driver = {
- 	.driver = {
- 		.name = "oxp-platform",
- 		.dev_groups = oxp_ec_groups,
- 	},
- 	.probe = oxp_platform_probe,
-+	.remove = oxp_platform_remove,
- };
- 
- static struct platform_device *oxp_platform_device;
--- 
-2.55.0
-
-
-From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Wayne Lin <Wayne.Lin@amd.com>
 Date: Thu, 5 Mar 2026 17:07:16 +0800
 Subject: drm/amd/display: Adjust freesync pcon whitelist
@@ -43606,7 +43534,7 @@ Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
  1 file changed, 53 insertions(+), 15 deletions(-)
 
 diff --git a/drivers/platform/x86/oxpec.c b/drivers/platform/x86/oxpec.c
-index 5a68c5bc3d5ec..562dc0f084581 100644
+index 5680c3bcd604e..a8a19b767d916 100644
 --- a/drivers/platform/x86/oxpec.c
 +++ b/drivers/platform/x86/oxpec.c
 @@ -53,6 +53,7 @@ enum oxp_board {
@@ -43645,7 +43573,7 @@ index 5a68c5bc3d5ec..562dc0f084581 100644
  	},
  	{
  		.matches = {
-@@ -448,6 +452,7 @@ static umode_t tt_toggle_is_visible(struct kobject *kobj,
+@@ -426,6 +430,7 @@ static umode_t tt_toggle_is_visible(struct kobject *kobj,
  	case oxp_g1_i:
  	case oxp_g1_a:
  	case oxp_super_x:
@@ -43653,7 +43581,7 @@ index 5a68c5bc3d5ec..562dc0f084581 100644
  		return attr->mode;
  	default:
  		break;
-@@ -478,6 +483,7 @@ static ssize_t tt_toggle_store(struct device *dev,
+@@ -456,6 +461,7 @@ static ssize_t tt_toggle_store(struct device *dev,
  	case oxp_mini_amd_pro:
  	case oxp_g1_a:
  	case oxp_super_x:
@@ -43661,7 +43589,7 @@ index 5a68c5bc3d5ec..562dc0f084581 100644
  		reg = OXP_TURBO_SWITCH_REG;
  		mask = OXP_TURBO_TAKE_VAL;
  		break;
-@@ -525,6 +531,7 @@ static ssize_t tt_toggle_show(struct device *dev,
+@@ -503,6 +509,7 @@ static ssize_t tt_toggle_show(struct device *dev,
  	case oxp_mini_amd_pro:
  	case oxp_g1_a:
  	case oxp_super_x:
@@ -43669,7 +43597,7 @@ index 5a68c5bc3d5ec..562dc0f084581 100644
  		reg = OXP_TURBO_SWITCH_REG;
  		mask = OXP_TURBO_TAKE_VAL;
  		break;
-@@ -623,6 +630,7 @@ static bool oxp_psy_ext_supported(void)
+@@ -601,6 +608,7 @@ static bool oxp_psy_ext_supported(void)
  	case oxp_g1_a:
  	case oxp_super_x:
  	case oxp_fly:
@@ -43677,7 +43605,7 @@ index 5a68c5bc3d5ec..562dc0f084581 100644
  		return true;
  	default:
  		break;
-@@ -636,12 +644,24 @@ static int oxp_psy_ext_get_prop(struct power_supply *psy,
+@@ -614,12 +622,24 @@ static int oxp_psy_ext_get_prop(struct power_supply *psy,
  				enum power_supply_property psp,
  				union power_supply_propval *val)
  {
@@ -43703,7 +43631,7 @@ index 5a68c5bc3d5ec..562dc0f084581 100644
  		if (ret)
  			return ret;
  		if (raw_val < 0 || raw_val > 100)
-@@ -649,14 +669,14 @@ static int oxp_psy_ext_get_prop(struct power_supply *psy,
+@@ -627,14 +647,14 @@ static int oxp_psy_ext_get_prop(struct power_supply *psy,
  		val->intval = raw_val;
  		return 0;
  	case POWER_SUPPLY_PROP_CHARGE_BEHAVIOUR:
@@ -43723,7 +43651,7 @@ index 5a68c5bc3d5ec..562dc0f084581 100644
  			val->intval = POWER_SUPPLY_CHARGE_BEHAVIOUR_INHIBIT_CHARGE_AWAKE;
  		else
  			val->intval = POWER_SUPPLY_CHARGE_BEHAVIOUR_AUTO;
-@@ -672,29 +692,41 @@ static int oxp_psy_ext_set_prop(struct power_supply *psy,
+@@ -650,29 +670,41 @@ static int oxp_psy_ext_set_prop(struct power_supply *psy,
  				enum power_supply_property psp,
  				const union power_supply_propval *val)
  {
@@ -43769,7 +43697,7 @@ index 5a68c5bc3d5ec..562dc0f084581 100644
  	default:
  		return -EINVAL;
  	}
-@@ -756,6 +788,7 @@ static int oxp_pwm_enable(void)
+@@ -734,6 +766,7 @@ static int oxp_pwm_enable(void)
  	case oxp_g1_i:
  	case oxp_g1_a:
  	case oxp_super_x:
@@ -43777,7 +43705,7 @@ index 5a68c5bc3d5ec..562dc0f084581 100644
  		return write_to_ec(OXP_SENSOR_PWM_ENABLE_REG, PWM_MODE_MANUAL);
  	default:
  		return -EINVAL;
-@@ -777,6 +810,7 @@ static int oxp_pwm_disable(void)
+@@ -755,6 +788,7 @@ static int oxp_pwm_disable(void)
  	case oxp_g1_i:
  	case oxp_g1_a:
  	case oxp_super_x:
@@ -43785,7 +43713,7 @@ index 5a68c5bc3d5ec..562dc0f084581 100644
  		return write_to_ec(OXP_SENSOR_PWM_ENABLE_REG, PWM_MODE_AUTO);
  	default:
  		return -EINVAL;
-@@ -798,6 +832,7 @@ static int oxp_pwm_read(long *val)
+@@ -776,6 +810,7 @@ static int oxp_pwm_read(long *val)
  	case oxp_g1_i:
  	case oxp_g1_a:
  	case oxp_super_x:
@@ -43793,7 +43721,7 @@ index 5a68c5bc3d5ec..562dc0f084581 100644
  		return read_from_ec(OXP_SENSOR_PWM_ENABLE_REG, 1, val);
  	default:
  		return -EOPNOTSUPP;
-@@ -835,6 +870,7 @@ static int oxp_pwm_fan_speed(long *val)
+@@ -813,6 +848,7 @@ static int oxp_pwm_fan_speed(long *val)
  	case oxp_mini_amd_pro:
  	case oxp_g1_a:
  	case oxp_super_x:
@@ -43801,7 +43729,7 @@ index 5a68c5bc3d5ec..562dc0f084581 100644
  		return read_from_ec(OXP_SENSOR_FAN_REG, 2, val);
  	default:
  		return -EOPNOTSUPP;
-@@ -868,6 +904,7 @@ static int oxp_pwm_input_write(long val)
+@@ -846,6 +882,7 @@ static int oxp_pwm_input_write(long val)
  	case oxp_mini_amd_pro:
  	case oxp_g1_a:
  	case oxp_super_x:
@@ -43809,7 +43737,7 @@ index 5a68c5bc3d5ec..562dc0f084581 100644
  		return write_to_ec(OXP_SENSOR_PWM_REG, val);
  	default:
  		return -EOPNOTSUPP;
-@@ -908,6 +945,7 @@ static int oxp_pwm_input_read(long *val)
+@@ -886,6 +923,7 @@ static int oxp_pwm_input_read(long *val)
  	case oxp_mini_amd_pro:
  	case oxp_g1_a:
  	case oxp_super_x:
@@ -44045,17 +43973,37 @@ index 8982d92dfd977..27253d123a69e 100644
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Antheas Kapenekakis <lkml@antheas.dev>
-Date: Wed, 9 Sep 2026 12:08:43 +0200
-Subject: add local version so we do not get spurious .test
+Date: Thu, 10 Sep 2026 12:57:32 +0200
+Subject: platform/x86: oxpec: Add OneXPlayer 3 quirk
 
+The OneXPlayer 3 is a new Intel device by OneXPlayer. It uses the same
+registers as the G1 Intel edition. So, add a quirk for it. Battery
+bypass, capacity limits, fan curves, fan tachometer, and turbo button
+override were confirmed to work.
+
+Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
 ---
- localversion | 0
- 1 file changed, 0 insertions(+), 0 deletions(-)
- create mode 100644 localversion
+ drivers/platform/x86/oxpec.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
 
-diff --git a/localversion b/localversion
-new file mode 100644
-index 0000000000000..e69de29bb2d1d
+diff --git a/drivers/platform/x86/oxpec.c b/drivers/platform/x86/oxpec.c
+index a8a19b767d916..11d6df8c332ca 100644
+--- a/drivers/platform/x86/oxpec.c
++++ b/drivers/platform/x86/oxpec.c
+@@ -228,6 +228,13 @@ static const struct dmi_system_id dmi_table[] = {
+ 		},
+ 		.driver_data = (void *)oxp_g1_i,
+ 	},
++	{
++		.matches = {
++			DMI_MATCH(DMI_BOARD_VENDOR, "ONE-NETBOOK"),
++			DMI_EXACT_MATCH(DMI_BOARD_NAME, "ONEXPLAYER 3"),
++		},
++		.driver_data = (void *)oxp_g1_i,
++	},
+ 	{
+ 		.matches = {
+ 			DMI_MATCH(DMI_BOARD_VENDOR, "ONE-NETBOOK"),
 -- 
 2.55.0
 
