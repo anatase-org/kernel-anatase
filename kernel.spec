@@ -190,13 +190,13 @@ Summary: The Linux kernel
 %define specrpmversion 7.0.12
 %define specversion 7.0.12
 %define patchversion 7.0
-%define pkgrelease an30
+%define pkgrelease an31
 %define kversion 7
 %define tarfile_release 7.0.12
 # This is needed to do merge window version magic
 %define patchlevel 0
 # This allows pkg_release to have configurable %%{?dist} tag
-%define specrelease an30%{?buildid}%{?dist}
+%define specrelease an31%{?buildid}%{?dist}
 # This defines the kabi tarball version
 %define kabiversion 7.0.12
 
@@ -1018,7 +1018,7 @@ Source1: Makefile.rhelver
 Source2: %{name}.changelog
 
 %define evdi_version 1.15.0
-%define nvidia_version 610.57.04-an02
+%define nvidia_version 615.71.09-an01
 %define nvidia_version_rel 1
 %define nvidia_version_lts 580.159.04
 %define nvidia_epoch 3
@@ -4946,7 +4946,8 @@ fi\
 #
 #
 %changelog
-* Thu Sep 10 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.0.12-an30]
+* Sat Sep 12 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.0.12-an31]
+- bump nvidia (Antheas Kapenekakis)
 - platform/x86: oxpec: Add OneXPlayer 3 quirk (Antheas Kapenekakis)
 - platform/x86: thinkpad_acpi: Enable fan control by default (Antheas Kapenekakis)
 - drm/amd: Create a device link between APU display and XHCI devices (Mario Limonciello)
