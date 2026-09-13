@@ -190,13 +190,13 @@ Summary: The Linux kernel
 %define specrpmversion 7.0.12
 %define specversion 7.0.12
 %define patchversion 7.0
-%define pkgrelease an32
+%define pkgrelease an33
 %define kversion 7
 %define tarfile_release 7.0.12
 # This is needed to do merge window version magic
 %define patchlevel 0
 # This allows pkg_release to have configurable %%{?dist} tag
-%define specrelease an32%{?buildid}%{?dist}
+%define specrelease an33%{?buildid}%{?dist}
 # This defines the kabi tarball version
 %define kabiversion 7.0.12
 
@@ -3112,6 +3112,10 @@ BuildKernel() {
 	for i in x1 sc8?80x; do
 	    Dtbs="$Dtbs $(ls $i*.dtb | grep -v -E 'el2|devkit|crd|qcp|primus')"
 	done
+	# Include RP6 for stubble's firmware-HWID based DT selection.
+	# Fail the build if the board DTB was not produced.
+	test -f qcs8550-retroidpocket-rp6.dtb || exit 1
+	Dtbs="$Dtbs qcs8550-retroidpocket-rp6.dtb"
 	popd
 
 	DevicetreeAuto=""
@@ -4946,7 +4950,47 @@ fi\
 #
 #
 %changelog
-* Sat Sep 12 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.0.12-an32]
+* Sun Sep 13 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.0.12-an33]
+- Enable RP6 boot configuration and package its DTB (Antheas Kapenekakis)
+- Make RP6 dbt corrections based on the device (Antheas Kapenekakis)
+- input: misc: Add Qualcomm SPMI PMIC haptics driver (Fenglin Wu)
+- dt-bindings: input: Add Qualcomm SPMI PMIC haptics (Fenglin Wu)
+- leds: Add driver for HEROIC HTR3212 (Teguh Sobirin)
+- drm/panel: visionox-vtdr6130: select supplies for each panel (Antheas Kapenekakis)
+- drm/panel: visionox-vtdr6130: preserve physical dimensions in modes (Antheas Kapenekakis)
+- arm64: dts: qcom: sm8550: Add GCC CX power domain (Abel Vesa)
+- clk: qcom: gcc-sm8550: Tie the CX power domain to controller (Abel Vesa)
+- dt-bindings: clock: qcom: sm8550-gcc: Add CX power domain (Abel Vesa)
+- power: supply: qcom_battmgr: expose CHARGE_NOW on SM8350-class firmware (Jan-Michael Brummer)
+- power: supply: qcom_battmgr: fix CHARGE_FULL* on SM8350-class firmware (Jan-Michael Brummer)
+- drm/panel: visionox-vtdr6130: Add Retroid Pocket 6 panel (Aaron Kling)
+- drm/panel: visionox-vtdr6130: Modularize panel config (Aaron Kling)
+- drm/panel: visionox-vtdr6130: Add panel orientation support (Aaron Kling)
+- dt-bindings: display: visionox,vtdr6130: Add Retroid Pocket 6 panel (Aaron Kling)
+- arm64: dts: qcom: Add Retroid Pocket 6 (Aaron Kling)
+- dt-bindings: arm: qcom: Add Retroid Pocket QCS8550 Devices (Aaron Kling)
+- dt-bindings: vendor-prefixes: Add Retroid Pocket (Aaron Kling)
+- arm64: dts: qcom: Add AYN QCS8550 Common (Teguh Sobirin)
+- dt-bindings: arm: qcom: Add AYN QCS8550 Devices (Aaron Kling)
+- dt-bindings: mfd: qcom,spmi-pmic: Document haptics device (Fenglin Wu)
+- drm/of: Implement drm_of_get_panel_orientation() (Thomas Zimmermann)
+- power: supply: qcom_battmgr: fix use-after-free (Fan Wu)
+- clk: qcom: common: ensure runtime PM suspend completes on probe (Taniya Das)
+- drm/panel: Enable DSC for Visionox VTDR6130 panel (Jun Nie)
+- crypto: qce - Add runtime PM and interconnect bandwidth scaling support (Udit Tiwari)
+- Input: edt-ft5x06 - ignore contacts with an out-of-range slot id (Alexandre Hamamdjian)
+- ASoC: qcom: sc8280xp: allow setting m2is clocks for SM8[456]50 boards (Neil Armstrong)
+- ASoC: qcom: sc8280xp: tolerate -ENOTSUPP from codec set_sysclk (Srinivas Kandagatla)
+- ASoC: qcom: sc8280xp: enhance machine driver for board-specific config (Mohammad Rafi Shaik)
+- ASoC: qcom: q6apm-lpass-dais: Add MI2S clock control (Mohammad Rafi Shaik)
+- ASoC: dt-bindings: qcom,q6apm-lpass-dais: Document DAI subnode (Mohammad Rafi Shaik)
+- ASoC: qcom: common: validate cpu dai id during parsing (Srinivas Kandagatla)
+- ASoC: dt-bindings: qcom: add LPASS LPI MI2S dai ids (Srinivas Kandagatla)
+- ASoC: codecs: aw88166: Support device specific firmware (Teguh Sobirin)
+- ASoC: dt-bindings: awinic,aw88395: Document firmware-name property (Luca Weiss)
+- arm64: dts: qcom: sm8550: add PCIe port labels (Joe Sandom)
+- arm64: dts: qcom: sm8550: Add UART15 (Xilin Wu)
+- arm64: dts: qcom: pmk8550: Add PWM controller (Xilin Wu)
 - bump nvidia (Antheas Kapenekakis)
 - platform/x86: oxpec: Add OneXPlayer 3 quirk (Antheas Kapenekakis)
 - platform/x86: thinkpad_acpi: Enable fan control by default (Antheas Kapenekakis)
