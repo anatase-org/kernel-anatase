@@ -124,11 +124,6 @@ if [ ! -f "$zfsfn" ]; then
         "https://github.com/openzfs/zfs/releases/download/zfs-${ZFS_RELEASE}/zfs-${ZFS_RELEASE}.tar.gz"
 fi
 
-nvreleases=($NVIDIA_RELEASE)
-if [ "$NVIDIA_RELEASE" != "$NVIDIA_RELEASE_LTS" ]; then
-    nvreleases+=($NVIDIA_RELEASE_LTS)
-fi
-
 #
 # Open source driver
 #
@@ -140,41 +135,9 @@ if [ ! -f "$ofn" ]; then
         "https://github.com/anatase-org/open-gpu-kernel-modules/archive/refs/tags/${NVIDIA_RELEASE}.tar.gz"
 fi
 
-#
-# Closed legacy driver
-#
-
-nvrelease=$NVIDIA_RELEASE_LTS
-# We need to do this to strip the driver from the srpm. Keeping two of
-# Them would be a nice 800MB, here we drop to 160MB. We could halve
-# that if we only keep the closed for LTS.
-echo "Processing NVIDIA release $nvrelease for arch $ARCH"
-RUN_FN="NVIDIA-Linux-$ARCH-${nvrelease}.run"
-tarfn="nvidia-kmod-${ARCH}-${nvrelease}.tar.xz"
-
-if [ ! -f "$RUN_FN" ]; then
-    echo "Downloading $RUN_FN"
-    curl -L -o $RUN_FN \
-                "https://download.nvidia.com/XFree86/Linux-$ARCH/${nvrelease}/NVIDIA-Linux-$ARCH-${nvrelease}.run"
-fi
-
-if [ ! -f "$tarfn" ]; then
-    rm -rf build/nvidia
-    mkdir -p build/nvidia/kmod
-
-    chmod +x $RUN_FN
-    ./$RUN_FN --extract-only --target build/nvidia/extract
-
-    mv build/nvidia/extract/kernel/* build/nvidia/kmod
-
-    XZ_OPT='-T0' tar --remove-files -cJf $tarfn -C build/nvidia/kmod .
-    echo "Created $tarfn"
-    rm -rf build/nvidia
-fi
-
 popd
 
-cp /cache/$linuxfn /cache/$zfsfn /cache/$ofn /cache/$tarfn .
+cp /cache/$linuxfn /cache/$zfsfn /cache/$ofn .
 
 #
 # Build
