@@ -195,13 +195,13 @@ Summary: The Linux kernel
 %define specrpmversion 7.2.7
 %define specversion 7.2.7
 %define patchversion 7.2
-%define pkgrelease an02
+%define pkgrelease an01
 %define kversion 7
 %define tarfile_release 7.2.7
 # This is needed to do merge window version magic
 %define patchlevel 2
 # This allows pkg_release to have configurable %%{?dist} tag
-%define specrelease an02%{?buildid}%{?dist}
+%define specrelease an01%{?buildid}%{?dist}
 # This defines the kabi tarball version
 %define kabiversion 7.2.7
 
@@ -1025,14 +1025,12 @@ Source2: %{name}.changelog
 %define evdi_version 1.15.0
 %define nvidia_version 615.71.09-an01
 %define nvidia_version_rel 1
-%define nvidia_version_lts 580.159.04
 %define nvidia_epoch 3
 %if %{with_nvidia}
 Source5: nvidia-kmod-%{_build_arch}-%{nvidia_version}-%{nvidia_version_rel}.tar.gz
-Source6: nvidia-kmod-%{_build_arch}-%{nvidia_version_lts}.tar.xz
 %endif
 
-%define zfs_version 2.4.3
+%define zfs_version 2.4.4
 %if %{with_zfs}
 Source7: zfs-%{zfs_version}.tar.gz
 %endif
@@ -1119,8 +1117,7 @@ Source87: flavors
 Source151: uki_create_addons.py
 Source152: uki_addons.json
 
-%global anatase_hwid_sources x1p42100-samsung-galaxy-book4-edge-np750xqb.json
-Source5000: x1p42100-samsung-galaxy-book4-edge-np750xqb.json
+%global anatase_hwid_sources %{nil}
 
 Source200: check-kabi
 
@@ -1749,21 +1746,13 @@ Refer to their respective licenses.\
 %define kernel_nvidia_package(m) \
 %package %{?2:%{2}-}%{1}\
 Summary: Extra kernel modules to match the %{?3:%{3} }kernel\
-%if "%{1}" == "nvidia" || "%{1}" == "nvidia-lts" \
 License: (GPL-2.0-only OR MIT)\
-%else\
-License: NVIDIA\
-%endif\
 Provides: %{name}%{?2:-%{2}}-%{1}-%{_target_cpu} = %{specrpmversion}-%{release}\
 Provides: %{name}%{?2:-%{2}}-%{1}-%{_target_cpu} = %{specrpmversion}-%{release}%{uname_suffix %{?2}}\
 Provides: %{name}%{?2:-%{2}}-%{1} = %{specrpmversion}-%{release}%{uname_suffix %{?2}}\
 Provides: installonlypkg(kernel-module)\
 Provides: %{name}%{?2:-%{2}}-%{1}-uname-r = %{KVERREL}%{uname_suffix %{?2}}\
-%if "%{1}" == "nvidia-closed-lts" || "%{1}" == "nvidia-lts" \
-Provides: nvidia-kmod = %{?nvidia_epoch:%{nvidia_epoch}:}%{nvidia_version_lts}\
-%else\
 Provides: nvidia-kmod = %{?nvidia_epoch:%{nvidia_epoch}:}%{nvidia_version}\
-%endif\
 Requires: %{name}-uname-r = %{KVERREL}%{uname_suffix %{?2}}\
 Requires: %{name}%{?2:-%{2}}-modules-uname-r = %{KVERREL}%{uname_suffix %{?2}}\
 Requires: %{name}%{?2:-%{2}}-modules-core-uname-r = %{KVERREL}%{uname_suffix %{?2}}\
@@ -1773,11 +1762,7 @@ Requires: %{name}%{?2:-%{2}}-uname-r = %{KVERREL}%{uname_variant %{?2}}\
 AutoReq: no\
 AutoProv: yes\
 %description %{?2:%{2}-}%{1}\
-%if "%{1}" == "nvidia" || "%{1}" == "nvidia-lts" \
 This package provides the Nvidia Open DRM modules for the %{?3:%{3} }kernel package.\
-%else\
-This package provides the Nvidia Closed DRM modules for the %{?3:%{3} }kernel package.\
-%endif\
 %{nil}
 
 #
@@ -1887,7 +1872,6 @@ Requires: %{name}-%{?1:%{1}-}-modules-core-uname-r = %{KVERREL}%{uname_variant %
 %{expand:%%kernel_modules_akmods_package %{?1:%{1}} %{!?{-n}:%{1}}%{?{-n}:%{-n*}} %{-m:%{-m}}}\
 %if %{with_nvidia}\
 %{expand:%%kernel_nvidia_package nvidia %{?1:%{1}} %{!?{-n}:%{1}}%{?{-n}:%{-n*}} %{-m:%{-m}}}\
-%{expand:%%kernel_nvidia_package nvidia-closed-lts %{?1:%{1}} %{!?{-n}:%{1}}%{?{-n}:%{-n*}} %{-m:%{-m}}}\
 %endif\
 %if %{-m:0}%{!-m:1}\
 %{expand:%%kernel_modules_internal_package %{?1:%{1}} %{!?{-n}:%{1}}%{?{-n}:%{-n*}}}\
@@ -2263,8 +2247,6 @@ ApplyOptionalPatch linux-kernel-test.patch
 %if %{with_nvidia}
 tar -xzf %{SOURCE5}
 mv open-gpu-kernel-modules-* drivers/custom/nvidia
-mkdir -p drivers/custom/nvidia-lts
-tar -xJf %{SOURCE6} -C drivers/custom/nvidia-lts
 %endif # with_nvidia
 
 %if %{with_zfs}
@@ -2598,8 +2580,6 @@ BuildKernel() {
     if [ $DoModules -eq 1 ]; then
     %{make} ARCH=$Arch KCFLAGS="$KCFLAGS" WITH_GCOV="%{?with_gcov}" %{?_smp_mflags}\
       -C $(pwd)/drivers/custom/nvidia modules SYSSRC=$(pwd) SYSOUT=$(src) CONFIG_DEBUG_INFO_BTF_MODULES= LDFLAGS=
-    %{make} ARCH=$Arch KCFLAGS="$KCFLAGS" WITH_GCOV="%{?with_gcov}" %{?_smp_mflags}\
-      -C $(pwd)/drivers/custom/nvidia-lts modules SYSSRC=$(pwd) SYSOUT=$(src) CONFIG_DEBUG_INFO_BTF_MODULES=
     fi
     %endif # with_nvidia
 
@@ -2759,15 +2739,11 @@ BuildKernel() {
     if [ $DoModules -eq 1 ]; then   
 	%{make} %{?_smp_mflags} ARCH=$Arch INSTALL_MOD_PATH=$RPM_BUILD_ROOT %{?_smp_mflags} -C $(pwd)/drivers/custom/nvidia \
     modules_install mod-fw= SYSSRC=$(pwd) SYSOUT=$(src) INSTALL_MOD_DIR=kernel/drivers/custom/nvidia CONFIG_DEBUG_INFO_BTF_MODULES=
-	%{make} %{?_smp_mflags} ARCH=$Arch INSTALL_MOD_PATH=$RPM_BUILD_ROOT %{?_smp_mflags} -C $(pwd)/drivers/custom/nvidia-lts \
-    modules_install mod-fw= SYSSRC=$(pwd) SYSOUT=$(src) INSTALL_MOD_DIR=kernel/drivers/custom/nvidia-lts CONFIG_DEBUG_INFO_BTF_MODULES=
 
-    # We have to do a little hack here. modules.dep cannot contain multiple modules
-    # with the same name, therefore, we cannot use the filtermods logic. Remove the
-    # nvidia drivers from modules.dep so we can create a package list manually
+    # Remove the separately packaged nvidia drivers from modules.dep so they are
+    # not included in the kernel module packages by filtermods.
     cat $RPM_BUILD_ROOT/lib/modules/$KernelVer/modules.dep | \
       grep -v "kernel/drivers/custom/nvidia/" | \
-      grep -v "kernel/drivers/custom/nvidia-lts/" \
       > $RPM_BUILD_ROOT/lib/modules/$KernelVer/modules.dep.tmp
     mv $RPM_BUILD_ROOT/lib/modules/$KernelVer/modules.dep.tmp \
       $RPM_BUILD_ROOT/lib/modules/$KernelVer/modules.dep
@@ -4497,7 +4473,6 @@ fi\
 %{expand:%%kernel_modules_akmods_post %{?-v*}}\
 %if %{with_nvidia}\
 %{expand:%%kernel_nvidia_post nvidia %{?-v*}}\
-%{expand:%%kernel_nvidia_post nvidia-closed-lts %{?-v*}}\
 %endif\
 %{expand:%%kernel_modules_internal_post %{?-v*}}\
 %if 0%{!?fedora:1}\
@@ -5052,13 +5027,6 @@ fi\
 /lib/modules/%{KVERREL}%{?3:+%{3}}/kernel/drivers/custom/nvidia/nvidia-uvm.ko*
 /lib/modules/%{KVERREL}%{?3:+%{3}}/kernel/drivers/custom/nvidia/nvidia.ko*
 
-%files nvidia-closed-lts
-/lib/modules/%{KVERREL}%{?3:+%{3}}/kernel/drivers/custom/nvidia-lts/nvidia-drm.ko*
-/lib/modules/%{KVERREL}%{?3:+%{3}}/kernel/drivers/custom/nvidia-lts/nvidia-modeset.ko*
-/lib/modules/%{KVERREL}%{?3:+%{3}}/kernel/drivers/custom/nvidia-lts/nvidia-peermem.ko*
-/lib/modules/%{KVERREL}%{?3:+%{3}}/kernel/drivers/custom/nvidia-lts/nvidia-uvm.ko*
-/lib/modules/%{KVERREL}%{?3:+%{3}}/kernel/drivers/custom/nvidia-lts/nvidia.ko*
-
 %endif # with_nvidia
 
 %if %{with_debug_meta}
@@ -5103,8 +5071,8 @@ fi\
 #
 #
 %changelog
-* Tue Sep 22 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.2.7-an02]
-- arm64: dts: qcom: add Galaxy Book4 Edge NP750XQB (Antheas Kapenekakis)
+* Tue Sep 22 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.2.7-an01]
+- redhat: package local DTB HWID mappings (Antheas Kapenekakis)
 - update config local for rp6 (Antheas Kapenekakis)
 - input: misc: Add Qualcomm SPMI PMIC haptics driver (Fenglin Wu)
 - dt-bindings: input: Add Qualcomm SPMI PMIC haptics (Fenglin Wu)
