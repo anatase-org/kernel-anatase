@@ -195,13 +195,13 @@ Summary: The Linux kernel
 %define specrpmversion 7.2.7
 %define specversion 7.2.7
 %define patchversion 7.2
-%define pkgrelease an01
+%define pkgrelease an02
 %define kversion 7
 %define tarfile_release 7.2.7
 # This is needed to do merge window version magic
 %define patchlevel 2
 # This allows pkg_release to have configurable %%{?dist} tag
-%define specrelease an01%{?buildid}%{?dist}
+%define specrelease an02%{?buildid}%{?dist}
 # This defines the kabi tarball version
 %define kabiversion 7.2.7
 
@@ -1117,7 +1117,8 @@ Source87: flavors
 Source151: uki_create_addons.py
 Source152: uki_addons.json
 
-%global anatase_hwid_sources %{nil}
+%global anatase_hwid_sources %{nil} x1p42100-samsung-galaxy-book4-edge-np750xqb.json
+Source5000: x1p42100-samsung-galaxy-book4-edge-np750xqb.json
 
 Source200: check-kabi
 
@@ -5071,7 +5072,16 @@ fi\
 #
 #
 %changelog
-* Wed Sep 23 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.2.7-an01]
+* Wed Sep 23 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.2.7-an02]
+- redhat: Add NP750XQB DTB hardware IDs (Antheas Kapenekakis)
+- arm64: dts: qcom: Add Samsung Galaxy Book4 Edge NP750XQB (Antheas Kapenekakis)
+- arm64: dts: qcom: x1e80100: Add CAMCC block definition (Bryan O'Donoghue)
+- media: qcom: camss: Add X1P42100 support (Antheas Kapenekakis)
+- dt-bindings: media: qcom: Add X1P42100 CAMSS (Antheas Kapenekakis)
+- dt-bindings: arm: qcom: Add Samsung Galaxy Book4 Edge NP750XQB (Antheas Kapenekakis)
+- firmware: qcom: scm: Allow QSEECOM on the Samsung Galaxy Book4 Edge (Maxim Storetvedt)
+- Bluetooth: hci_qca: Drop unused event during BT on (Cheng Jiang)
+- arm64: dts: qcom: purwa: Override Iris clocks and operating points (Wangao Wang)
 - redhat: package local DTB HWID mappings (Antheas Kapenekakis)
 - update config local for rp6 (Antheas Kapenekakis)
 - input: misc: Add Qualcomm SPMI PMIC haptics driver (Fenglin Wu)
