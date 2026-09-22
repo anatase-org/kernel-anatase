@@ -2742,8 +2742,8 @@ BuildKernel() {
 
     # Remove the separately packaged nvidia drivers from modules.dep so they are
     # not included in the kernel module packages by filtermods.
-    cat $RPM_BUILD_ROOT/lib/modules/$KernelVer/modules.dep | \
-      grep -v "kernel/drivers/custom/nvidia/" | \
+    grep -v "kernel/drivers/custom/nvidia/" \
+      $RPM_BUILD_ROOT/lib/modules/$KernelVer/modules.dep \
       > $RPM_BUILD_ROOT/lib/modules/$KernelVer/modules.dep.tmp
     mv $RPM_BUILD_ROOT/lib/modules/$KernelVer/modules.dep.tmp \
       $RPM_BUILD_ROOT/lib/modules/$KernelVer/modules.dep
@@ -5071,7 +5071,7 @@ fi\
 #
 #
 %changelog
-* Tue Sep 22 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.2.7-an01]
+* Wed Sep 23 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.2.7-an01]
 - redhat: package local DTB HWID mappings (Antheas Kapenekakis)
 - update config local for rp6 (Antheas Kapenekakis)
 - input: misc: Add Qualcomm SPMI PMIC haptics driver (Fenglin Wu)
