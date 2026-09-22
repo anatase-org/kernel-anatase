@@ -195,13 +195,13 @@ Summary: The Linux kernel
 %define specrpmversion 7.2.7
 %define specversion 7.2.7
 %define patchversion 7.2
-%define pkgrelease an01
+%define pkgrelease an02
 %define kversion 7
 %define tarfile_release 7.2.7
 # This is needed to do merge window version magic
 %define patchlevel 2
 # This allows pkg_release to have configurable %%{?dist} tag
-%define specrelease an01%{?buildid}%{?dist}
+%define specrelease an02%{?buildid}%{?dist}
 # This defines the kabi tarball version
 %define kabiversion 7.2.7
 
@@ -1118,6 +1118,9 @@ Source87: flavors
 
 Source151: uki_create_addons.py
 Source152: uki_addons.json
+
+%global anatase_hwid_sources x1p42100-samsung-galaxy-book4-edge-np750xqb.json
+Source5000: x1p42100-samsung-galaxy-book4-edge-np750xqb.json
 
 Source200: check-kabi
 
@@ -3196,6 +3199,12 @@ BuildKernel() {
 	    DevicetreeAuto="$DevicetreeAuto --devicetree-auto=$DtbPath/$i"
 	done
 
+	HwidPath=$(mktemp -d)
+	cp -a /usr/share/stubble/hwids/. "$HwidPath/"
+	for i in %{anatase_hwid_sources}; do
+	    cp "$RPM_SOURCE_DIR/$i" "$HwidPath/"
+	done
+
 	# os-release is unset, so that this is not seen as a full UKI by
 	# "kernel-install add" and instead is treated as a normal kernel image,
 	# causing kernel-install to generate an initrd + standard BLS cfg.
@@ -3203,7 +3212,8 @@ BuildKernel() {
 	# initramfs.
 	ukify build --linux=$(realpath $KernelImage) \
 	   --sbat=@dtbloader.sbat --os-release="" --uname=$KernelVer \
-	   --hwids=/usr/share/stubble/hwids $DevicetreeAuto --output=$DtbloaderImage
+	   --hwids="$HwidPath" $DevicetreeAuto --output=$DtbloaderImage
+	rm -rf "$HwidPath"
 
 %if %{signkernel}
 	%{log_msg "Sign the DTB-loader kernel"}
@@ -5093,7 +5103,8 @@ fi\
 #
 #
 %changelog
-* Tue Sep 22 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.2.7-an01]
+* Tue Sep 22 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.2.7-an02]
+- arm64: dts: qcom: add Galaxy Book4 Edge NP750XQB (Antheas Kapenekakis)
 - update config local for rp6 (Antheas Kapenekakis)
 - input: misc: Add Qualcomm SPMI PMIC haptics driver (Fenglin Wu)
 - dt-bindings: input: Add Qualcomm SPMI PMIC haptics (Fenglin Wu)
