@@ -195,13 +195,13 @@ Summary: The Linux kernel
 %define specrpmversion 7.2.7
 %define specversion 7.2.7
 %define patchversion 7.2
-%define pkgrelease an03
+%define pkgrelease an04
 %define kversion 7
 %define tarfile_release 7.2.7
 # This is needed to do merge window version magic
 %define patchlevel 2
 # This allows pkg_release to have configurable %%{?dist} tag
-%define specrelease an03%{?buildid}%{?dist}
+%define specrelease an04%{?buildid}%{?dist}
 # This defines the kabi tarball version
 %define kabiversion 7.2.7
 
@@ -5072,7 +5072,15 @@ fi\
 #
 #
 %changelog
-* Wed Sep 23 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.2.7-an03]
+* Thu Sep 24 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.2.7-an04]
+- redhat: enable Galaxy Book4 Edge EC battery module (Antheas Kapenekakis)
+- power: supply: add Galaxy Book4 Edge EC battery driver (Antheas Kapenekakis)
+- arm64: dts: qcom: add Galaxy Book4 Edge display audio links (Antheas Kapenekakis)
+- HID: add multi-input quirk for Galaxy Book4 Edge keyboard (Antheas Kapenekakis)
+- arm64: dts: qcom: correct NP750XQB touchpad address (Antheas Kapenekakis)
+- arm64: dts: qcom: add Galaxy Book4 Edge PWM backlight (Antheas Kapenekakis)
+- ufs: core: skip unsupported timestamp on Kioxia THGJFJT2T85BAT0A (Antheas Kapenekakis)
+- arm64: dts: qcom: move NP750XQB PCIe GPIOs to root port (Antheas Kapenekakis)
 - cleanup config for rp6 (Antheas Kapenekakis)
 - redhat: Add NP750XQB DTB hardware IDs (Antheas Kapenekakis)
 - arm64: dts: qcom: Add Samsung Galaxy Book4 Edge NP750XQB (Antheas Kapenekakis)
