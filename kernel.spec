@@ -195,13 +195,13 @@ Summary: The Linux kernel
 %define specrpmversion 7.2.7
 %define specversion 7.2.7
 %define patchversion 7.2
-%define pkgrelease an02
+%define pkgrelease an03
 %define kversion 7
 %define tarfile_release 7.2.7
 # This is needed to do merge window version magic
 %define patchlevel 2
 # This allows pkg_release to have configurable %%{?dist} tag
-%define specrelease an02%{?buildid}%{?dist}
+%define specrelease an03%{?buildid}%{?dist}
 # This defines the kabi tarball version
 %define kabiversion 7.2.7
 
@@ -5072,7 +5072,8 @@ fi\
 #
 #
 %changelog
-* Wed Sep 23 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.2.7-an02]
+* Wed Sep 23 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.2.7-an03]
+- cleanup config for rp6 (Antheas Kapenekakis)
 - redhat: Add NP750XQB DTB hardware IDs (Antheas Kapenekakis)
 - arm64: dts: qcom: Add Samsung Galaxy Book4 Edge NP750XQB (Antheas Kapenekakis)
 - arm64: dts: qcom: x1e80100: Add CAMCC block definition (Bryan O'Donoghue)
