@@ -195,13 +195,13 @@ Summary: The Linux kernel
 %define specrpmversion 7.2.7
 %define specversion 7.2.7
 %define patchversion 7.2
-%define pkgrelease an05
+%define pkgrelease an06
 %define kversion 7
 %define tarfile_release 7.2.7
 # This is needed to do merge window version magic
 %define patchlevel 2
 # This allows pkg_release to have configurable %%{?dist} tag
-%define specrelease an05%{?buildid}%{?dist}
+%define specrelease an06%{?buildid}%{?dist}
 # This defines the kabi tarball version
 %define kabiversion 7.2.7
 
@@ -5074,7 +5074,7 @@ fi\
 #
 #
 %changelog
-* Sat Sep 26 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.2.7-an05]
+* Sat Sep 26 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.2.7-an06]
 - power: supply: ene-kb9058: Drop board-specific battery identity (Antheas Kapenekakis)
 - arm64: dts: qcom: Drop unused PMIC GLINK on NP750XQB (Antheas Kapenekakis)
 - arm64: dts: qcom: Wire NP750XQB KB9058 interrupt (Antheas Kapenekakis)
@@ -5304,7 +5304,6 @@ fi\
 - mmc: core: add safe_trim_quirk attribute (Andres Rodriguez)
 - [HACK] Add 2s delay before enabling DP link for dock (Swapnil Patel)
 - [NOT-FOR-UPSTREAM] ASoC: nau8821: Reset 8821 clock on start (Ethan Geller)
-- [NOT-FOR-UPSTREAM] ASoC: amd: acp: Use correct DAI link ID for BT codec (Cristian Ciocaltea)
 - [FOR-UPSTREAM] Bluetooth: btrtl: add suspend handling to ignore BT_DIS (Robert Beckett)
 - [FROM-QUECTEL] Bluetooth: hci_sync: Fix BLE devices turning wakeup on/off (Cristian Ciocaltea)
 - [FROM-QUECTEL] Bluetooth: Fixed an issue where the Steam Deck could not into sleep because it continued advertizing after the Steam Controller was disconnected. (Rolando Roca)
