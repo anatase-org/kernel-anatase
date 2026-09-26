@@ -51161,3 +51161,6146 @@ index 000000000000..f473ec09dec6
 -- 
 2.55.0
 
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Fri, 25 Sep 2026 11:46:46 +0200
+Subject: hwmon: Add Zotac ZONE EC fan driver
+
+---
+ MAINTAINERS                   |   6 +
+ drivers/hwmon/Kconfig         |  10 ++
+ drivers/hwmon/Makefile        |   1 +
+ drivers/hwmon/zotac-zone-ec.c | 279 ++++++++++++++++++++++++++++++++++
+ 4 files changed, 296 insertions(+)
+ create mode 100644 drivers/hwmon/zotac-zone-ec.c
+
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 10010819f1ef..98a096d36373 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -29796,6 +29796,12 @@ T:	git git://git.kernel.org/pub/scm/linux/kernel/git/dlemoal/zonefs.git
+ F:	Documentation/filesystems/zonefs.rst
+ F:	fs/zonefs/
+ 
++ZOTAC ZONE EC HWMON DRIVER
++M:	Antheas Kapenekakis <lkml@antheas.dev>
++L:	linux-hwmon@vger.kernel.org
++S:	Maintained
++F:	drivers/hwmon/zotac-zone-ec.c
++
+ ZR36067 VIDEO FOR LINUX DRIVER
+ M:	Corentin Labbe <clabbe@baylibre.com>
+ L:	mjpeg-users@lists.sourceforge.net
+diff --git a/drivers/hwmon/Kconfig b/drivers/hwmon/Kconfig
+index fb566c0b1196..e70cbcb0c5f0 100644
+--- a/drivers/hwmon/Kconfig
++++ b/drivers/hwmon/Kconfig
+@@ -2733,6 +2733,16 @@ config SENSORS_YOGAFAN
+ 	  This driver can also be built as a module. If so, the module
+ 	  will be called yogafan.
+ 
++config SENSORS_ZOTAC_ZONE_EC
++	tristate "Zotac ZONE fan monitoring and control"
++	depends on X86 && DMI && HAS_IOPORT
++	help
++	  Enables fan speed, temperature, and automatic or manual fan control
++	  through the embedded controller on Zotac ZONE handhelds.
++
++	  This driver can also be built as a module. If so, the module
++	  will be called zotac-zone-ec.
++
+ config SENSORS_INTEL_M10_BMC_HWMON
+ 	tristate "Intel MAX10 BMC Hardware Monitoring"
+ 	depends on MFD_INTEL_M10_BMC_CORE
+diff --git a/drivers/hwmon/Makefile b/drivers/hwmon/Makefile
+index e65cdbbc9a40..fd14358d60ce 100644
+--- a/drivers/hwmon/Makefile
++++ b/drivers/hwmon/Makefile
+@@ -251,6 +251,7 @@ obj-$(CONFIG_SENSORS_WM831X)	+= wm831x-hwmon.o
+ obj-$(CONFIG_SENSORS_WM8350)	+= wm8350-hwmon.o
+ obj-$(CONFIG_SENSORS_XGENE)	+= xgene-hwmon.o
+ obj-$(CONFIG_SENSORS_YOGAFAN)	+= yogafan.o
++obj-$(CONFIG_SENSORS_ZOTAC_ZONE_EC) += zotac-zone-ec.o
+ 
+ obj-$(CONFIG_SENSORS_OCC)	+= occ/
+ obj-$(CONFIG_SENSORS_PECI)	+= peci/
+diff --git a/drivers/hwmon/zotac-zone-ec.c b/drivers/hwmon/zotac-zone-ec.c
+new file mode 100644
+index 000000000000..3d53c36013d1
+--- /dev/null
++++ b/drivers/hwmon/zotac-zone-ec.c
+@@ -0,0 +1,279 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * Zotac ZONE fan control and monitoring
++ *
++ * This driver references the addresses and reverse engineering of Luke D.
++ * Jones as part of his work for an OOT Zotac Zone platform driver. This
++ * is a re-implementation that ports only the hwmon EC functionality using
++ * a standard auto/manual control to align with other hwmon handheld
++ * drivers such as oxp-ec, ayaneo-ec and gpd-fan (the original driver
++ * implemented a novel kernel managed curve).
++ *
++ * Copyright (C) 2026 Antheas Kapenekakis <lkml@antheas.dev>
++ */
++
++#include <linux/cleanup.h>
++#include <linux/dmi.h>
++#include <linux/err.h>
++#include <linux/hwmon.h>
++#include <linux/init.h>
++#include <linux/io.h>
++#include <linux/ioport.h>
++#include <linux/module.h>
++#include <linux/mutex.h>
++#include <linux/platform_device.h>
++#include <linux/slab.h>
++
++#define ZOTAC_EC_CMD_PORT		0x4e
++#define ZOTAC_EC_DATA_PORT		0x4f
++
++#define ZOTAC_EC_FAN_MODE		0x44a
++#define ZOTAC_EC_FAN_PWM		0x44b
++#define ZOTAC_EC_TEMP			0x462
++#define ZOTAC_EC_FAN_RPM_HIGH		0x476
++#define ZOTAC_EC_FAN_RPM_LOW		0x477
++
++#define ZOTAC_EC_MODE_AUTO		0
++#define ZOTAC_EC_MODE_MANUAL		1
++
++struct zotac_zone_data {
++	struct mutex lock;
++};
++
++/* The caller holds data->lock across the complete EC transaction. */
++static void zotac_zone_select(u16 addr)
++{
++	outb(0x2e, ZOTAC_EC_CMD_PORT);
++	outb(0x11, ZOTAC_EC_DATA_PORT);
++	outb(0x2f, ZOTAC_EC_CMD_PORT);
++	outb(addr >> 8, ZOTAC_EC_DATA_PORT);
++
++	outb(0x2e, ZOTAC_EC_CMD_PORT);
++	outb(0x10, ZOTAC_EC_DATA_PORT);
++	outb(0x2f, ZOTAC_EC_CMD_PORT);
++	outb(addr, ZOTAC_EC_DATA_PORT);
++
++	outb(0x2e, ZOTAC_EC_CMD_PORT);
++	outb(0x12, ZOTAC_EC_DATA_PORT);
++	outb(0x2f, ZOTAC_EC_CMD_PORT);
++}
++
++static u8 zotac_zone_read(u16 addr)
++{
++	zotac_zone_select(addr);
++	return inb(ZOTAC_EC_DATA_PORT);
++}
++
++static void zotac_zone_write(u16 addr, u8 value)
++{
++	zotac_zone_select(addr);
++	outb(value, ZOTAC_EC_DATA_PORT);
++}
++
++static umode_t zotac_zone_is_visible(const void *drvdata,
++				     enum hwmon_sensor_types type, u32 attr,
++				     int channel)
++{
++	if (channel)
++		return 0;
++
++	switch (type) {
++	case hwmon_fan:
++		return attr == hwmon_fan_input ? 0444 : 0;
++	case hwmon_temp:
++		return attr == hwmon_temp_input ? 0444 : 0;
++	case hwmon_pwm:
++		return attr == hwmon_pwm_input || attr == hwmon_pwm_enable ?
++			0644 : 0;
++	default:
++		return 0;
++	}
++}
++
++static int zotac_zone_hwmon_read(struct device *dev,
++				 enum hwmon_sensor_types type, u32 attr,
++				 int channel, long *val)
++{
++	struct zotac_zone_data *data = dev_get_drvdata(dev);
++	u8 mode;
++	int ret = 0;
++
++	if (channel)
++		return -EOPNOTSUPP;
++
++	guard(mutex)(&data->lock);
++	switch (type) {
++	case hwmon_fan:
++		if (attr == hwmon_fan_input) {
++			*val = zotac_zone_read(ZOTAC_EC_FAN_RPM_HIGH) << 8;
++			*val |= zotac_zone_read(ZOTAC_EC_FAN_RPM_LOW);
++		} else {
++			ret = -EOPNOTSUPP;
++		}
++		break;
++	case hwmon_temp:
++		if (attr == hwmon_temp_input)
++			*val = zotac_zone_read(ZOTAC_EC_TEMP) * 1000;
++		else
++			ret = -EOPNOTSUPP;
++		break;
++	case hwmon_pwm:
++		switch (attr) {
++		case hwmon_pwm_input:
++			*val = zotac_zone_read(ZOTAC_EC_FAN_PWM);
++			break;
++		case hwmon_pwm_enable:
++			mode = zotac_zone_read(ZOTAC_EC_FAN_MODE);
++			if (mode == ZOTAC_EC_MODE_AUTO)
++				*val = 2;
++			else if (mode == ZOTAC_EC_MODE_MANUAL)
++				*val = 1;
++			else
++				ret = -EIO;
++			break;
++		default:
++			ret = -EOPNOTSUPP;
++		}
++		break;
++	default:
++		ret = -EOPNOTSUPP;
++	}
++	return ret;
++}
++
++static int zotac_zone_hwmon_write(struct device *dev,
++				  enum hwmon_sensor_types type, u32 attr,
++				  int channel, long val)
++{
++	struct zotac_zone_data *data = dev_get_drvdata(dev);
++	u16 reg;
++	u8 value;
++
++	if (type != hwmon_pwm || channel)
++		return -EOPNOTSUPP;
++
++	switch (attr) {
++	case hwmon_pwm_input:
++		if (val < 0 || val > 255)
++			return -EINVAL;
++		reg = ZOTAC_EC_FAN_PWM;
++		value = val;
++		break;
++	case hwmon_pwm_enable:
++		if (val != 1 && val != 2)
++			return -EINVAL;
++		reg = ZOTAC_EC_FAN_MODE;
++		value = val == 1 ? ZOTAC_EC_MODE_MANUAL : ZOTAC_EC_MODE_AUTO;
++		break;
++	default:
++		return -EOPNOTSUPP;
++	}
++
++	guard(mutex)(&data->lock);
++	zotac_zone_write(reg, value);
++
++	return 0;
++}
++
++static const struct hwmon_ops zotac_zone_hwmon_ops = {
++	.is_visible = zotac_zone_is_visible,
++	.read = zotac_zone_hwmon_read,
++	.write = zotac_zone_hwmon_write,
++};
++
++static const struct hwmon_channel_info * const zotac_zone_hwmon_channels[] = {
++	HWMON_CHANNEL_INFO(fan, HWMON_F_INPUT),
++	HWMON_CHANNEL_INFO(temp, HWMON_T_INPUT),
++	HWMON_CHANNEL_INFO(pwm, HWMON_PWM_INPUT | HWMON_PWM_ENABLE),
++	NULL,
++};
++
++static const struct hwmon_chip_info zotac_zone_hwmon_chip_info = {
++	.ops = &zotac_zone_hwmon_ops,
++	.info = zotac_zone_hwmon_channels,
++};
++
++static int zotac_zone_probe(struct platform_device *pdev)
++{
++	struct zotac_zone_data *data;
++	struct device *hwmon_dev;
++	int ret;
++
++	if (!devm_request_region(&pdev->dev, ZOTAC_EC_CMD_PORT, 2,
++				 "zotac-zone-ec"))
++		return -EBUSY;
++
++	data = devm_kzalloc(&pdev->dev, sizeof(*data), GFP_KERNEL);
++	if (!data)
++		return -ENOMEM;
++
++	ret = devm_mutex_init(&pdev->dev, &data->lock);
++	if (ret)
++		return ret;
++
++	platform_set_drvdata(pdev, data);
++	hwmon_dev = devm_hwmon_device_register_with_info(&pdev->dev,
++						   "zotac_zone_ec", data,
++						   &zotac_zone_hwmon_chip_info,
++						   NULL);
++	return PTR_ERR_OR_ZERO(hwmon_dev);
++}
++
++static void zotac_zone_remove(struct platform_device *pdev)
++{
++	struct zotac_zone_data *data = platform_get_drvdata(pdev);
++
++	guard(mutex)(&data->lock);
++	zotac_zone_write(ZOTAC_EC_FAN_MODE, ZOTAC_EC_MODE_AUTO);
++}
++
++static struct platform_driver zotac_zone_driver = {
++	.driver = {
++		.name = "zotac-zone-ec",
++	},
++	.probe = zotac_zone_probe,
++	.remove = zotac_zone_remove,
++};
++
++static const struct dmi_system_id zotac_zone_dmi_table[] = {
++	{
++		.matches = {
++			DMI_MATCH(DMI_SYS_VENDOR, "ZOTAC"),
++			DMI_MATCH(DMI_BOARD_NAME, "G0A1W"),
++		},
++	},
++	{
++		.matches = {
++			DMI_MATCH(DMI_SYS_VENDOR, "ZOTAC"),
++			DMI_MATCH(DMI_PRODUCT_NAME, "ZOTAC GAMING ZONE"),
++		},
++	},
++	{ }
++};
++MODULE_DEVICE_TABLE(dmi, zotac_zone_dmi_table);
++
++static struct platform_device *zotac_zone_device;
++
++static int __init zotac_zone_init(void)
++{
++	if (!dmi_check_system(zotac_zone_dmi_table))
++		return -ENODEV;
++
++	zotac_zone_device = platform_create_bundle(&zotac_zone_driver,
++					     zotac_zone_probe, NULL, 0, NULL, 0);
++
++	return PTR_ERR_OR_ZERO(zotac_zone_device);
++}
++
++static void __exit zotac_zone_exit(void)
++{
++	platform_device_unregister(zotac_zone_device);
++	platform_driver_unregister(&zotac_zone_driver);
++}
++
++module_init(zotac_zone_init);
++module_exit(zotac_zone_exit);
++
++MODULE_AUTHOR("Antheas Kapenekakis <lkml@antheas.dev>");
++MODULE_DESCRIPTION("Zotac ZONE fan hwmon driver");
++MODULE_LICENSE("GPL");
+-- 
+2.55.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Fri, 25 Sep 2026 20:11:02 +0200
+Subject: sync: reboot first
+
+---
+ sync-arm.sh | 25 ++++++++++++-------------
+ 1 file changed, 12 insertions(+), 13 deletions(-)
+
+diff --git a/sync-arm.sh b/sync-arm.sh
+index 8eee80a42e4f..c1a810d573cf 100755
+--- a/sync-arm.sh
++++ b/sync-arm.sh
+@@ -115,6 +115,18 @@ if command -v ccache >/dev/null; then
+     MAKE_ARGS+=("CC=ccache ${CROSS_COMPILE}gcc" "HOSTCC=ccache gcc" "HOSTCXX=ccache g++")
+ fi
+ 
++# Prepare the bootc overlay before building, so the device can reboot while
++# the local kernel build runs.
++ssh "$HOST" /bin/bash -s <<'REMOTE_OVERLAY'
++set -euo pipefail
++sudo -n true
++if ! sudo -n touch /usr/tst; then
++    sudo -n rpm-ostree usroverlay --hotfix
++    echo 'Applied the hotfix overlay; rebooting while the kernel builds.' >&2
++    sudo -n systemctl reboot --no-block
++fi
++REMOTE_OVERLAY
++
+ mkdir -p "$ROOT/.sync-arm"
+ if ! cmp -s "$ROOT/.config-arm" "$ROOT/.sync-arm/.input-config" || \
+    ! grep -qx 'CONFIG_ARM64=y' "$ROOT/.config" 2>/dev/null; then
+@@ -170,19 +182,6 @@ SBAT_FILE=$STAGE_DIR/dtbloader.sbat
+ sed -e "s/@KVER/$KNAME/g" -e 's/@SBAT_SUFFIX/rhel/g' \
+     "$ROOT/redhat/dtbloader.sbat.template" > "$SBAT_FILE"
+ 
+-# Prepare the bootc overlay only after the local build has succeeded. A first
+-# run may need to reboot into the overlay; rerun the script afterwards.
+-ssh "$HOST" /bin/bash -s <<'REMOTE_OVERLAY'
+-set -euo pipefail
+-sudo -n true
+-if ! sudo -n touch /usr/tst; then
+-    sudo -n rpm-ostree usroverlay --hotfix
+-    echo 'Applied the hotfix overlay; rebooting. Rerun sync-arm.sh afterwards.' >&2
+-    sudo -n systemctl reboot --no-block
+-    exit 1
+-fi
+-REMOTE_OVERLAY
+-
+ rsync -rv --delete --rsync-path='sudo -n rsync' \
+     "$STAGE_DIR/lib/modules/$KNAME/" "$HOST:/lib/modules/$KNAME/"
+ 
+-- 
+2.55.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Fri, 25 Sep 2026 20:26:49 +0200
+Subject: hid-asus: propagate fan events to userspace
+
+---
+ drivers/hid/hid-asus.c | 16 ----------------
+ 1 file changed, 16 deletions(-)
+
+diff --git a/drivers/hid/hid-asus.c b/drivers/hid/hid-asus.c
+index 1380a88c0e0b..2616d775a4a4 100644
+--- a/drivers/hid/hid-asus.c
++++ b/drivers/hid/hid-asus.c
+@@ -509,22 +509,6 @@ static int asus_raw_event(struct hid_device *hdev,
+ 		return -1;
+ 	if (drvdata->quirks & QUIRK_ROG_NKEY_KEYBOARD) {
+ 		if (report->id == FEATURE_KBD_REPORT_ID) {
+-			/*
+-			 * Fn+F5 fan control key - try to send WMI event to toggle fan mode.
+-			 * If successful, block the event from reaching userspace.
+-			 * If asus-wmi is unavailable or the call fails, let the event
+-			 * pass to userspace so it can implement its own fan control.
+-			 */
+-			if (data[1] == ASUS_FAN_CTRL_KEY_CODE) {
+-				ret = asus_kbd_wmi_fan_send(drvdata, data, size);
+-
+-				/* if execution deferred successfully block event */
+-				if (ret == 0)
+-					return -1;
+-
+-				return ret;
+-			}
+-
+ 			/*
+ 			 * ASUS ROG laptops send these codes during normal operation
+ 			 * with no discernable reason. Filter them out to avoid
+-- 
+2.55.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Fri, 25 Sep 2026 20:44:14 +0200
+Subject: sync: disable tpm luks empty file for now
+
+---
+ sync-arm.sh | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/sync-arm.sh b/sync-arm.sh
+index c1a810d573cf..a59145c418f6 100755
+--- a/sync-arm.sh
++++ b/sync-arm.sh
+@@ -207,6 +207,8 @@ awk '/^options[[:space:]]+/ { sub(/^options[[:space:]]+/, ""); cmdline=$0 }
+ REMOTE_CMDLINE
+ ) || die "failed to read the remote ostree kernel command line"
+ [[ -n $CMDLINE ]] || die "remote ostree kernel command line is empty"
++# For our hacky luks unlock until TPM works
++CMDLINE+=" rd.luks.crypttab=0"
+ echo "Using cmdline: $CMDLINE"
+ 
+ UKIFY_ARGS=(build --efi-arch=aa64 "--stub=$EFI_STUB" \
+-- 
+2.55.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Fri, 25 Sep 2026 23:11:36 +0200
+Subject: fixup sync more
+
+---
+ sync-arm.sh | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/sync-arm.sh b/sync-arm.sh
+index a59145c418f6..d3fa945a68c4 100755
+--- a/sync-arm.sh
++++ b/sync-arm.sh
+@@ -191,7 +191,9 @@ set -euo pipefail
+ kernel_release=$1
+ initrd=$2
+ sudo -n depmod -a "$kernel_release"
+-sudo -n /usr/bin/dracut --hostonly --kver "$kernel_release" --xz -v \
++sudo -n /usr/bin/dracut --hostonly --hostonly-mode strict \
++    --kver "$kernel_release" --xz -v \
++    --force-drivers 'scmi-cpufreq leds-qcom-lpg pwm_bl' \
+     --add ostree -f "$initrd" --omit='plymouth dmsquash-live'
+ sudo -n chmod 644 "$initrd"
+ REMOTE_DRACUT
+@@ -207,8 +209,6 @@ awk '/^options[[:space:]]+/ { sub(/^options[[:space:]]+/, ""); cmdline=$0 }
+ REMOTE_CMDLINE
+ ) || die "failed to read the remote ostree kernel command line"
+ [[ -n $CMDLINE ]] || die "remote ostree kernel command line is empty"
+-# For our hacky luks unlock until TPM works
+-CMDLINE+=" rd.luks.crypttab=0"
+ echo "Using cmdline: $CMDLINE"
+ 
+ UKIFY_ARGS=(build --efi-arch=aa64 "--stub=$EFI_STUB" \
+-- 
+2.55.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Fri, 25 Sep 2026 23:42:03 +0200
+Subject: wifi: auth12k: gate RCU modifications on unload
+
+While testing a Qualcomm laptop with missing WiFi firmware, unloading
+the driver caused it to oops, bringing down the system. This is caused
+by the early failure leaving dangling pointers. Therefore, check for
+non-null before assigning the pointers and removing them, fixing the
+crash.
+
+Assisted-by: Codex:sol-6
+Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
+---
+ drivers/net/wireless/ath/ath12k/dp.c | 9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/wireless/ath/ath12k/dp.c b/drivers/net/wireless/ath/ath12k/dp.c
+index af5f11fc1d84..2c30b8664d7d 100644
+--- a/drivers/net/wireless/ath/ath12k/dp.c
++++ b/drivers/net/wireless/ath/ath12k/dp.c
+@@ -842,13 +842,16 @@ void ath12k_dp_pdev_free(struct ath12k_base *ab)
+ 
+ 	for (i = 0; i < ab->num_radios; i++) {
+ 		ar = ab->pdevs[i].ar;
+-		rcu_assign_pointer(dp->dp_pdevs[ar->pdev_idx], NULL);
++		if (ar)
++			rcu_assign_pointer(dp->dp_pdevs[ar->pdev_idx], NULL);
+ 	}
+ 
+ 	synchronize_rcu();
+ 
+-	for (i = 0; i < ab->num_radios; i++)
+-		ath12k_dp_rx_pdev_free(ab, i);
++	for (i = 0; i < ab->num_radios; i++) {
++		if (ab->pdevs[i].ar)
++			ath12k_dp_rx_pdev_free(ab, i);
++	}
+ }
+ 
+ void ath12k_dp_pdev_pre_alloc(struct ath12k *ar)
+-- 
+2.55.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Sat, 26 Sep 2026 11:06:48 +0200
+Subject: drop random replacement of config
+
+---
+ sync-arm.sh | 5 -----
+ 1 file changed, 5 deletions(-)
+
+diff --git a/sync-arm.sh b/sync-arm.sh
+index d3fa945a68c4..9b420f6eca33 100755
+--- a/sync-arm.sh
++++ b/sync-arm.sh
+@@ -128,11 +128,6 @@ fi
+ REMOTE_OVERLAY
+ 
+ mkdir -p "$ROOT/.sync-arm"
+-if ! cmp -s "$ROOT/.config-arm" "$ROOT/.sync-arm/.input-config" || \
+-   ! grep -qx 'CONFIG_ARM64=y' "$ROOT/.config" 2>/dev/null; then
+-    cp "$ROOT/.config-arm" "$ROOT/.config"
+-    cp "$ROOT/.config-arm" "$ROOT/.sync-arm/.input-config"
+-fi
+ 
+ # Give a stock config a distinct module directory without modifying the input.
+ if grep -qx 'CONFIG_LOCALVERSION=""' "$ROOT/.config"; then
+-- 
+2.55.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Sat, 26 Sep 2026 11:57:06 +0200
+Subject: usb: typec: add Samsung S2MM006 power path driver
+
+Monitor the observed S2MM006 attach signatures and request the consumer or provider power path as appropriate. Expose controller status through debugfs when available, and document the device-tree compatible and maintainer.
+---
+ .../bindings/usb/samsung,s2mm006.yaml         |  42 +++
+ MAINTAINERS                                   |   7 +
+ drivers/usb/typec/Kconfig                     |  12 +
+ drivers/usb/typec/Makefile                    |   1 +
+ drivers/usb/typec/s2mm006.c                   | 248 ++++++++++++++++++
+ 5 files changed, 310 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/usb/samsung,s2mm006.yaml
+ create mode 100644 drivers/usb/typec/s2mm006.c
+
+diff --git a/Documentation/devicetree/bindings/usb/samsung,s2mm006.yaml b/Documentation/devicetree/bindings/usb/samsung,s2mm006.yaml
+new file mode 100644
+index 000000000000..f44c3feaf41d
+--- /dev/null
++++ b/Documentation/devicetree/bindings/usb/samsung,s2mm006.yaml
+@@ -0,0 +1,42 @@
++# SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
++# Copyright (c) 2026 Antheas Kapenekakis <lkml@antheas.dev>
++%YAML 1.2
++---
++$id: http://devicetree.org/schemas/usb/samsung,s2mm006.yaml#
++$schema: http://devicetree.org/meta-schemas/core.yaml#
++
++title: Samsung S2MM006 USB Type-C controller
++
++maintainers:
++  - Antheas Kapenekakis <lkml@antheas.dev>
++
++description: |
++  The S2MM006 controls the USB Type-C power path on the Samsung Galaxy Book4
++  Edge NP750XQB. The firmware exposes the connector and its USB data links
++  separately through Qualcomm PMIC GLINK.
++
++properties:
++  compatible:
++    const: samsung,s2mm006
++
++  reg:
++    maxItems: 1
++
++required:
++  - compatible
++  - reg
++
++additionalProperties: false
++
++examples:
++  - |
++    i2c {
++        #address-cells = <1>;
++        #size-cells = <0>;
++
++        pdic@33 {
++            compatible = "samsung,s2mm006";
++            reg = <0x33>;
++        };
++    };
++...
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 98a096d36373..322a65e50989 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -24083,6 +24083,13 @@ F:	drivers/rtc/rtc-s5m.c
+ F:	include/dt-bindings/regulator/samsung,s2m*.h
+ F:	include/linux/mfd/samsung/
+ 
++SAMSUNG S2MM006 TYPE-C CONTROLLER
++M:	Antheas Kapenekakis <lkml@antheas.dev>
++L:	linux-usb@vger.kernel.org
++S:	Maintained
++F:	Documentation/devicetree/bindings/usb/samsung,s2mm006.yaml
++F:	drivers/usb/typec/s2mm006.c
++
+ SAMSUNG S3C24XX/S3C64XX SOC SERIES CAMIF DRIVER
+ M:	Sylwester Nawrocki <sylvester.nawrocki@gmail.com>
+ L:	linux-media@vger.kernel.org
+diff --git a/drivers/usb/typec/Kconfig b/drivers/usb/typec/Kconfig
+index 2f80c2792dbd..f94eed0844fb 100644
+--- a/drivers/usb/typec/Kconfig
++++ b/drivers/usb/typec/Kconfig
+@@ -88,6 +88,18 @@ config TYPEC_HD3SS3220
+ 	  If you choose to build this driver as a dynamically linked module, the
+ 	  module will be called hd3ss3220.ko.
+ 
++config TYPEC_S2MM006
++	tristate "Samsung S2MM006 Type-C controller"
++	depends on I2C && OF
++	help
++	  Support the Samsung S2MM006 USB Type-C controllers in the Galaxy Book4
++	  Edge NP750XQB. The driver enables the consumer power path for charging
++	  and the provider path for USB host devices after an attach. It exposes
++	  raw status in debugfs when available. It does not yet select a USB Power
++	  Delivery contract or control USB data roles.
++
++	  If built as a module, the module is called s2mm006.
++
+ config TYPEC_STUSB160X
+ 	tristate "STMicroelectronics STUSB160x Type-C controller driver"
+ 	depends on USB_ROLE_SWITCH || !USB_ROLE_SWITCH
+diff --git a/drivers/usb/typec/Makefile b/drivers/usb/typec/Makefile
+index 8a6a1c663eb6..3e16c357d744 100644
+--- a/drivers/usb/typec/Makefile
++++ b/drivers/usb/typec/Makefile
+@@ -8,6 +8,7 @@ obj-$(CONFIG_TYPEC_UCSI)	+= ucsi/
+ obj-$(CONFIG_TYPEC_TPS6598X)	+= tipd/
+ obj-$(CONFIG_TYPEC_ANX7411)	+= anx7411.o
+ obj-$(CONFIG_TYPEC_HD3SS3220)	+= hd3ss3220.o
++obj-$(CONFIG_TYPEC_S2MM006)	+= s2mm006.o
+ obj-$(CONFIG_TYPEC_STUSB160X) 	+= stusb160x.o
+ obj-$(CONFIG_TYPEC_RT1719)	+= rt1719.o
+ obj-$(CONFIG_TYPEC_WUSB3801)	+= wusb3801.o
+diff --git a/drivers/usb/typec/s2mm006.c b/drivers/usb/typec/s2mm006.c
+new file mode 100644
+index 000000000000..aad3fb12098b
+--- /dev/null
++++ b/drivers/usb/typec/s2mm006.c
+@@ -0,0 +1,248 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * Copyright (c) 2026 Antheas Kapenekakis <lkml@antheas.dev>
++ *
++ * Samsung S2MM006 USB Type-C controller on the Galaxy Book4 Edge NP750XQB.
++ *
++ * The Windows EMEC driver addresses registers as two big-endian bytes and
++ * reads the range below when handling port status. The consumer switch must
++ * be requested again after a live charger attach, even if the command
++ * register still contains the previous request. A USB host also needs the
++ * provider switch requested after a data-device attach. Power-delivery
++ * contract selection and USB data roles are not handled here yet.
++ */
++
++#include <linux/bitops.h>
++#include <linux/debugfs.h>
++#include <linux/errno.h>
++#include <linux/i2c.h>
++#include <linux/jiffies.h>
++#include <linux/module.h>
++#include <linux/of.h>
++#include <linux/seq_file.h>
++#include <linux/slab.h>
++#include <linux/workqueue.h>
++
++#define S2MM006_STATUS_FIRST	0x0e
++#define S2MM006_STATUS_LAST	0x1c
++#define S2MM006_REG_BC_STATUS	0x0e
++#define S2MM006_REG_ATTACH	0x11
++#define S2MM006_REG_VBUS	0x14
++#define S2MM006_REG_SWITCH_STATUS	0x1c
++#define S2MM006_REG_SWITCH_COMMAND	0x4e
++#define S2MM006_CONSUMER_COMMAND	0x12
++#define S2MM006_PROVIDER_COMMAND	0x09
++#define S2MM006_MONITOR_MS		500
++
++enum s2mm006_mode {
++	S2MM006_MODE_NONE,
++	S2MM006_MODE_CONSUMER,
++	S2MM006_MODE_PROVIDER,
++};
++
++struct s2mm006 {
++	struct i2c_client *client;
++	struct dentry *debugfs;
++	struct delayed_work monitor;
++	enum s2mm006_mode attempted_mode;
++};
++
++static int s2mm006_read(struct s2mm006 *pdic, u16 reg)
++{
++	u8 address[] = { reg >> 8, reg & 0xff };
++	u8 value;
++	struct i2c_msg messages[] = {
++		{
++			.addr = pdic->client->addr,
++			.len = sizeof(address),
++			.buf = address,
++		},
++		{
++			.addr = pdic->client->addr,
++			.flags = I2C_M_RD,
++			.len = sizeof(value),
++			.buf = &value,
++		},
++	};
++	int ret;
++
++	ret = i2c_transfer(pdic->client->adapter, messages, ARRAY_SIZE(messages));
++	if (ret < 0)
++		return ret;
++	if (ret != ARRAY_SIZE(messages))
++		return -EIO;
++
++	return value;
++}
++
++static int s2mm006_write(struct s2mm006 *pdic, u16 reg, u8 value)
++{
++	u8 data[] = { reg >> 8, reg & 0xff, value };
++	int ret;
++
++	ret = i2c_master_send(pdic->client, data, sizeof(data));
++	if (ret < 0)
++		return ret;
++	if (ret != sizeof(data))
++		return -EIO;
++
++	return 0;
++}
++
++static void s2mm006_monitor(struct work_struct *work)
++{
++	struct s2mm006 *pdic = container_of(to_delayed_work(work),
++					    struct s2mm006, monitor);
++	struct device *dev = &pdic->client->dev;
++	enum s2mm006_mode mode;
++	u8 command, status_bit;
++	int bc, attach, vbus, sw, ret;
++
++	bc = s2mm006_read(pdic, S2MM006_REG_BC_STATUS);
++	if (bc < 0)
++		goto reschedule;
++
++	if (!bc) {
++		pdic->attempted_mode = S2MM006_MODE_NONE;
++		goto reschedule;
++	}
++
++	attach = s2mm006_read(pdic, S2MM006_REG_ATTACH);
++	vbus = s2mm006_read(pdic, S2MM006_REG_VBUS);
++	sw = s2mm006_read(pdic, S2MM006_REG_SWITCH_STATUS);
++	if (attach < 0 || vbus < 0 || sw < 0)
++		goto reschedule;
++
++	/* Windows EMEC treats bit 0 of BC_STATUS as VBUS detected. */
++	if ((bc & BIT(0)) && attach == 0x1b && vbus == 0x01 &&
++	    !(sw & BIT(0))) {
++		mode = S2MM006_MODE_CONSUMER;
++		command = S2MM006_CONSUMER_COMMAND;
++		status_bit = BIT(1);
++	} else if (!(bc & BIT(0)) && (bc & BIT(4)) &&
++		   attach == 0x2e && vbus == 0x1c && !(sw & BIT(1))) {
++		/* This signature was observed with a USB-C data device. */
++		mode = S2MM006_MODE_PROVIDER;
++		command = S2MM006_PROVIDER_COMMAND;
++		status_bit = BIT(0);
++	} else {
++		goto reschedule;
++	}
++
++	if (pdic->attempted_mode != mode)
++		pdic->attempted_mode = S2MM006_MODE_NONE;
++	if (sw & status_bit) {
++		pdic->attempted_mode = mode;
++		goto reschedule;
++	}
++	if (pdic->attempted_mode == mode)
++		goto reschedule;
++
++	ret = s2mm006_write(pdic, S2MM006_REG_SWITCH_COMMAND, command);
++	if (ret) {
++		dev_warn_ratelimited(dev, "failed to enable %s path: %d\n",
++				     mode == S2MM006_MODE_CONSUMER ? "consumer" : "provider",
++				     ret);
++	} else {
++		pdic->attempted_mode = mode;
++		dev_info(dev, "requested %s path after attach\n",
++			 mode == S2MM006_MODE_CONSUMER ? "consumer" : "provider");
++	}
++
++reschedule:
++	schedule_delayed_work(&pdic->monitor,
++			      msecs_to_jiffies(S2MM006_MONITOR_MS));
++}
++
++static int s2mm006_status_show(struct seq_file *seq, void *unused)
++{
++	struct device *dev = seq->private;
++	struct s2mm006 *pdic = dev_get_drvdata(dev);
++	int reg, value;
++
++	for (reg = S2MM006_STATUS_FIRST; reg <= S2MM006_STATUS_LAST; reg++) {
++		value = s2mm006_read(pdic, reg);
++		if (value < 0)
++			seq_printf(seq, "%02x: error %d\n", reg, value);
++		else
++			seq_printf(seq, "%02x: %02x\n", reg, value);
++	}
++
++	return 0;
++}
++
++static void s2mm006_debugfs_remove(void *data)
++{
++	debugfs_remove_recursive(data);
++}
++
++static int s2mm006_probe(struct i2c_client *client)
++{
++	struct device *dev = &client->dev;
++	struct s2mm006 *pdic;
++	char *name;
++	int status;
++	int ret;
++
++	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C))
++		return dev_err_probe(dev, -EOPNOTSUPP,
++				     "adapter lacks combined I2C transfers\n");
++
++	pdic = devm_kzalloc(dev, sizeof(*pdic), GFP_KERNEL);
++	if (!pdic)
++		return -ENOMEM;
++
++	pdic->client = client;
++	i2c_set_clientdata(client, pdic);
++	INIT_DELAYED_WORK(&pdic->monitor, s2mm006_monitor);
++
++	status = s2mm006_read(pdic, S2MM006_STATUS_LAST);
++	if (status < 0)
++		return dev_err_probe(dev, status, "unable to read PDIC status\n");
++
++	name = devm_kasprintf(dev, GFP_KERNEL, "s2mm006-%s", dev_name(dev));
++	if (!name)
++		return -ENOMEM;
++
++	pdic->debugfs = debugfs_create_dir(name, NULL);
++	if (!IS_ERR_OR_NULL(pdic->debugfs)) {
++		ret = devm_add_action_or_reset(dev, s2mm006_debugfs_remove,
++					       pdic->debugfs);
++		if (ret)
++			return ret;
++
++		debugfs_create_devm_seqfile(dev, "status", pdic->debugfs,
++					    s2mm006_status_show);
++	}
++	dev_info(dev, "S2MM006 power-path monitor bound; switch status: 0x%02x\n",
++		 status);
++	schedule_delayed_work(&pdic->monitor, 0);
++
++	return 0;
++}
++
++static void s2mm006_remove(struct i2c_client *client)
++{
++	struct s2mm006 *pdic = i2c_get_clientdata(client);
++
++	cancel_delayed_work_sync(&pdic->monitor);
++}
++
++static const struct of_device_id s2mm006_of_match[] = {
++	{ .compatible = "samsung,s2mm006" },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, s2mm006_of_match);
++
++static struct i2c_driver s2mm006_driver = {
++	.driver = {
++		.name = "s2mm006",
++		.of_match_table = s2mm006_of_match,
++	},
++	.probe = s2mm006_probe,
++	.remove = s2mm006_remove,
++};
++module_i2c_driver(s2mm006_driver);
++
++MODULE_DESCRIPTION("Samsung S2MM006 USB Type-C power-path monitor");
++MODULE_LICENSE("GPL");
+-- 
+2.55.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Sat, 26 Sep 2026 11:57:19 +0200
+Subject: arm64: dts: qcom: enable Book4 Edge USB-C controllers
+
+Describe the two S2MM006 controllers and enable the I2C bus carrying the ISL9238-family charger and SBS battery.
+---
+ ...100-samsung-galaxy-book4-edge-np750xqb.dts | 27 +++++++++++++++++++
+ 1 file changed, 27 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/qcom/x1p42100-samsung-galaxy-book4-edge-np750xqb.dts b/arch/arm64/boot/dts/qcom/x1p42100-samsung-galaxy-book4-edge-np750xqb.dts
+index 5a02f90ee1f5..af54bf079849 100644
+--- a/arch/arm64/boot/dts/qcom/x1p42100-samsung-galaxy-book4-edge-np750xqb.dts
++++ b/arch/arm64/boot/dts/qcom/x1p42100-samsung-galaxy-book4-edge-np750xqb.dts
+@@ -1023,6 +1023,27 @@ eusb5_repeater: redriver@4f {
+ 	};
+ };
+ 
++/* The two S2MM006 USB-C controllers are at 0x33 on these buses. */
++&i2c9 {
++	clock-frequency = <400000>;
++	status = "okay";
++
++	pdic@33 {
++		compatible = "samsung,s2mm006";
++		reg = <0x33>;
++	};
++};
++
++&i2c15 {
++	clock-frequency = <400000>;
++	status = "okay";
++
++	pdic@33 {
++		compatible = "samsung,s2mm006";
++		reg = <0x33>;
++	};
++};
++
+ &i2c18 {
+ 	clock-frequency = <400000>;
+ 
+@@ -1043,6 +1064,12 @@ eusb6_repeater: redriver@4f {
+ 	};
+ };
+ 
++/* The ISL9238-family charger and SBS battery use 0x09 and 0x0b on this bus. */
++&i2c20 {
++	clock-frequency = <100000>;
++	status = "okay";
++};
++
+ &i2c13 {
+ 	clock-frequency = <400000>;
+ 
+-- 
+2.55.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Sat, 26 Sep 2026 12:27:39 +0200
+Subject: usb: typec: s2mm006: handle power paths from interrupts
+
+Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
+---
+ .../bindings/usb/samsung,s2mm006.yaml         |   8 ++
+ drivers/usb/typec/s2mm006.c                   | 131 +++++++++---------
+ 2 files changed, 70 insertions(+), 69 deletions(-)
+
+diff --git a/Documentation/devicetree/bindings/usb/samsung,s2mm006.yaml b/Documentation/devicetree/bindings/usb/samsung,s2mm006.yaml
+index f44c3feaf41d..9175f033c27b 100644
+--- a/Documentation/devicetree/bindings/usb/samsung,s2mm006.yaml
++++ b/Documentation/devicetree/bindings/usb/samsung,s2mm006.yaml
+@@ -22,14 +22,20 @@ properties:
+   reg:
+     maxItems: 1
+ 
++  interrupts:
++    maxItems: 1
++
+ required:
+   - compatible
+   - reg
++  - interrupts
+ 
+ additionalProperties: false
+ 
+ examples:
+   - |
++    #include <dt-bindings/interrupt-controller/irq.h>
++
+     i2c {
+         #address-cells = <1>;
+         #size-cells = <0>;
+@@ -37,6 +43,8 @@ examples:
+         pdic@33 {
+             compatible = "samsung,s2mm006";
+             reg = <0x33>;
++            interrupt-parent = <&gpio0>;
++            interrupts = <42 IRQ_TYPE_LEVEL_LOW>;
+         };
+     };
+ ...
+diff --git a/drivers/usb/typec/s2mm006.c b/drivers/usb/typec/s2mm006.c
+index aad3fb12098b..62a4c6866d8e 100644
+--- a/drivers/usb/typec/s2mm006.c
++++ b/drivers/usb/typec/s2mm006.c
+@@ -13,18 +13,15 @@
+  */
+ 
+ #include <linux/bitops.h>
+-#include <linux/debugfs.h>
+ #include <linux/errno.h>
+ #include <linux/i2c.h>
+-#include <linux/jiffies.h>
++#include <linux/interrupt.h>
+ #include <linux/module.h>
+ #include <linux/of.h>
+-#include <linux/seq_file.h>
+ #include <linux/slab.h>
+-#include <linux/workqueue.h>
+ 
+-#define S2MM006_STATUS_FIRST	0x0e
+-#define S2MM006_STATUS_LAST	0x1c
++#define S2MM006_IRQ_FIRST	0x02
++#define S2MM006_IRQ_LAST	0x07
+ #define S2MM006_REG_BC_STATUS	0x0e
+ #define S2MM006_REG_ATTACH	0x11
+ #define S2MM006_REG_VBUS	0x14
+@@ -32,7 +29,6 @@
+ #define S2MM006_REG_SWITCH_COMMAND	0x4e
+ #define S2MM006_CONSUMER_COMMAND	0x12
+ #define S2MM006_PROVIDER_COMMAND	0x09
+-#define S2MM006_MONITOR_MS		500
+ 
+ enum s2mm006_mode {
+ 	S2MM006_MODE_NONE,
+@@ -42,8 +38,6 @@ enum s2mm006_mode {
+ 
+ struct s2mm006 {
+ 	struct i2c_client *client;
+-	struct dentry *debugfs;
+-	struct delayed_work monitor;
+ 	enum s2mm006_mode attempted_mode;
+ };
+ 
+@@ -89,10 +83,31 @@ static int s2mm006_write(struct s2mm006 *pdic, u16 reg, u8 value)
+ 	return 0;
+ }
+ 
+-static void s2mm006_monitor(struct work_struct *work)
++static int s2mm006_clear_irqs(struct s2mm006 *pdic)
++{
++	u8 pending[S2MM006_IRQ_LAST - S2MM006_IRQ_FIRST + 1];
++	int reg, ret;
++
++	for (reg = S2MM006_IRQ_FIRST; reg <= S2MM006_IRQ_LAST; reg++) {
++		ret = s2mm006_read(pdic, reg);
++		if (ret < 0)
++			return ret;
++		pending[reg - S2MM006_IRQ_FIRST] = ret;
++	}
++
++	/* The firmware driver acknowledges by writing each value back. */
++	for (reg = S2MM006_IRQ_FIRST; reg <= S2MM006_IRQ_LAST; reg++) {
++		ret = s2mm006_write(pdic, reg,
++				    pending[reg - S2MM006_IRQ_FIRST]);
++		if (ret)
++			return ret;
++	}
++
++	return 0;
++}
++
++static void s2mm006_check_status(struct s2mm006 *pdic)
+ {
+-	struct s2mm006 *pdic = container_of(to_delayed_work(work),
+-					    struct s2mm006, monitor);
+ 	struct device *dev = &pdic->client->dev;
+ 	enum s2mm006_mode mode;
+ 	u8 command, status_bit;
+@@ -100,18 +115,18 @@ static void s2mm006_monitor(struct work_struct *work)
+ 
+ 	bc = s2mm006_read(pdic, S2MM006_REG_BC_STATUS);
+ 	if (bc < 0)
+-		goto reschedule;
++		return;
+ 
+ 	if (!bc) {
+ 		pdic->attempted_mode = S2MM006_MODE_NONE;
+-		goto reschedule;
++		return;
+ 	}
+ 
+ 	attach = s2mm006_read(pdic, S2MM006_REG_ATTACH);
+ 	vbus = s2mm006_read(pdic, S2MM006_REG_VBUS);
+ 	sw = s2mm006_read(pdic, S2MM006_REG_SWITCH_STATUS);
+ 	if (attach < 0 || vbus < 0 || sw < 0)
+-		goto reschedule;
++		return;
+ 
+ 	/* Windows EMEC treats bit 0 of BC_STATUS as VBUS detected. */
+ 	if ((bc & BIT(0)) && attach == 0x1b && vbus == 0x01 &&
+@@ -126,61 +141,48 @@ static void s2mm006_monitor(struct work_struct *work)
+ 		command = S2MM006_PROVIDER_COMMAND;
+ 		status_bit = BIT(0);
+ 	} else {
+-		goto reschedule;
++		return;
+ 	}
+ 
+ 	if (pdic->attempted_mode != mode)
+ 		pdic->attempted_mode = S2MM006_MODE_NONE;
+ 	if (sw & status_bit) {
+ 		pdic->attempted_mode = mode;
+-		goto reschedule;
++		return;
+ 	}
+ 	if (pdic->attempted_mode == mode)
+-		goto reschedule;
++		return;
+ 
+ 	ret = s2mm006_write(pdic, S2MM006_REG_SWITCH_COMMAND, command);
+ 	if (ret) {
+-		dev_warn_ratelimited(dev, "failed to enable %s path: %d\n",
+-				     mode == S2MM006_MODE_CONSUMER ? "consumer" : "provider",
+-				     ret);
++		dev_warn(dev, "failed to enable %s path: %d\n",
++			 mode == S2MM006_MODE_CONSUMER ? "consumer" : "provider",
++			 ret);
+ 	} else {
+ 		pdic->attempted_mode = mode;
+ 		dev_info(dev, "requested %s path after attach\n",
+ 			 mode == S2MM006_MODE_CONSUMER ? "consumer" : "provider");
+ 	}
+-
+-reschedule:
+-	schedule_delayed_work(&pdic->monitor,
+-			      msecs_to_jiffies(S2MM006_MONITOR_MS));
+ }
+ 
+-static int s2mm006_status_show(struct seq_file *seq, void *unused)
++static irqreturn_t s2mm006_irq_thread(int irq, void *data)
+ {
+-	struct device *dev = seq->private;
+-	struct s2mm006 *pdic = dev_get_drvdata(dev);
+-	int reg, value;
+-
+-	for (reg = S2MM006_STATUS_FIRST; reg <= S2MM006_STATUS_LAST; reg++) {
+-		value = s2mm006_read(pdic, reg);
+-		if (value < 0)
+-			seq_printf(seq, "%02x: error %d\n", reg, value);
+-		else
+-			seq_printf(seq, "%02x: %02x\n", reg, value);
+-	}
++	struct s2mm006 *pdic = data;
++	int ret;
+ 
+-	return 0;
+-}
++	ret = s2mm006_clear_irqs(pdic);
++	s2mm006_check_status(pdic);
++	if (ret)
++		dev_warn_ratelimited(&pdic->client->dev,
++				     "failed to clear interrupt: %d\n", ret);
+ 
+-static void s2mm006_debugfs_remove(void *data)
+-{
+-	debugfs_remove_recursive(data);
++	return IRQ_HANDLED;
+ }
+ 
+ static int s2mm006_probe(struct i2c_client *client)
+ {
+ 	struct device *dev = &client->dev;
+ 	struct s2mm006 *pdic;
+-	char *name;
+ 	int status;
+ 	int ret;
+ 
+@@ -193,39 +195,31 @@ static int s2mm006_probe(struct i2c_client *client)
+ 		return -ENOMEM;
+ 
+ 	pdic->client = client;
+-	i2c_set_clientdata(client, pdic);
+-	INIT_DELAYED_WORK(&pdic->monitor, s2mm006_monitor);
+ 
+-	status = s2mm006_read(pdic, S2MM006_STATUS_LAST);
++	status = s2mm006_read(pdic, S2MM006_REG_SWITCH_STATUS);
+ 	if (status < 0)
+ 		return dev_err_probe(dev, status, "unable to read PDIC status\n");
+ 
+-	name = devm_kasprintf(dev, GFP_KERNEL, "s2mm006-%s", dev_name(dev));
+-	if (!name)
+-		return -ENOMEM;
++	if (client->irq <= 0)
++		return dev_err_probe(dev, -EINVAL, "missing interrupt\n");
+ 
+-	pdic->debugfs = debugfs_create_dir(name, NULL);
+-	if (!IS_ERR_OR_NULL(pdic->debugfs)) {
+-		ret = devm_add_action_or_reset(dev, s2mm006_debugfs_remove,
+-					       pdic->debugfs);
+-		if (ret)
+-			return ret;
++	ret = s2mm006_clear_irqs(pdic);
++	if (ret)
++		return dev_err_probe(dev, ret, "unable to clear pending interrupts\n");
+ 
+-		debugfs_create_devm_seqfile(dev, "status", pdic->debugfs,
+-					    s2mm006_status_show);
+-	}
+-	dev_info(dev, "S2MM006 power-path monitor bound; switch status: 0x%02x\n",
+-		 status);
+-	schedule_delayed_work(&pdic->monitor, 0);
++	/* A later event holds the level-low line until the IRQ is requested. */
++	s2mm006_check_status(pdic);
+ 
+-	return 0;
+-}
++	ret = devm_request_threaded_irq(dev, client->irq, NULL,
++					s2mm006_irq_thread, IRQF_ONESHOT,
++					dev_name(dev), pdic);
++	if (ret)
++		return dev_err_probe(dev, ret, "unable to request interrupt\n");
+ 
+-static void s2mm006_remove(struct i2c_client *client)
+-{
+-	struct s2mm006 *pdic = i2c_get_clientdata(client);
++	dev_info(dev, "S2MM006 controller ready; switch status: 0x%02x\n",
++		 status);
+ 
+-	cancel_delayed_work_sync(&pdic->monitor);
++	return 0;
+ }
+ 
+ static const struct of_device_id s2mm006_of_match[] = {
+@@ -240,9 +234,8 @@ static struct i2c_driver s2mm006_driver = {
+ 		.of_match_table = s2mm006_of_match,
+ 	},
+ 	.probe = s2mm006_probe,
+-	.remove = s2mm006_remove,
+ };
+ module_i2c_driver(s2mm006_driver);
+ 
+-MODULE_DESCRIPTION("Samsung S2MM006 USB Type-C power-path monitor");
++MODULE_DESCRIPTION("Samsung S2MM006 USB Type-C power-path driver");
+ MODULE_LICENSE("GPL");
+-- 
+2.55.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Sat, 26 Sep 2026 12:27:45 +0200
+Subject: arm64: dts: qcom: wire Book4 Edge PDIC interrupts
+
+Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
+---
+ .../dts/qcom/x1p42100-samsung-galaxy-book4-edge-np750xqb.dts    | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/qcom/x1p42100-samsung-galaxy-book4-edge-np750xqb.dts b/arch/arm64/boot/dts/qcom/x1p42100-samsung-galaxy-book4-edge-np750xqb.dts
+index af54bf079849..e855408773ce 100644
+--- a/arch/arm64/boot/dts/qcom/x1p42100-samsung-galaxy-book4-edge-np750xqb.dts
++++ b/arch/arm64/boot/dts/qcom/x1p42100-samsung-galaxy-book4-edge-np750xqb.dts
+@@ -1031,6 +1031,7 @@ &i2c9 {
+ 	pdic@33 {
+ 		compatible = "samsung,s2mm006";
+ 		reg = <0x33>;
++		interrupts-extended = <&tlmm 38 IRQ_TYPE_LEVEL_LOW>;
+ 	};
+ };
+ 
+@@ -1041,6 +1042,7 @@ &i2c15 {
+ 	pdic@33 {
+ 		compatible = "samsung,s2mm006";
+ 		reg = <0x33>;
++		interrupts-extended = <&tlmm 93 IRQ_TYPE_LEVEL_LOW>;
+ 	};
+ };
+ 
+-- 
+2.55.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Sat, 26 Sep 2026 13:16:56 +0200
+Subject: usb: typec: rename S2MM006 driver to samsung-emuec
+
+Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
+---
+ MAINTAINERS                       |   4 +-
+ drivers/usb/typec/Kconfig         |  16 +-
+ drivers/usb/typec/Makefile        |   2 +-
+ drivers/usb/typec/s2mm006.c       | 241 ------------------------------
+ drivers/usb/typec/samsung-emuec.c | 241 ++++++++++++++++++++++++++++++
+ 5 files changed, 252 insertions(+), 252 deletions(-)
+ delete mode 100644 drivers/usb/typec/s2mm006.c
+ create mode 100644 drivers/usb/typec/samsung-emuec.c
+
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 322a65e50989..e09f0e044c29 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -24083,12 +24083,12 @@ F:	drivers/rtc/rtc-s5m.c
+ F:	include/dt-bindings/regulator/samsung,s2m*.h
+ F:	include/linux/mfd/samsung/
+ 
+-SAMSUNG S2MM006 TYPE-C CONTROLLER
++SAMSUNG EMUEC TYPE-C POWER-PATH DRIVER
+ M:	Antheas Kapenekakis <lkml@antheas.dev>
+ L:	linux-usb@vger.kernel.org
+ S:	Maintained
+ F:	Documentation/devicetree/bindings/usb/samsung,s2mm006.yaml
+-F:	drivers/usb/typec/s2mm006.c
++F:	drivers/usb/typec/samsung-emuec.c
+ 
+ SAMSUNG S3C24XX/S3C64XX SOC SERIES CAMIF DRIVER
+ M:	Sylwester Nawrocki <sylvester.nawrocki@gmail.com>
+diff --git a/drivers/usb/typec/Kconfig b/drivers/usb/typec/Kconfig
+index f94eed0844fb..7bc84e9f011e 100644
+--- a/drivers/usb/typec/Kconfig
++++ b/drivers/usb/typec/Kconfig
+@@ -88,17 +88,17 @@ config TYPEC_HD3SS3220
+ 	  If you choose to build this driver as a dynamically linked module, the
+ 	  module will be called hd3ss3220.ko.
+ 
+-config TYPEC_S2MM006
+-	tristate "Samsung S2MM006 Type-C controller"
++config TYPEC_SAMSUNG_EMUEC
++	tristate "Samsung EmuEC Type-C power path"
+ 	depends on I2C && OF
+ 	help
+-	  Support the Samsung S2MM006 USB Type-C controllers in the Galaxy Book4
+-	  Edge NP750XQB. The driver enables the consumer power path for charging
+-	  and the provider path for USB host devices after an attach. It exposes
+-	  raw status in debugfs when available. It does not yet select a USB Power
+-	  Delivery contract or control USB data roles.
++	  Support the S2MM006 USB Type-C controllers managed by Samsung's EmuEC
++	  software on the Galaxy Book4 Edge NP750XQB. The driver enables the
++	  consumer power path for charging and the provider path for USB host
++	  devices after an attach. It does not yet select a USB Power Delivery
++	  contract or control USB data roles.
+ 
+-	  If built as a module, the module is called s2mm006.
++	  If built as a module, the module is called samsung-emuec.
+ 
+ config TYPEC_STUSB160X
+ 	tristate "STMicroelectronics STUSB160x Type-C controller driver"
+diff --git a/drivers/usb/typec/Makefile b/drivers/usb/typec/Makefile
+index 3e16c357d744..4b79345b7825 100644
+--- a/drivers/usb/typec/Makefile
++++ b/drivers/usb/typec/Makefile
+@@ -8,7 +8,7 @@ obj-$(CONFIG_TYPEC_UCSI)	+= ucsi/
+ obj-$(CONFIG_TYPEC_TPS6598X)	+= tipd/
+ obj-$(CONFIG_TYPEC_ANX7411)	+= anx7411.o
+ obj-$(CONFIG_TYPEC_HD3SS3220)	+= hd3ss3220.o
+-obj-$(CONFIG_TYPEC_S2MM006)	+= s2mm006.o
++obj-$(CONFIG_TYPEC_SAMSUNG_EMUEC)	+= samsung-emuec.o
+ obj-$(CONFIG_TYPEC_STUSB160X) 	+= stusb160x.o
+ obj-$(CONFIG_TYPEC_RT1719)	+= rt1719.o
+ obj-$(CONFIG_TYPEC_WUSB3801)	+= wusb3801.o
+diff --git a/drivers/usb/typec/s2mm006.c b/drivers/usb/typec/s2mm006.c
+deleted file mode 100644
+index 62a4c6866d8e..000000000000
+--- a/drivers/usb/typec/s2mm006.c
++++ /dev/null
+@@ -1,241 +0,0 @@
+-// SPDX-License-Identifier: GPL-2.0-only
+-/*
+- * Copyright (c) 2026 Antheas Kapenekakis <lkml@antheas.dev>
+- *
+- * Samsung S2MM006 USB Type-C controller on the Galaxy Book4 Edge NP750XQB.
+- *
+- * The Windows EMEC driver addresses registers as two big-endian bytes and
+- * reads the range below when handling port status. The consumer switch must
+- * be requested again after a live charger attach, even if the command
+- * register still contains the previous request. A USB host also needs the
+- * provider switch requested after a data-device attach. Power-delivery
+- * contract selection and USB data roles are not handled here yet.
+- */
+-
+-#include <linux/bitops.h>
+-#include <linux/errno.h>
+-#include <linux/i2c.h>
+-#include <linux/interrupt.h>
+-#include <linux/module.h>
+-#include <linux/of.h>
+-#include <linux/slab.h>
+-
+-#define S2MM006_IRQ_FIRST	0x02
+-#define S2MM006_IRQ_LAST	0x07
+-#define S2MM006_REG_BC_STATUS	0x0e
+-#define S2MM006_REG_ATTACH	0x11
+-#define S2MM006_REG_VBUS	0x14
+-#define S2MM006_REG_SWITCH_STATUS	0x1c
+-#define S2MM006_REG_SWITCH_COMMAND	0x4e
+-#define S2MM006_CONSUMER_COMMAND	0x12
+-#define S2MM006_PROVIDER_COMMAND	0x09
+-
+-enum s2mm006_mode {
+-	S2MM006_MODE_NONE,
+-	S2MM006_MODE_CONSUMER,
+-	S2MM006_MODE_PROVIDER,
+-};
+-
+-struct s2mm006 {
+-	struct i2c_client *client;
+-	enum s2mm006_mode attempted_mode;
+-};
+-
+-static int s2mm006_read(struct s2mm006 *pdic, u16 reg)
+-{
+-	u8 address[] = { reg >> 8, reg & 0xff };
+-	u8 value;
+-	struct i2c_msg messages[] = {
+-		{
+-			.addr = pdic->client->addr,
+-			.len = sizeof(address),
+-			.buf = address,
+-		},
+-		{
+-			.addr = pdic->client->addr,
+-			.flags = I2C_M_RD,
+-			.len = sizeof(value),
+-			.buf = &value,
+-		},
+-	};
+-	int ret;
+-
+-	ret = i2c_transfer(pdic->client->adapter, messages, ARRAY_SIZE(messages));
+-	if (ret < 0)
+-		return ret;
+-	if (ret != ARRAY_SIZE(messages))
+-		return -EIO;
+-
+-	return value;
+-}
+-
+-static int s2mm006_write(struct s2mm006 *pdic, u16 reg, u8 value)
+-{
+-	u8 data[] = { reg >> 8, reg & 0xff, value };
+-	int ret;
+-
+-	ret = i2c_master_send(pdic->client, data, sizeof(data));
+-	if (ret < 0)
+-		return ret;
+-	if (ret != sizeof(data))
+-		return -EIO;
+-
+-	return 0;
+-}
+-
+-static int s2mm006_clear_irqs(struct s2mm006 *pdic)
+-{
+-	u8 pending[S2MM006_IRQ_LAST - S2MM006_IRQ_FIRST + 1];
+-	int reg, ret;
+-
+-	for (reg = S2MM006_IRQ_FIRST; reg <= S2MM006_IRQ_LAST; reg++) {
+-		ret = s2mm006_read(pdic, reg);
+-		if (ret < 0)
+-			return ret;
+-		pending[reg - S2MM006_IRQ_FIRST] = ret;
+-	}
+-
+-	/* The firmware driver acknowledges by writing each value back. */
+-	for (reg = S2MM006_IRQ_FIRST; reg <= S2MM006_IRQ_LAST; reg++) {
+-		ret = s2mm006_write(pdic, reg,
+-				    pending[reg - S2MM006_IRQ_FIRST]);
+-		if (ret)
+-			return ret;
+-	}
+-
+-	return 0;
+-}
+-
+-static void s2mm006_check_status(struct s2mm006 *pdic)
+-{
+-	struct device *dev = &pdic->client->dev;
+-	enum s2mm006_mode mode;
+-	u8 command, status_bit;
+-	int bc, attach, vbus, sw, ret;
+-
+-	bc = s2mm006_read(pdic, S2MM006_REG_BC_STATUS);
+-	if (bc < 0)
+-		return;
+-
+-	if (!bc) {
+-		pdic->attempted_mode = S2MM006_MODE_NONE;
+-		return;
+-	}
+-
+-	attach = s2mm006_read(pdic, S2MM006_REG_ATTACH);
+-	vbus = s2mm006_read(pdic, S2MM006_REG_VBUS);
+-	sw = s2mm006_read(pdic, S2MM006_REG_SWITCH_STATUS);
+-	if (attach < 0 || vbus < 0 || sw < 0)
+-		return;
+-
+-	/* Windows EMEC treats bit 0 of BC_STATUS as VBUS detected. */
+-	if ((bc & BIT(0)) && attach == 0x1b && vbus == 0x01 &&
+-	    !(sw & BIT(0))) {
+-		mode = S2MM006_MODE_CONSUMER;
+-		command = S2MM006_CONSUMER_COMMAND;
+-		status_bit = BIT(1);
+-	} else if (!(bc & BIT(0)) && (bc & BIT(4)) &&
+-		   attach == 0x2e && vbus == 0x1c && !(sw & BIT(1))) {
+-		/* This signature was observed with a USB-C data device. */
+-		mode = S2MM006_MODE_PROVIDER;
+-		command = S2MM006_PROVIDER_COMMAND;
+-		status_bit = BIT(0);
+-	} else {
+-		return;
+-	}
+-
+-	if (pdic->attempted_mode != mode)
+-		pdic->attempted_mode = S2MM006_MODE_NONE;
+-	if (sw & status_bit) {
+-		pdic->attempted_mode = mode;
+-		return;
+-	}
+-	if (pdic->attempted_mode == mode)
+-		return;
+-
+-	ret = s2mm006_write(pdic, S2MM006_REG_SWITCH_COMMAND, command);
+-	if (ret) {
+-		dev_warn(dev, "failed to enable %s path: %d\n",
+-			 mode == S2MM006_MODE_CONSUMER ? "consumer" : "provider",
+-			 ret);
+-	} else {
+-		pdic->attempted_mode = mode;
+-		dev_info(dev, "requested %s path after attach\n",
+-			 mode == S2MM006_MODE_CONSUMER ? "consumer" : "provider");
+-	}
+-}
+-
+-static irqreturn_t s2mm006_irq_thread(int irq, void *data)
+-{
+-	struct s2mm006 *pdic = data;
+-	int ret;
+-
+-	ret = s2mm006_clear_irqs(pdic);
+-	s2mm006_check_status(pdic);
+-	if (ret)
+-		dev_warn_ratelimited(&pdic->client->dev,
+-				     "failed to clear interrupt: %d\n", ret);
+-
+-	return IRQ_HANDLED;
+-}
+-
+-static int s2mm006_probe(struct i2c_client *client)
+-{
+-	struct device *dev = &client->dev;
+-	struct s2mm006 *pdic;
+-	int status;
+-	int ret;
+-
+-	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C))
+-		return dev_err_probe(dev, -EOPNOTSUPP,
+-				     "adapter lacks combined I2C transfers\n");
+-
+-	pdic = devm_kzalloc(dev, sizeof(*pdic), GFP_KERNEL);
+-	if (!pdic)
+-		return -ENOMEM;
+-
+-	pdic->client = client;
+-
+-	status = s2mm006_read(pdic, S2MM006_REG_SWITCH_STATUS);
+-	if (status < 0)
+-		return dev_err_probe(dev, status, "unable to read PDIC status\n");
+-
+-	if (client->irq <= 0)
+-		return dev_err_probe(dev, -EINVAL, "missing interrupt\n");
+-
+-	ret = s2mm006_clear_irqs(pdic);
+-	if (ret)
+-		return dev_err_probe(dev, ret, "unable to clear pending interrupts\n");
+-
+-	/* A later event holds the level-low line until the IRQ is requested. */
+-	s2mm006_check_status(pdic);
+-
+-	ret = devm_request_threaded_irq(dev, client->irq, NULL,
+-					s2mm006_irq_thread, IRQF_ONESHOT,
+-					dev_name(dev), pdic);
+-	if (ret)
+-		return dev_err_probe(dev, ret, "unable to request interrupt\n");
+-
+-	dev_info(dev, "S2MM006 controller ready; switch status: 0x%02x\n",
+-		 status);
+-
+-	return 0;
+-}
+-
+-static const struct of_device_id s2mm006_of_match[] = {
+-	{ .compatible = "samsung,s2mm006" },
+-	{ }
+-};
+-MODULE_DEVICE_TABLE(of, s2mm006_of_match);
+-
+-static struct i2c_driver s2mm006_driver = {
+-	.driver = {
+-		.name = "s2mm006",
+-		.of_match_table = s2mm006_of_match,
+-	},
+-	.probe = s2mm006_probe,
+-};
+-module_i2c_driver(s2mm006_driver);
+-
+-MODULE_DESCRIPTION("Samsung S2MM006 USB Type-C power-path driver");
+-MODULE_LICENSE("GPL");
+diff --git a/drivers/usb/typec/samsung-emuec.c b/drivers/usb/typec/samsung-emuec.c
+new file mode 100644
+index 000000000000..a8857090f4f4
+--- /dev/null
++++ b/drivers/usb/typec/samsung-emuec.c
+@@ -0,0 +1,241 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * Copyright (c) 2026 Antheas Kapenekakis <lkml@antheas.dev>
++ *
++ * Samsung EmuEC USB Type-C power-path driver for S2MM006 controllers.
++ *
++ * The Windows EmuEC driver addresses registers as two big-endian bytes and
++ * reads the range below when handling port status. The consumer switch must
++ * be requested again after a live charger attach, even if the command
++ * register still contains the previous request. A USB host also needs the
++ * provider switch requested after a data-device attach. Power-delivery
++ * contract selection and USB data roles are not handled here yet.
++ */
++
++#include <linux/bitops.h>
++#include <linux/errno.h>
++#include <linux/i2c.h>
++#include <linux/interrupt.h>
++#include <linux/module.h>
++#include <linux/of.h>
++#include <linux/slab.h>
++
++#define S2MM006_IRQ_FIRST	0x02
++#define S2MM006_IRQ_LAST	0x07
++#define S2MM006_REG_BC_STATUS	0x0e
++#define S2MM006_REG_ATTACH	0x11
++#define S2MM006_REG_VBUS	0x14
++#define S2MM006_REG_SWITCH_STATUS	0x1c
++#define S2MM006_REG_SWITCH_COMMAND	0x4e
++#define S2MM006_CONSUMER_COMMAND	0x12
++#define S2MM006_PROVIDER_COMMAND	0x09
++
++enum samsung_emuec_mode {
++	SAMSUNG_EMUEC_MODE_NONE,
++	SAMSUNG_EMUEC_MODE_CONSUMER,
++	SAMSUNG_EMUEC_MODE_PROVIDER,
++};
++
++struct samsung_emuec {
++	struct i2c_client *client;
++	enum samsung_emuec_mode attempted_mode;
++};
++
++static int samsung_emuec_read(struct samsung_emuec *pdic, u16 reg)
++{
++	u8 address[] = { reg >> 8, reg & 0xff };
++	u8 value;
++	struct i2c_msg messages[] = {
++		{
++			.addr = pdic->client->addr,
++			.len = sizeof(address),
++			.buf = address,
++		},
++		{
++			.addr = pdic->client->addr,
++			.flags = I2C_M_RD,
++			.len = sizeof(value),
++			.buf = &value,
++		},
++	};
++	int ret;
++
++	ret = i2c_transfer(pdic->client->adapter, messages, ARRAY_SIZE(messages));
++	if (ret < 0)
++		return ret;
++	if (ret != ARRAY_SIZE(messages))
++		return -EIO;
++
++	return value;
++}
++
++static int samsung_emuec_write(struct samsung_emuec *pdic, u16 reg, u8 value)
++{
++	u8 data[] = { reg >> 8, reg & 0xff, value };
++	int ret;
++
++	ret = i2c_master_send(pdic->client, data, sizeof(data));
++	if (ret < 0)
++		return ret;
++	if (ret != sizeof(data))
++		return -EIO;
++
++	return 0;
++}
++
++static int samsung_emuec_clear_irqs(struct samsung_emuec *pdic)
++{
++	u8 pending[S2MM006_IRQ_LAST - S2MM006_IRQ_FIRST + 1];
++	int reg, ret;
++
++	for (reg = S2MM006_IRQ_FIRST; reg <= S2MM006_IRQ_LAST; reg++) {
++		ret = samsung_emuec_read(pdic, reg);
++		if (ret < 0)
++			return ret;
++		pending[reg - S2MM006_IRQ_FIRST] = ret;
++	}
++
++	/* The firmware driver acknowledges by writing each value back. */
++	for (reg = S2MM006_IRQ_FIRST; reg <= S2MM006_IRQ_LAST; reg++) {
++		ret = samsung_emuec_write(pdic, reg,
++				    pending[reg - S2MM006_IRQ_FIRST]);
++		if (ret)
++			return ret;
++	}
++
++	return 0;
++}
++
++static void samsung_emuec_check_status(struct samsung_emuec *pdic)
++{
++	struct device *dev = &pdic->client->dev;
++	enum samsung_emuec_mode mode;
++	u8 command, status_bit;
++	int bc, attach, vbus, sw, ret;
++
++	bc = samsung_emuec_read(pdic, S2MM006_REG_BC_STATUS);
++	if (bc < 0)
++		return;
++
++	if (!bc) {
++		pdic->attempted_mode = SAMSUNG_EMUEC_MODE_NONE;
++		return;
++	}
++
++	attach = samsung_emuec_read(pdic, S2MM006_REG_ATTACH);
++	vbus = samsung_emuec_read(pdic, S2MM006_REG_VBUS);
++	sw = samsung_emuec_read(pdic, S2MM006_REG_SWITCH_STATUS);
++	if (attach < 0 || vbus < 0 || sw < 0)
++		return;
++
++	/* Windows EmuEC treats bit 0 of BC_STATUS as VBUS detected. */
++	if ((bc & BIT(0)) && attach == 0x1b && vbus == 0x01 &&
++	    !(sw & BIT(0))) {
++		mode = SAMSUNG_EMUEC_MODE_CONSUMER;
++		command = S2MM006_CONSUMER_COMMAND;
++		status_bit = BIT(1);
++	} else if (!(bc & BIT(0)) && (bc & BIT(4)) &&
++		   attach == 0x2e && vbus == 0x1c && !(sw & BIT(1))) {
++		/* This signature was observed with a USB-C data device. */
++		mode = SAMSUNG_EMUEC_MODE_PROVIDER;
++		command = S2MM006_PROVIDER_COMMAND;
++		status_bit = BIT(0);
++	} else {
++		return;
++	}
++
++	if (pdic->attempted_mode != mode)
++		pdic->attempted_mode = SAMSUNG_EMUEC_MODE_NONE;
++	if (sw & status_bit) {
++		pdic->attempted_mode = mode;
++		return;
++	}
++	if (pdic->attempted_mode == mode)
++		return;
++
++	ret = samsung_emuec_write(pdic, S2MM006_REG_SWITCH_COMMAND, command);
++	if (ret) {
++		dev_warn(dev, "failed to enable %s path: %d\n",
++			 mode == SAMSUNG_EMUEC_MODE_CONSUMER ? "consumer" : "provider",
++			 ret);
++	} else {
++		pdic->attempted_mode = mode;
++		dev_info(dev, "requested %s path after attach\n",
++			 mode == SAMSUNG_EMUEC_MODE_CONSUMER ? "consumer" : "provider");
++	}
++}
++
++static irqreturn_t samsung_emuec_irq_thread(int irq, void *data)
++{
++	struct samsung_emuec *pdic = data;
++	int ret;
++
++	ret = samsung_emuec_clear_irqs(pdic);
++	samsung_emuec_check_status(pdic);
++	if (ret)
++		dev_warn_ratelimited(&pdic->client->dev,
++				     "failed to clear interrupt: %d\n", ret);
++
++	return IRQ_HANDLED;
++}
++
++static int samsung_emuec_probe(struct i2c_client *client)
++{
++	struct device *dev = &client->dev;
++	struct samsung_emuec *pdic;
++	int status;
++	int ret;
++
++	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C))
++		return dev_err_probe(dev, -EOPNOTSUPP,
++				     "adapter lacks combined I2C transfers\n");
++
++	pdic = devm_kzalloc(dev, sizeof(*pdic), GFP_KERNEL);
++	if (!pdic)
++		return -ENOMEM;
++
++	pdic->client = client;
++
++	status = samsung_emuec_read(pdic, S2MM006_REG_SWITCH_STATUS);
++	if (status < 0)
++		return dev_err_probe(dev, status, "unable to read PDIC status\n");
++
++	if (client->irq <= 0)
++		return dev_err_probe(dev, -EINVAL, "missing interrupt\n");
++
++	ret = samsung_emuec_clear_irqs(pdic);
++	if (ret)
++		return dev_err_probe(dev, ret, "unable to clear pending interrupts\n");
++
++	/* A later event holds the level-low line until the IRQ is requested. */
++	samsung_emuec_check_status(pdic);
++
++	ret = devm_request_threaded_irq(dev, client->irq, NULL,
++					samsung_emuec_irq_thread, IRQF_ONESHOT,
++					dev_name(dev), pdic);
++	if (ret)
++		return dev_err_probe(dev, ret, "unable to request interrupt\n");
++
++	dev_info(dev, "EmuEC Type-C port ready; switch status: 0x%02x\n",
++		 status);
++
++	return 0;
++}
++
++static const struct of_device_id samsung_emuec_of_match[] = {
++	{ .compatible = "samsung,s2mm006" },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, samsung_emuec_of_match);
++
++static struct i2c_driver samsung_emuec_driver = {
++	.driver = {
++		.name = "samsung-emuec",
++		.of_match_table = samsung_emuec_of_match,
++	},
++	.probe = samsung_emuec_probe,
++};
++module_i2c_driver(samsung_emuec_driver);
++
++MODULE_DESCRIPTION("Samsung EmuEC USB Type-C power-path driver");
++MODULE_LICENSE("GPL");
+-- 
+2.55.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Sat, 26 Sep 2026 18:05:05 +0200
+Subject: usb: typec: samsung-emuec: add USB and power negotiation
+
+---
+ .../bindings/usb/samsung,s2mm006.yaml         |  16 +-
+ drivers/usb/typec/Kconfig                     |  12 +-
+ drivers/usb/typec/samsung-emuec.c             | 698 +++++++++++++++---
+ 3 files changed, 624 insertions(+), 102 deletions(-)
+
+diff --git a/Documentation/devicetree/bindings/usb/samsung,s2mm006.yaml b/Documentation/devicetree/bindings/usb/samsung,s2mm006.yaml
+index 9175f033c27b..b0422c478b20 100644
+--- a/Documentation/devicetree/bindings/usb/samsung,s2mm006.yaml
++++ b/Documentation/devicetree/bindings/usb/samsung,s2mm006.yaml
+@@ -11,9 +11,9 @@ maintainers:
+   - Antheas Kapenekakis <lkml@antheas.dev>
+ 
+ description: |
+-  The S2MM006 controls the USB Type-C power path on the Samsung Galaxy Book4
+-  Edge NP750XQB. The firmware exposes the connector and its USB data links
+-  separately through Qualcomm PMIC GLINK.
++  The S2MM006 controls Type-C attachment, power paths and USB Power Delivery
++  on the Samsung Galaxy Book4 Edge NP750XQB. Its connector describes the USB
++  data role, orientation and mode switch connections.
+ 
+ properties:
+   compatible:
+@@ -25,10 +25,14 @@ properties:
+   interrupts:
+     maxItems: 1
+ 
++  connector:
++    $ref: /schemas/connector/usb-connector.yaml#
++
+ required:
+   - compatible
+   - reg
+   - interrupts
++  - connector
+ 
+ additionalProperties: false
+ 
+@@ -45,6 +49,12 @@ examples:
+             reg = <0x33>;
+             interrupt-parent = <&gpio0>;
+             interrupts = <42 IRQ_TYPE_LEVEL_LOW>;
++
++            connector {
++                compatible = "usb-c-connector";
++                power-role = "dual";
++                data-role = "dual";
++            };
+         };
+     };
+ ...
+diff --git a/drivers/usb/typec/Kconfig b/drivers/usb/typec/Kconfig
+index 7bc84e9f011e..95bcf26162a7 100644
+--- a/drivers/usb/typec/Kconfig
++++ b/drivers/usb/typec/Kconfig
+@@ -89,14 +89,14 @@ config TYPEC_HD3SS3220
+ 	  module will be called hd3ss3220.ko.
+ 
+ config TYPEC_SAMSUNG_EMUEC
+-	tristate "Samsung EmuEC Type-C power path"
+-	depends on I2C && OF
++	tristate "Samsung EmuEC Type-C controller"
++	depends on I2C && OF && POWER_SUPPLY && USB_ROLE_SWITCH
+ 	help
+ 	  Support the S2MM006 USB Type-C controllers managed by Samsung's EmuEC
+-	  software on the Galaxy Book4 Edge NP750XQB. The driver enables the
+-	  consumer power path for charging and the provider path for USB host
+-	  devices after an attach. It does not yet select a USB Power Delivery
+-	  contract or control USB data roles.
++	  software on the Galaxy Book4 Edge NP750XQB. The driver reports Type-C
++	  attachment and roles, controls the power and USB data paths, and selects
++	  a fixed USB Power Delivery sink contract through the controller firmware.
++	  USB4 link establishment also requires a Qualcomm host-router driver.
+ 
+ 	  If built as a module, the module is called samsung-emuec.
+ 
+diff --git a/drivers/usb/typec/samsung-emuec.c b/drivers/usb/typec/samsung-emuec.c
+index a8857090f4f4..9bf7aa3c9466 100644
+--- a/drivers/usb/typec/samsung-emuec.c
++++ b/drivers/usb/typec/samsung-emuec.c
+@@ -2,33 +2,48 @@
+ /*
+  * Copyright (c) 2026 Antheas Kapenekakis <lkml@antheas.dev>
+  *
+- * Samsung EmuEC USB Type-C power-path driver for S2MM006 controllers.
+- *
+- * The Windows EmuEC driver addresses registers as two big-endian bytes and
+- * reads the range below when handling port status. The consumer switch must
+- * be requested again after a live charger attach, even if the command
+- * register still contains the previous request. A USB host also needs the
+- * provider switch requested after a data-device attach. Power-delivery
+- * contract selection and USB data roles are not handled here yet.
++ * Samsung EmuEC Type-C controller for the S2MM006 on Galaxy Book4 Edge.
++ * The controller firmware owns the PD policy engine. Linux selects a sink
++ * contract through its mailbox and reports the resulting Type-C state.
+  */
+ 
+ #include <linux/bitops.h>
++#include <linux/cleanup.h>
++#include <linux/delay.h>
+ #include <linux/errno.h>
+ #include <linux/i2c.h>
+ #include <linux/interrupt.h>
+ #include <linux/module.h>
++#include <linux/mutex.h>
+ #include <linux/of.h>
++#include <linux/power_supply.h>
+ #include <linux/slab.h>
+-
+-#define S2MM006_IRQ_FIRST	0x02
+-#define S2MM006_IRQ_LAST	0x07
+-#define S2MM006_REG_BC_STATUS	0x0e
+-#define S2MM006_REG_ATTACH	0x11
+-#define S2MM006_REG_VBUS	0x14
++#include <linux/unaligned.h>
++#include <linux/usb/pd.h>
++#include <linux/usb/role.h>
++#include <linux/usb/typec.h>
++#include <linux/usb/typec_altmode.h>
++#include <linux/workqueue.h>
++
++#define S2MM006_IRQ_FIRST		0x02
++#define S2MM006_IRQ_LAST		0x07
++#define S2MM006_REG_BC_STATUS		0x0e
++#define S2MM006_REG_CC_STATUS		0x11
++#define S2MM006_REG_PD_STATUS2		0x14
+ #define S2MM006_REG_SWITCH_STATUS	0x1c
+ #define S2MM006_REG_SWITCH_COMMAND	0x4e
++#define S2MM006_REG_TX_STATUS		0x50
++#define S2MM006_REG_ENTER_USB_STATUS	0x56
++#define S2MM006_REG_TX_BUFFER		0x80
++#define S2MM006_REG_ACTIVE_RDO		0x6a4
++#define S2MM006_REG_SOURCE_CAPS		0x900
++
+ #define S2MM006_CONSUMER_COMMAND	0x12
+ #define S2MM006_PROVIDER_COMMAND	0x09
++#define S2MM006_TX_REQUEST		BIT(6)
++#define S2MM006_ENTER_USB_SUCCESS	(2 << 2)
++#define S2MM006_MAX_CHARGE_MW		65000
++#define S2MM006_MAX_CHARGE_MV		20000
+ 
+ enum samsung_emuec_mode {
+ 	SAMSUNG_EMUEC_MODE_NONE,
+@@ -38,25 +53,40 @@ enum samsung_emuec_mode {
+ 
+ struct samsung_emuec {
+ 	struct i2c_client *client;
++	struct mutex lock;
++	struct delayed_work work;
++	struct device_node *connector;
++	struct typec_port *port;
++	struct typec_partner *partner;
++	struct usb_power_delivery *pd;
++	struct usb_power_delivery *partner_pd;
++	struct usb_power_delivery_capabilities *source_caps;
++	struct usb_role_switch *role_sw;
++	struct power_supply *psy;
++	struct power_supply_desc psy_desc;
+ 	enum samsung_emuec_mode attempted_mode;
++	enum typec_role power_role;
++	enum typec_data_role data_role;
++	enum typec_orientation orientation;
++	enum usb_role usb_role;
++	enum usb_mode usb_mode;
++	u32 voltage_uv;
++	u32 current_ua;
++	bool attached;
++	bool usb_mux_active;
++	bool pd_attempted;
++	u8 caps_retries;
+ };
+ 
+-static int samsung_emuec_read(struct samsung_emuec *pdic, u16 reg)
++static int samsung_emuec_read(struct samsung_emuec *pdic, u16 reg,
++			      void *buf, size_t len)
+ {
+ 	u8 address[] = { reg >> 8, reg & 0xff };
+-	u8 value;
+ 	struct i2c_msg messages[] = {
+-		{
+-			.addr = pdic->client->addr,
+-			.len = sizeof(address),
+-			.buf = address,
+-		},
+-		{
+-			.addr = pdic->client->addr,
+-			.flags = I2C_M_RD,
+-			.len = sizeof(value),
+-			.buf = &value,
+-		},
++		{ .addr = pdic->client->addr, .len = sizeof(address),
++		  .buf = address },
++		{ .addr = pdic->client->addr, .flags = I2C_M_RD,
++		  .len = len, .buf = buf },
+ 	};
+ 	int ret;
+ 
+@@ -66,18 +96,26 @@ static int samsung_emuec_read(struct samsung_emuec *pdic, u16 reg)
+ 	if (ret != ARRAY_SIZE(messages))
+ 		return -EIO;
+ 
+-	return value;
++	return 0;
+ }
+ 
+-static int samsung_emuec_write(struct samsung_emuec *pdic, u16 reg, u8 value)
++static int samsung_emuec_write(struct samsung_emuec *pdic, u16 reg,
++			       const void *buf, size_t len)
+ {
+-	u8 data[] = { reg >> 8, reg & 0xff, value };
++	u8 data[2 + 8];
+ 	int ret;
+ 
+-	ret = i2c_master_send(pdic->client, data, sizeof(data));
++	if (len > sizeof(data) - 2)
++		return -EINVAL;
++
++	data[0] = reg >> 8;
++	data[1] = reg & 0xff;
++	memcpy(data + 2, buf, len);
++
++	ret = i2c_master_send(pdic->client, data, len + 2);
+ 	if (ret < 0)
+ 		return ret;
+-	if (ret != sizeof(data))
++	if (ret != len + 2)
+ 		return -EIO;
+ 
+ 	return 0;
+@@ -89,16 +127,18 @@ static int samsung_emuec_clear_irqs(struct samsung_emuec *pdic)
+ 	int reg, ret;
+ 
+ 	for (reg = S2MM006_IRQ_FIRST; reg <= S2MM006_IRQ_LAST; reg++) {
+-		ret = samsung_emuec_read(pdic, reg);
+-		if (ret < 0)
++		ret = samsung_emuec_read(pdic, reg,
++					&pending[reg - S2MM006_IRQ_FIRST],
++					sizeof(pending[0]));
++		if (ret)
+ 			return ret;
+-		pending[reg - S2MM006_IRQ_FIRST] = ret;
+ 	}
+ 
+-	/* The firmware driver acknowledges by writing each value back. */
++	/* The Windows driver acknowledges each interrupt byte by writing it back. */
+ 	for (reg = S2MM006_IRQ_FIRST; reg <= S2MM006_IRQ_LAST; reg++) {
+ 		ret = samsung_emuec_write(pdic, reg,
+-				    pending[reg - S2MM006_IRQ_FIRST]);
++				     &pending[reg - S2MM006_IRQ_FIRST],
++				     sizeof(pending[0]));
+ 		if (ret)
+ 			return ret;
+ 	}
+@@ -106,63 +146,441 @@ static int samsung_emuec_clear_irqs(struct samsung_emuec *pdic)
+ 	return 0;
+ }
+ 
+-static void samsung_emuec_check_status(struct samsung_emuec *pdic)
++static int samsung_emuec_get_property(struct power_supply *psy,
++				      enum power_supply_property prop,
++				      union power_supply_propval *val)
+ {
+-	struct device *dev = &pdic->client->dev;
+-	enum samsung_emuec_mode mode;
+-	u8 command, status_bit;
+-	int bc, attach, vbus, sw, ret;
++	struct samsung_emuec *pdic = power_supply_get_drvdata(psy);
++	int ret = 0;
++
++	guard(mutex)(&pdic->lock);
++	switch (prop) {
++	case POWER_SUPPLY_PROP_ONLINE:
++		val->intval = pdic->attached && pdic->power_role == TYPEC_SINK;
++		break;
++	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
++		val->intval = pdic->voltage_uv;
++		break;
++	case POWER_SUPPLY_PROP_CURRENT_MAX:
++		val->intval = pdic->current_ua;
++		break;
++	default:
++		ret = -EINVAL;
++	}
++
++	return ret;
++}
++
++static enum power_supply_property samsung_emuec_properties[] = {
++	POWER_SUPPLY_PROP_ONLINE,
++	POWER_SUPPLY_PROP_VOLTAGE_NOW,
++	POWER_SUPPLY_PROP_CURRENT_MAX,
++};
++
++static void samsung_emuec_unregister_partner(struct samsung_emuec *pdic)
++{
++	usb_power_delivery_unregister_capabilities(pdic->source_caps);
++	pdic->source_caps = NULL;
++
++	if (pdic->partner_pd) {
++		typec_partner_set_usb_power_delivery(pdic->partner, NULL);
++		usb_power_delivery_unregister(pdic->partner_pd);
++		pdic->partner_pd = NULL;
++	}
++
++	if (pdic->partner) {
++		typec_unregister_partner(pdic->partner);
++		pdic->partner = NULL;
++	}
++}
+ 
+-	bc = samsung_emuec_read(pdic, S2MM006_REG_BC_STATUS);
+-	if (bc < 0)
++static void samsung_emuec_detach(struct samsung_emuec *pdic)
++{
++	if (!pdic->attached && pdic->attempted_mode == SAMSUNG_EMUEC_MODE_NONE)
+ 		return;
+ 
+-	if (!bc) {
+-		pdic->attempted_mode = SAMSUNG_EMUEC_MODE_NONE;
++	if (pdic->attached) {
++		usb_role_switch_set_role(pdic->role_sw, USB_ROLE_NONE);
++		pdic->usb_role = USB_ROLE_NONE;
++		typec_set_orientation(pdic->port, TYPEC_ORIENTATION_NONE);
++		pdic->orientation = TYPEC_ORIENTATION_NONE;
++		typec_set_mode(pdic->port, TYPEC_STATE_SAFE);
++		pdic->usb_mux_active = false;
++		typec_port_set_usb_mode(pdic->port, USB_MODE_NONE);
++		typec_set_pwr_opmode(pdic->port, TYPEC_PWR_MODE_USB);
++		samsung_emuec_unregister_partner(pdic);
++	}
++
++	pdic->attached = false;
++	pdic->pd_attempted = false;
++	pdic->usb_mode = USB_MODE_NONE;
++	pdic->caps_retries = 0;
++	pdic->attempted_mode = SAMSUNG_EMUEC_MODE_NONE;
++	pdic->voltage_uv = 0;
++	pdic->current_ua = 0;
++	if (pdic->psy)
++		power_supply_changed(pdic->psy);
++}
++
++static int samsung_emuec_read_source_caps(struct samsung_emuec *pdic,
++					  u32 *pdos, int *count, u16 *revision)
++{
++	u8 buf[4 + PDO_MAX_OBJECTS * sizeof(u32)];
++	u16 header;
++	int i, ret;
++
++	ret = samsung_emuec_read(pdic, S2MM006_REG_SOURCE_CAPS,
++				buf, sizeof(buf));
++	if (ret)
++		return ret;
++	
++	header = get_unaligned_le16(buf);
++	*count = pd_header_cnt(header);
++
++	if (pd_header_type(header) != PD_DATA_SOURCE_CAP || !*count)
++		return -ENODATA;
++
++	if (pdo_type(get_unaligned_le32(buf + 4)) != PDO_TYPE_FIXED ||
++	    pdo_fixed_voltage(get_unaligned_le32(buf + 4)) != 5000)
++		return -ENODATA;
++
++	*revision = pd_header_rev(header) == PD_REV30 ? 0x0300 : 0x0200;
++	for (i = 0; i < *count; i++)
++		pdos[i] = get_unaligned_le32(buf + 4 + i * sizeof(u32));
++
++	return 0;
++}
++
++static int samsung_emuec_choose_pdo(const u32 *pdos, int count,
++				    unsigned int *mv, unsigned int *ma)
++{
++	u32 best_power = 0;
++	int best = 0, i;
++
++	for (i = 0; i < count; i++) {
++		u32 voltage, current_ma, power;
++
++		if (pdo_type(pdos[i]) != PDO_TYPE_FIXED)
++			continue;
++		voltage = pdo_fixed_voltage(pdos[i]);
++		if (!voltage || voltage > S2MM006_MAX_CHARGE_MV)
++			continue;
++		current_ma = min(pdo_max_current(pdos[i]),
++				  S2MM006_MAX_CHARGE_MW * 1000U / voltage);
++		current_ma = round_down(current_ma, 10);
++		power = voltage * current_ma / 1000;
++		if (power > best_power) {
++			best_power = power;
++			best = i + 1;
++			*mv = voltage;
++			*ma = current_ma;
++		}
++	}
++
++	return best;
++}
++
++static int samsung_emuec_active_rdo(struct samsung_emuec *pdic, u32 *rdo)
++{
++	__le32 value;
++	int ret;
++
++	ret = samsung_emuec_read(pdic, S2MM006_REG_ACTIVE_RDO,
++				&value, sizeof(value));
++	if (ret)
++		return ret;
++
++	*rdo = le32_to_cpu(value);
++	return 0;
++}
++
++static int samsung_emuec_request_pdo(struct samsung_emuec *pdic, u32 rdo)
++{
++	u8 request[8], status;
++	u32 active;
++	int ret, i;
++
++	ret = samsung_emuec_read(pdic, S2MM006_REG_TX_STATUS,
++				&status, sizeof(status));
++	if (ret)
++		return ret;
++	if (status & S2MM006_TX_REQUEST)
++		return -EBUSY;
++
++	/* The EC mailbox expects a PD Request header and a reserved halfword. */
++	put_unaligned_le16(0x1002, request);
++	put_unaligned_le16(0, request + 2);
++	put_unaligned_le32(rdo, request + 4);
++	ret = samsung_emuec_write(pdic, S2MM006_REG_TX_BUFFER,
++				 request, sizeof(request));
++	if (ret)
++		return ret;
++
++	status |= S2MM006_TX_REQUEST;
++	ret = samsung_emuec_write(pdic, S2MM006_REG_TX_STATUS,
++				  &status, sizeof(status));
++	if (ret)
++		return ret;
++
++	for (i = 0; i < 20; i++) {
++		msleep(100);
++		ret = samsung_emuec_active_rdo(pdic, &active);
++		if (ret)
++			return ret;
++		if (rdo_index(active) == rdo_index(rdo) &&
++		    rdo_op_current(active) == rdo_op_current(rdo))
++			return 0;
++	}
++
++	return -ETIMEDOUT;
++}
++
++static void samsung_emuec_update_pd(struct samsung_emuec *pdic)
++{
++	struct usb_power_delivery_capabilities_desc caps = { .role = TYPEC_SOURCE };
++	struct usb_power_delivery_desc desc;
++	u32 pdos[PDO_MAX_OBJECTS] = {}, active, requested;
++	unsigned int mv = 0, ma = 0;
++	u16 revision;
++	int count, selected, actual, ret;
++
++	ret = samsung_emuec_read_source_caps(pdic, pdos, &count, &revision);
++	if (ret) {
++		if (ret == -ENODATA && pdic->caps_retries++ < 5)
++			mod_delayed_work(system_dfl_wq, &pdic->work,
++					 msecs_to_jiffies(200));
+ 		return;
+ 	}
+ 
+-	attach = samsung_emuec_read(pdic, S2MM006_REG_ATTACH);
+-	vbus = samsung_emuec_read(pdic, S2MM006_REG_VBUS);
+-	sw = samsung_emuec_read(pdic, S2MM006_REG_SWITCH_STATUS);
+-	if (attach < 0 || vbus < 0 || sw < 0)
++	if (!pdic->partner_pd) {
++		desc.revision = revision;
++		desc.version = 0;
++		pdic->partner_pd = typec_partner_usb_power_delivery_register(
++							pdic->partner, &desc);
++		if (!IS_ERR(pdic->partner_pd)) {
++			memcpy(caps.pdo, pdos, sizeof(pdos));
++			pdic->source_caps = usb_power_delivery_register_capabilities(
++							pdic->partner_pd, &caps);
++			if (IS_ERR(pdic->source_caps))
++				pdic->source_caps = NULL;
++			ret = typec_partner_set_usb_power_delivery(pdic->partner,
++							pdic->partner_pd);
++			if (ret) {
++				usb_power_delivery_unregister_capabilities(
++							pdic->source_caps);
++				pdic->source_caps = NULL;
++				usb_power_delivery_unregister(pdic->partner_pd);
++				pdic->partner_pd = NULL;
++			}
++		} else {
++			pdic->partner_pd = NULL;
++		}
++	}
++
++	selected = samsung_emuec_choose_pdo(pdos, count, &mv, &ma);
++	if (!selected)
+ 		return;
++	ret = samsung_emuec_active_rdo(pdic, &active);
++	if (ret)
++		return;
++
++	requested = RDO_FIXED(selected, ma, ma, RDO_USB_COMM | RDO_NO_SUSPEND);
++	actual = rdo_index(active);
++	/* Firmware may already hold a stronger contract. Do not renegotiate it. */
++	if (actual < 1 || actual > count ||
++		pdo_type(pdos[actual - 1]) != PDO_TYPE_FIXED ||
++		rdo_op_current(active) > pdo_max_current(pdos[actual - 1]) ||
++		pdo_fixed_voltage(pdos[actual - 1]) *
++		rdo_op_current(active) < mv * ma) {
++		if (!pdic->pd_attempted) {
++			pdic->pd_attempted = true;
++			ret = samsung_emuec_request_pdo(pdic, requested);
++			if (ret)
++				dev_warn(&pdic->client->dev,
++						"PD contract request failed: %d\n", ret);
++			ret = samsung_emuec_active_rdo(pdic, &active);
++			if (ret)
++				return;
++		}
++	}
+ 
+-	/* Windows EmuEC treats bit 0 of BC_STATUS as VBUS detected. */
+-	if ((bc & BIT(0)) && attach == 0x1b && vbus == 0x01 &&
+-	    !(sw & BIT(0))) {
+-		mode = SAMSUNG_EMUEC_MODE_CONSUMER;
+-		command = S2MM006_CONSUMER_COMMAND;
+-		status_bit = BIT(1);
+-	} else if (!(bc & BIT(0)) && (bc & BIT(4)) &&
+-		   attach == 0x2e && vbus == 0x1c && !(sw & BIT(1))) {
+-		/* This signature was observed with a USB-C data device. */
+-		mode = SAMSUNG_EMUEC_MODE_PROVIDER;
+-		command = S2MM006_PROVIDER_COMMAND;
+-		status_bit = BIT(0);
+-	} else {
++	actual = rdo_index(active);
++	if (actual < 1 || actual > count ||
++	    pdo_type(pdos[actual - 1]) != PDO_TYPE_FIXED)
++		return;
++
++	mv = pdo_fixed_voltage(pdos[actual - 1]);
++	ma = min(rdo_op_current(active), pdo_max_current(pdos[actual - 1]));
++	if (!mv || !ma)
++		return;
++	if (pdic->voltage_uv == mv * 1000 && pdic->current_ua == ma * 1000)
++		return;
++	pdic->voltage_uv = mv * 1000;
++	pdic->current_ua = ma * 1000;
++	typec_set_pwr_opmode(pdic->port, TYPEC_PWR_MODE_PD);
++	power_supply_changed(pdic->psy);
++
++	dev_info(&pdic->client->dev, "PD contract %u mV %u mA (PDO %d)\n",
++		 mv, ma, actual);
++}
++
++static void samsung_emuec_sync(struct work_struct *work)
++{
++	struct samsung_emuec *pdic = container_of(to_delayed_work(work),
++						    struct samsung_emuec, work);
++	u8 command, status_bit, bc, cc, pd, sw, enter_usb;
++	struct typec_partner_desc partner_desc = {
++		.accessory = TYPEC_ACCESSORY_NONE,
++		.usb_capability = 0,
++	};
++	enum samsung_emuec_mode mode;
++	enum typec_orientation orientation;
++	enum typec_role power_role;
++	enum typec_data_role data_role;
++	bool vbus_present, source_path_attached, consumer_path_active;
++	int ret;
++
++	guard(mutex)(&pdic->lock);
++
++	ret = samsung_emuec_read(pdic, S2MM006_REG_BC_STATUS, &bc, sizeof(bc));
++	if (ret)
++		return;
++	ret = samsung_emuec_read(pdic, S2MM006_REG_CC_STATUS, &cc, sizeof(cc));
++	if (ret)
++		return;
++	ret = samsung_emuec_read(pdic, S2MM006_REG_PD_STATUS2, &pd, sizeof(pd));
++	if (ret)
++		return;
++	ret = samsung_emuec_read(pdic, S2MM006_REG_SWITCH_STATUS, &sw, sizeof(sw));
++	if (ret)
++		return;
++	ret = samsung_emuec_read(pdic, S2MM006_REG_ENTER_USB_STATUS,
++				&enter_usb, sizeof(enter_usb));
++	if (ret)
++		return;
++
++	orientation = (cc >> 4) == 1 ? TYPEC_ORIENTATION_NORMAL :
++		      (cc >> 4) == 2 ? TYPEC_ORIENTATION_REVERSE :
++					  TYPEC_ORIENTATION_NONE;
++	power_role = pd & BIT(3) ? TYPEC_SOURCE : TYPEC_SINK;
++	data_role = pd & BIT(2) ? TYPEC_HOST : TYPEC_DEVICE;
++	vbus_present = bc & BIT(0);
++	source_path_attached = bc & BIT(4);
++	consumer_path_active = sw & BIT(1);
++
++	/* A missing attach indication or CC orientation means a disconnect. */
++	if (orientation == TYPEC_ORIENTATION_NONE ||
++	    (!vbus_present && !source_path_attached)) {
++		samsung_emuec_detach(pdic);
+ 		return;
+ 	}
+ 
++	/* The BC and PD role bits can settle at different times. */
++	if ((power_role == TYPEC_SOURCE && !source_path_attached) ||
++	    (power_role == TYPEC_SINK && !vbus_present))
++		return;
++
++	mode = power_role == TYPEC_SOURCE ? SAMSUNG_EMUEC_MODE_PROVIDER :
++					    SAMSUNG_EMUEC_MODE_CONSUMER;
++	command = mode == SAMSUNG_EMUEC_MODE_PROVIDER ?
++		  S2MM006_PROVIDER_COMMAND : S2MM006_CONSUMER_COMMAND;
++	status_bit = mode == SAMSUNG_EMUEC_MODE_PROVIDER ? BIT(0) : BIT(1);
++
+ 	if (pdic->attempted_mode != mode)
+ 		pdic->attempted_mode = SAMSUNG_EMUEC_MODE_NONE;
+-	if (sw & status_bit) {
+-		pdic->attempted_mode = mode;
+-		return;
++
++	if (!(sw & status_bit) && pdic->attempted_mode != mode) {
++		ret = samsung_emuec_write(pdic, S2MM006_REG_SWITCH_COMMAND,
++					 &command, sizeof(command));
++		if (ret)
++			dev_warn(&pdic->client->dev,
++				 "failed to enable %s path: %d\n",
++				 mode == SAMSUNG_EMUEC_MODE_PROVIDER ?
++				 "provider" : "consumer", ret);
++		else {
++			pdic->attempted_mode = mode;
++			mod_delayed_work(system_dfl_wq, &pdic->work,
++					 msecs_to_jiffies(150));
++		}
+ 	}
+-	if (pdic->attempted_mode == mode)
++
++	if (!(sw & status_bit))
+ 		return;
+ 
+-	ret = samsung_emuec_write(pdic, S2MM006_REG_SWITCH_COMMAND, command);
+-	if (ret) {
+-		dev_warn(dev, "failed to enable %s path: %d\n",
+-			 mode == SAMSUNG_EMUEC_MODE_CONSUMER ? "consumer" : "provider",
+-			 ret);
+-	} else {
+-		pdic->attempted_mode = mode;
+-		dev_info(dev, "requested %s path after attach\n",
+-			 mode == SAMSUNG_EMUEC_MODE_CONSUMER ? "consumer" : "provider");
++	if (pdic->attached && (pdic->power_role != power_role ||
++			       pdic->data_role != data_role))
++		samsung_emuec_detach(pdic);
++
++	if (!pdic->attached) {
++		partner_desc.usb_pd = power_role == TYPEC_SINK;
++
++		pdic->partner = typec_register_partner(pdic->port, &partner_desc);
++		if (IS_ERR(pdic->partner)) {
++			dev_warn(&pdic->client->dev,
++				 "failed to register Type-C partner: %ld\n",
++				 PTR_ERR(pdic->partner));
++			pdic->partner = NULL;
++			return;
++		}
++
++		pdic->attached = true;
++		pdic->power_role = power_role;
++		pdic->data_role = data_role;
++		typec_port_set_usb_mode(pdic->port, USB_MODE_NONE);
++		typec_set_pwr_opmode(pdic->port, TYPEC_PWR_MODE_USB);
++		pdic->voltage_uv = 0;
++		pdic->current_ua = 0;
++		power_supply_changed(pdic->psy);
++	}
++
++	if (pdic->orientation != orientation) {
++		ret = typec_set_orientation(pdic->port, orientation);
++		if (ret)
++			dev_warn(&pdic->client->dev,
++				 "failed to set connector orientation: %d\n", ret);
++		else
++			pdic->orientation = orientation;
+ 	}
++
++	if (!pdic->usb_mux_active) {
++		ret = typec_set_mode(pdic->port, TYPEC_STATE_USB);
++		if (ret)
++			dev_warn(&pdic->client->dev,
++				 "failed to enable USB mux: %d\n", ret);
++		else
++			pdic->usb_mux_active = true;
++	}
++
++	typec_set_pwr_role(pdic->port, power_role);
++	typec_set_data_role(pdic->port, data_role);
++
++	/* Windows names status 2 in these bits the Enter_USB success response. */
++	if ((enter_usb & GENMASK(3, 2)) == S2MM006_ENTER_USB_SUCCESS) {
++		if (pdic->usb_mode != USB_MODE_USB4) {
++			/* A USB4 host router must own the USB4 mux transition. */
++			typec_port_set_usb_mode(pdic->port, USB_MODE_USB4);
++			pdic->usb_mode = USB_MODE_USB4;
++		}
++	} else if (pdic->usb_mode == USB_MODE_USB4) {
++		typec_port_set_usb_mode(pdic->port, USB_MODE_NONE);
++		pdic->usb_mode = USB_MODE_NONE;
++	}
++
++	if (pdic->usb_role != (data_role == TYPEC_HOST ? USB_ROLE_HOST :
++							       USB_ROLE_DEVICE)) {
++		enum usb_role usb_role = data_role == TYPEC_HOST ?
++					USB_ROLE_HOST : USB_ROLE_DEVICE;
++
++		ret = usb_role_switch_set_role(pdic->role_sw, usb_role);
++		if (ret)
++			dev_warn(&pdic->client->dev,
++				 "failed to set USB role: %d\n", ret);
++		else
++			pdic->usb_role = usb_role;
++	}
++
++	if (power_role == TYPEC_SINK && consumer_path_active)
++		samsung_emuec_update_pd(pdic);
+ }
+ 
+ static irqreturn_t samsung_emuec_irq_thread(int irq, void *data)
+@@ -170,56 +588,149 @@ static irqreturn_t samsung_emuec_irq_thread(int irq, void *data)
+ 	struct samsung_emuec *pdic = data;
+ 	int ret;
+ 
+-	ret = samsung_emuec_clear_irqs(pdic);
+-	samsung_emuec_check_status(pdic);
++	scoped_guard(mutex, &pdic->lock)
++		ret = samsung_emuec_clear_irqs(pdic);
+ 	if (ret)
+ 		dev_warn_ratelimited(&pdic->client->dev,
+ 				     "failed to clear interrupt: %d\n", ret);
+ 
++	mod_delayed_work(system_dfl_wq, &pdic->work, 0);
+ 	return IRQ_HANDLED;
+ }
+ 
+ static int samsung_emuec_probe(struct i2c_client *client)
+ {
+ 	struct device *dev = &client->dev;
++	struct power_supply_config psy_config = {};
++	struct usb_power_delivery_desc pd_desc = { .revision = 0x0300 };
++	struct typec_capability typec_cap = {
++		.type = TYPEC_PORT_DRP,
++		.data = TYPEC_PORT_DRD,
++		.revision = USB_TYPEC_REV_2_0,
++		.pd_revision = 0x0300,
++		.orientation_aware = true,
++		.usb_capability = USB_CAPABILITY_USB2 | USB_CAPABILITY_USB3 |
++				  USB_CAPABILITY_USB4,
++		.no_mode_control = true,
++	};
+ 	struct samsung_emuec *pdic;
+-	int status;
++	u8 status;
+ 	int ret;
+ 
+ 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C))
+ 		return dev_err_probe(dev, -EOPNOTSUPP,
+ 				     "adapter lacks combined I2C transfers\n");
+ 
++	if (client->irq <= 0)
++		return dev_err_probe(dev, -EINVAL, "missing interrupt\n");
++
+ 	pdic = devm_kzalloc(dev, sizeof(*pdic), GFP_KERNEL);
+ 	if (!pdic)
+ 		return -ENOMEM;
+ 
+ 	pdic->client = client;
++	mutex_init(&pdic->lock);
++	INIT_DELAYED_WORK(&pdic->work, samsung_emuec_sync);
++	i2c_set_clientdata(client, pdic);
+ 
+-	status = samsung_emuec_read(pdic, S2MM006_REG_SWITCH_STATUS);
+-	if (status < 0)
+-		return dev_err_probe(dev, status, "unable to read PDIC status\n");
++	ret = samsung_emuec_read(pdic, S2MM006_REG_SWITCH_STATUS,
++				&status, sizeof(status));
++	if (ret)
++		return dev_err_probe(dev, ret, "unable to read PDIC status\n");
+ 
+-	if (client->irq <= 0)
+-		return dev_err_probe(dev, -EINVAL, "missing interrupt\n");
++	pdic->connector = of_get_child_by_name(dev->of_node, "connector");
++	if (!pdic->connector)
++		return dev_err_probe(dev, -EINVAL, "missing Type-C connector\n");
+ 
+-	ret = samsung_emuec_clear_irqs(pdic);
++	typec_cap.fwnode = of_fwnode_handle(pdic->connector);
++	typec_cap.driver_data = pdic;
++
++	pdic->role_sw = fwnode_usb_role_switch_get(typec_cap.fwnode);
++	if (IS_ERR(pdic->role_sw)) {
++		ret = PTR_ERR(pdic->role_sw);
++		goto err_node;
++	}
++	if (!pdic->role_sw) {
++		ret = -ENODEV;
++		goto err_node;
++	}
++
++	pdic->port = typec_register_port(dev, &typec_cap);
++	if (IS_ERR(pdic->port)) {
++		ret = PTR_ERR(pdic->port);
++		goto err_role;
++	}
++
++	pdic->pd = usb_power_delivery_register(dev, &pd_desc);
++	if (IS_ERR(pdic->pd)) {
++		ret = PTR_ERR(pdic->pd);
++		goto err_port;
++	}
++
++	ret = typec_port_set_usb_power_delivery(pdic->port, pdic->pd);
+ 	if (ret)
+-		return dev_err_probe(dev, ret, "unable to clear pending interrupts\n");
++		goto err_pd;
+ 
+-	/* A later event holds the level-low line until the IRQ is requested. */
+-	samsung_emuec_check_status(pdic);
++	pdic->psy_desc.name = devm_kasprintf(dev, GFP_KERNEL, "%s-usb",
++					       dev_name(dev));
++	if (!pdic->psy_desc.name) {
++		ret = -ENOMEM;
++		goto err_pd;
++	}
++
++	pdic->psy_desc.type = POWER_SUPPLY_TYPE_USB_PD;
++	pdic->psy_desc.properties = samsung_emuec_properties;
++	pdic->psy_desc.num_properties = ARRAY_SIZE(samsung_emuec_properties);
++	pdic->psy_desc.get_property = samsung_emuec_get_property;
++	psy_config.drv_data = pdic;
++	psy_config.fwnode = of_fwnode_handle(pdic->connector);
++
++	pdic->psy = devm_power_supply_register(dev, &pdic->psy_desc, &psy_config);
++	if (IS_ERR(pdic->psy)) {
++		ret = PTR_ERR(pdic->psy);
++		goto err_pd;
++	}
++
++	ret = samsung_emuec_clear_irqs(pdic);
++	if (ret)
++		goto err_pd;
+ 
+ 	ret = devm_request_threaded_irq(dev, client->irq, NULL,
+ 					samsung_emuec_irq_thread, IRQF_ONESHOT,
+ 					dev_name(dev), pdic);
+ 	if (ret)
+-		return dev_err_probe(dev, ret, "unable to request interrupt\n");
+-
+-	dev_info(dev, "EmuEC Type-C port ready; switch status: 0x%02x\n",
+-		 status);
++		goto err_pd;
+ 
++	mod_delayed_work(system_dfl_wq, &pdic->work, 0);
+ 	return 0;
++
++err_pd:
++	typec_port_set_usb_power_delivery(pdic->port, NULL);
++	usb_power_delivery_unregister(pdic->pd);
++err_port:
++	typec_unregister_port(pdic->port);
++err_role:
++	usb_role_switch_put(pdic->role_sw);
++err_node:
++	of_node_put(pdic->connector);
++	return ret;
++}
++
++static void samsung_emuec_remove(struct i2c_client *client)
++{
++	struct samsung_emuec *pdic = i2c_get_clientdata(client);
++
++	devm_free_irq(&client->dev, client->irq, pdic);
++	cancel_delayed_work_sync(&pdic->work);
++
++	scoped_guard(mutex, &pdic->lock)
++		samsung_emuec_detach(pdic);
++
++	typec_port_set_usb_power_delivery(pdic->port, NULL);
++	usb_power_delivery_unregister(pdic->pd);
++	typec_unregister_port(pdic->port);
++	usb_role_switch_put(pdic->role_sw);
++	of_node_put(pdic->connector);
+ }
+ 
+ static const struct of_device_id samsung_emuec_of_match[] = {
+@@ -234,8 +745,9 @@ static struct i2c_driver samsung_emuec_driver = {
+ 		.of_match_table = samsung_emuec_of_match,
+ 	},
+ 	.probe = samsung_emuec_probe,
++	.remove = samsung_emuec_remove,
+ };
+ module_i2c_driver(samsung_emuec_driver);
+ 
+-MODULE_DESCRIPTION("Samsung EmuEC USB Type-C power-path driver");
++MODULE_DESCRIPTION("Samsung EmuEC USB Type-C and Power Delivery driver");
+ MODULE_LICENSE("GPL");
+-- 
+2.55.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Sat, 26 Sep 2026 18:05:14 +0200
+Subject: update dts to reflect power negotiation
+
+---
+ ...100-samsung-galaxy-book4-edge-np750xqb.dts | 164 +++++++++---------
+ 1 file changed, 82 insertions(+), 82 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/qcom/x1p42100-samsung-galaxy-book4-edge-np750xqb.dts b/arch/arm64/boot/dts/qcom/x1p42100-samsung-galaxy-book4-edge-np750xqb.dts
+index e855408773ce..5382c829200e 100644
+--- a/arch/arm64/boot/dts/qcom/x1p42100-samsung-galaxy-book4-edge-np750xqb.dts
++++ b/arch/arm64/boot/dts/qcom/x1p42100-samsung-galaxy-book4-edge-np750xqb.dts
+@@ -130,80 +130,6 @@ pmic-glink {
+ 		#size-cells = <0>;
+ 		orientation-gpios = <&tlmm 121 GPIO_ACTIVE_HIGH>,
+ 				    <&tlmm 123 GPIO_ACTIVE_HIGH>;
+-
+-		/* Left-side rear port */
+-		connector@0 {
+-			compatible = "usb-c-connector";
+-			reg = <0>;
+-			power-role = "dual";
+-			data-role = "dual";
+-
+-			ports {
+-				#address-cells = <1>;
+-				#size-cells = <0>;
+-
+-				port@0 {
+-					reg = <0>;
+-
+-					pmic_glink_ss0_hs_in: endpoint {
+-						remote-endpoint = <&usb_1_ss0_dwc3_hs>;
+-					};
+-				};
+-
+-				port@1 {
+-					reg = <1>;
+-
+-					pmic_glink_ss0_ss_in: endpoint {
+-						remote-endpoint = <&usb_1_ss0_qmpphy_out>;
+-					};
+-				};
+-
+-				port@2 {
+-					reg = <2>;
+-
+-					pmic_glink_ss0_sbu: endpoint {
+-						remote-endpoint = <&usb_1_ss0_sbu_mux>;
+-					};
+-				};
+-			};
+-		};
+-
+-		/* Left-side front port */
+-		connector@1 {
+-			compatible = "usb-c-connector";
+-			reg = <1>;
+-			power-role = "dual";
+-			data-role = "dual";
+-
+-			ports {
+-				#address-cells = <1>;
+-				#size-cells = <0>;
+-
+-				port@0 {
+-					reg = <0>;
+-
+-					pmic_glink_ss1_hs_in: endpoint {
+-						remote-endpoint = <&usb_1_ss1_dwc3_hs>;
+-					};
+-				};
+-
+-				port@1 {
+-					reg = <1>;
+-
+-					pmic_glink_ss1_ss_in: endpoint {
+-						remote-endpoint = <&usb_1_ss1_qmpphy_out>;
+-					};
+-				};
+-
+-				port@2 {
+-					reg = <2>;
+-
+-					pmic_glink_ss1_sbu: endpoint {
+-						remote-endpoint = <&usb_1_ss1_sbu_mux>;
+-					};
+-				};
+-			};
+-		};
+ 	};
+ 
+ 	reserved-memory {
+@@ -485,7 +411,7 @@ usb-1-ss0-sbu-mux {
+ 
+ 		port {
+ 			usb_1_ss0_sbu_mux: endpoint {
+-				remote-endpoint = <&pmic_glink_ss0_sbu>;
++				remote-endpoint = <&emuec_ss0_sbu>;
+ 			};
+ 		};
+ 	};
+@@ -504,7 +430,7 @@ usb-1-ss1-sbu-mux {
+ 
+ 		port {
+ 			usb_1_ss1_sbu_mux: endpoint {
+-				remote-endpoint = <&pmic_glink_ss1_sbu>;
++				remote-endpoint = <&emuec_ss1_sbu>;
+ 			};
+ 		};
+ 	};
+@@ -1032,6 +958,42 @@ pdic@33 {
+ 		compatible = "samsung,s2mm006";
+ 		reg = <0x33>;
+ 		interrupts-extended = <&tlmm 38 IRQ_TYPE_LEVEL_LOW>;
++
++		/* Left-side rear port */
++		connector {
++			compatible = "usb-c-connector";
++			power-role = "dual";
++			data-role = "dual";
++
++			ports {
++				#address-cells = <1>;
++				#size-cells = <0>;
++
++				port@0 {
++					reg = <0>;
++
++					emuec_ss0_hs_in: endpoint {
++						remote-endpoint = <&usb_1_ss0_dwc3_hs>;
++					};
++				};
++
++				port@1 {
++					reg = <1>;
++
++					emuec_ss0_ss_in: endpoint {
++						remote-endpoint = <&usb_1_ss0_qmpphy_out>;
++					};
++				};
++
++				port@2 {
++					reg = <2>;
++
++					emuec_ss0_sbu: endpoint {
++						remote-endpoint = <&usb_1_ss0_sbu_mux>;
++					};
++				};
++			};
++		};
+ 	};
+ };
+ 
+@@ -1043,6 +1005,42 @@ pdic@33 {
+ 		compatible = "samsung,s2mm006";
+ 		reg = <0x33>;
+ 		interrupts-extended = <&tlmm 93 IRQ_TYPE_LEVEL_LOW>;
++
++		/* Left-side front port */
++		connector {
++			compatible = "usb-c-connector";
++			power-role = "dual";
++			data-role = "dual";
++
++			ports {
++				#address-cells = <1>;
++				#size-cells = <0>;
++
++				port@0 {
++					reg = <0>;
++
++					emuec_ss1_hs_in: endpoint {
++						remote-endpoint = <&usb_1_ss1_dwc3_hs>;
++					};
++				};
++
++				port@1 {
++					reg = <1>;
++
++					emuec_ss1_ss_in: endpoint {
++						remote-endpoint = <&usb_1_ss1_qmpphy_out>;
++					};
++				};
++
++				port@2 {
++					reg = <2>;
++
++					emuec_ss1_sbu: endpoint {
++						remote-endpoint = <&usb_1_ss1_sbu_mux>;
++					};
++				};
++			};
++		};
+ 	};
+ };
+ 
+@@ -1603,15 +1601,16 @@ &usb_1_ss0_qmpphy {
+ };
+ 
+ &usb_1_ss0 {
+-	dr_mode = "host";
++	dr_mode = "otg";
++	usb-role-switch;
+ };
+ 
+ &usb_1_ss0_dwc3_hs {
+-	remote-endpoint = <&pmic_glink_ss0_hs_in>;
++	remote-endpoint = <&emuec_ss0_hs_in>;
+ };
+ 
+ &usb_1_ss0_qmpphy_out {
+-	remote-endpoint = <&pmic_glink_ss0_ss_in>;
++	remote-endpoint = <&emuec_ss0_ss_in>;
+ };
+ 
+ &usb_1_ss1 {
+@@ -1634,15 +1633,16 @@ &usb_1_ss1_qmpphy {
+ };
+ 
+ &usb_1_ss1 {
+-	dr_mode = "host";
++	dr_mode = "otg";
++	usb-role-switch;
+ };
+ 
+ &usb_1_ss1_dwc3_hs {
+-	remote-endpoint = <&pmic_glink_ss1_hs_in>;
++	remote-endpoint = <&emuec_ss1_hs_in>;
+ };
+ 
+ &usb_1_ss1_qmpphy_out {
+-	remote-endpoint = <&pmic_glink_ss1_ss_in>;
++	remote-endpoint = <&emuec_ss1_ss_in>;
+ };
+ 
+ &usb_1_ss2_qmpphy {
+-- 
+2.55.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Sat, 26 Sep 2026 18:16:52 +0200
+Subject: sync-arm: add nvidia support
+
+---
+ sync-arm.sh | 19 +++++++++++++++++++
+ 1 file changed, 19 insertions(+)
+
+diff --git a/sync-arm.sh b/sync-arm.sh
+index 9b420f6eca33..33b72f919ca0 100755
+--- a/sync-arm.sh
++++ b/sync-arm.sh
+@@ -18,6 +18,7 @@ fi
+ 
+ HOST=$1
+ ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
++NVIDIA_DIR=$ROOT/../open-gpu-kernel-modules
+ STAGE_DIR=$ROOT/.sync-arm/stage
+ ASSET_DIR=$ROOT/.sync-arm/boot-assets
+ DEFAULT_EFI_STUB=/usr/lib/systemd/boot/efi/linuxaa64.efi.stub
+@@ -154,6 +155,24 @@ make -s -j "$JOBS" "${MAKE_ARGS[@]}" modules_install "INSTALL_MOD_PATH=$STAGE_DI
+ make -s "${MAKE_ARGS[@]}" dtbs_install \
+     "INSTALL_DTBS_PATH=$STAGE_DIR/lib/modules/$KNAME/dtb"
+ 
++# Build and stage NVIDIA's open modules alongside the in-tree modules.
++if [[ -f $NVIDIA_DIR/Makefile ]]; then
++    NVIDIA_MAKE_ARGS=(-C "$NVIDIA_DIR" ARCH=arm64 TARGET_ARCH=aarch64
++        "CROSS_COMPILE=$CROSS_COMPILE" "SYSSRC=$ROOT" "SYSOUT=$ROOT"
++        "CC=${CROSS_COMPILE}gcc" "LD=${CROSS_COMPILE}ld"
++        "AR=${CROSS_COMPILE}ar" "CXX=${CROSS_COMPILE}g++"
++        "OBJCOPY=${CROSS_COMPILE}objcopy" "OBJDUMP=${CROSS_COMPILE}objdump"
++        HOST_CC=gcc HOST_LD=ld HOSTCC=gcc HOSTCXX=g++)
++
++    echo "Building NVIDIA modules from $NVIDIA_DIR"
++    time make -s -j "$JOBS" "${NVIDIA_MAKE_ARGS[@]}" modules
++    echo "Installing NVIDIA modules to $STAGE_DIR"
++    make -s -j "$JOBS" "${NVIDIA_MAKE_ARGS[@]}" modules_install \
++        "INSTALL_MOD_PATH=$STAGE_DIR"
++else
++    echo "NVIDIA module sources not found at $NVIDIA_DIR; skipping"
++fi
++
+ # Match the x1*/sc8280x* DTB selection and exclusions in the Red Hat spec.
+ DTB_DIR=$STAGE_DIR/lib/modules/$KNAME/dtb/qcom
+ [[ -d $DTB_DIR ]] || die "Qualcomm DTBs were not installed to $DTB_DIR"
+-- 
+2.55.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Maxim Storetvedt <mstoretv@cern.ch>
+Date: Sun, 20 Sep 2026 20:41:02 +0200
+Subject: dt-bindings: arm: Add Samsung Galaxy Book4 Edge
+
+Add the Samsung Galaxy Book4 Edge compatibility bindings
+
+Signed-off-by: Maxim Storetvedt <mstoretv@cern.ch>
+---
+ Documentation/devicetree/bindings/arm/qcom.yaml | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/Documentation/devicetree/bindings/arm/qcom.yaml b/Documentation/devicetree/bindings/arm/qcom.yaml
+index 94890f813dcd..b6f0d949e7f0 100644
+--- a/Documentation/devicetree/bindings/arm/qcom.yaml
++++ b/Documentation/devicetree/bindings/arm/qcom.yaml
+@@ -1170,6 +1170,13 @@ properties:
+               - qcom,x1e80100-qcp
+           - const: qcom,x1e80100
+ 
++      - items:
++          - enum:
++              - samsung,galaxy-book4-edge-14
++              - samsung,galaxy-book4-edge-16
++          - const: samsung,galaxy-book4-edge
++          - const: qcom,x1e80100
++
+       - items:
+           - enum:
+               - qcom,hamoa-iot-evk
+-- 
+2.55.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Maxim Storetvedt <mstoretv@cern.ch>
+Date: Sun, 20 Sep 2026 20:41:04 +0200
+Subject: arm64: dts: qcom: Add hamoa Samsung Galaxy Book4 Edge devicetrees
+
+Adds devicetrees for the 14-inch and 16-inch hamoa SKUs of the Samsung Galaxy Book4 Edge.
+
+These use a common dtsi derived from nodes that were able to work on Linux
+from the initial Galaxy Book4 Edge DTS by Marcus:
+
+Link: https://lore.kernel.org/all/p3mhtj2rp6y2ezuwpd2gu7dwx5cbckfu4s4pazcudi4j2wogtr@4yecb2bkeyms/
+
+combined with the patch series the Honor Magicbook Art 14, which shares device similarities:
+
+Link: https://lore.kernel.org/all/20260629154812.9066-1-mail@etehtsea.me/
+
+as well as a few more adjustments on top of that again to get additional features working.
+Special thanks to Jesse Ahn for helping expand on what would eventually become this dtsi.
+
+Based-on-a-patch-by: Marcus Glocker <marcus@nazgul.ch>
+Based-on-a-patch-by: Kirill A. Korinsky <kirill@korins.ky>
+Signed-off-by: Maxim Storetvedt <mstoretv@cern.ch>
+Link: https://lore.kernel.org/all/p3mhtj2rp6y2ezuwpd2gu7dwx5cbckfu4s4pazcudi4j2wogtr@4yecb2bkeyms/
+Link: https://lore.kernel.org/all/20260629154812.9066-1-mail@etehtsea.me/
+---
+ arch/arm64/boot/dts/qcom/Makefile             |    2 +
+ .../qcom/x1-samsung-galaxy-book4-edge.dtsi    | 1537 +++++++++++++++++
+ .../x1e80100-samsung-galaxy-book4-edge-14.dts |   28 +
+ .../x1e84100-samsung-galaxy-book4-edge-16.dts |   31 +
+ 4 files changed, 1598 insertions(+)
+ create mode 100644 arch/arm64/boot/dts/qcom/x1-samsung-galaxy-book4-edge.dtsi
+ create mode 100644 arch/arm64/boot/dts/qcom/x1e80100-samsung-galaxy-book4-edge-14.dts
+ create mode 100644 arch/arm64/boot/dts/qcom/x1e84100-samsung-galaxy-book4-edge-16.dts
+
+diff --git a/arch/arm64/boot/dts/qcom/Makefile b/arch/arm64/boot/dts/qcom/Makefile
+index 672f22dd593f..296eea7df5e2 100644
+--- a/arch/arm64/boot/dts/qcom/Makefile
++++ b/arch/arm64/boot/dts/qcom/Makefile
+@@ -460,3 +460,5 @@ x1p42100-samsung-galaxy-book4-edge-np750xqb-el2-dtbs := x1p42100-samsung-galaxy-
+ dtb-$(CONFIG_ARCH_QCOM)	+= x1p42100-samsung-galaxy-book4-edge-np750xqb.dtb x1p42100-samsung-galaxy-book4-edge-np750xqb-el2.dtb
+ x1p64100-microsoft-denali-el2-dtbs	:= x1p64100-microsoft-denali.dtb x1-el2.dtbo
+ dtb-$(CONFIG_ARCH_QCOM)	+= x1p64100-microsoft-denali.dtb x1p64100-microsoft-denali-el2.dtb
++dtb-$(CONFIG_ARCH_QCOM)	+= x1e80100-samsung-galaxy-book4-edge-14.dtb
++dtb-$(CONFIG_ARCH_QCOM)	+= x1e84100-samsung-galaxy-book4-edge-16.dtb
+diff --git a/arch/arm64/boot/dts/qcom/x1-samsung-galaxy-book4-edge.dtsi b/arch/arm64/boot/dts/qcom/x1-samsung-galaxy-book4-edge.dtsi
+new file mode 100644
+index 000000000000..51ec68bbab14
+--- /dev/null
++++ b/arch/arm64/boot/dts/qcom/x1-samsung-galaxy-book4-edge.dtsi
+@@ -0,0 +1,1537 @@
++// SPDX-License-Identifier: BSD-3-Clause
++/*
++ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
++ * Copyright (c) 2025 Kirill A. Korinsky <kirill@korins.ky>
++ * Copyright (c) 2025 Valentin Manea <valentin.manea@mrs.ro>
++ */
++
++/dts-v1/;
++
++#include <dt-bindings/gpio/gpio.h>
++#include <dt-bindings/input/gpio-keys.h>
++#include <dt-bindings/input/input.h>
++#include <dt-bindings/pinctrl/qcom,pmic-gpio.h>
++#include <dt-bindings/regulator/qcom,rpmh-regulator.h>
++
++#include "hamoa.dtsi"
++#include "hamoa-pmics.dtsi"
++
++/ {
++	model = "Samsung Galaxy Book4 Edge";
++	compatible = "samsung,galaxy-book4-edge", "qcom,x1e80100";
++	chassis-type = "laptop";
++
++	aliases {
++		serial0 = &uart21;
++		serial1 = &uart14;
++	};
++
++	wcd938x: audio-codec {
++		compatible = "qcom,wcd9385-codec";
++
++		pinctrl-0 = <&wcd_default>;
++		pinctrl-names = "default";
++
++		qcom,micbias1-microvolt = <1800000>;
++		qcom,micbias2-microvolt = <1800000>;
++		qcom,micbias3-microvolt = <1800000>;
++		qcom,micbias4-microvolt = <1800000>;
++		qcom,mbhc-buttons-vthreshold-microvolt = <75000 150000 237000 500000 500000 500000 500000 500000>;
++		qcom,mbhc-headset-vthreshold-microvolt = <1700000>;
++		qcom,mbhc-headphone-vthreshold-microvolt = <50000>;
++		qcom,rx-device = <&wcd_rx>;
++		qcom,tx-device = <&wcd_tx>;
++
++		reset-gpios = <&tlmm 191 GPIO_ACTIVE_LOW>;
++
++		vdd-buck-supply = <&vreg_l15b_1p8>;
++		vdd-rxtx-supply = <&vreg_l15b_1p8>;
++		vdd-io-supply = <&vreg_l15b_1p8>;
++		vdd-mic-bias-supply = <&vreg_bob1>;
++
++		#sound-dai-cells = <1>;
++	};
++
++	gpio-keys {
++		compatible = "gpio-keys";
++
++		pinctrl-0 = <&hall_int_n_default>;
++		pinctrl-names = "default";
++
++		switch-lid {
++			gpios = <&tlmm 92 GPIO_ACTIVE_LOW>;
++			linux,input-type = <EV_SW>;
++			linux,code = <SW_LID>;
++			wakeup-source;
++			wakeup-event-action = <EV_ACT_DEASSERTED>;
++		};
++	};
++
++	hdmi-bridge {
++		compatible = "realtek,rtd2171";
++
++		pinctrl-0 = <&hdmi_hpd_default>;
++		pinctrl-names = "default";
++
++		ports {
++			#address-cells = <1>;
++			#size-cells = <0>;
++
++			port@0 {
++				reg = <0>;
++
++				hdmi_bridge_dp_in: endpoint {
++					remote-endpoint = <&usb_1_ss2_qmpphy_out_dp>;
++				};
++			};
++
++			port@1 {
++				reg = <1>;
++
++				hdmi_bridge_tmds_out: endpoint {
++					remote-endpoint = <&hdmi_con>;
++				};
++			};
++		};
++	};
++
++	hdmi-connector {
++		compatible = "hdmi-connector";
++		type = "a";
++
++		port {
++			hdmi_con: endpoint {
++				remote-endpoint = <&hdmi_bridge_tmds_out>;
++			};
++		};
++	};
++
++	pmic-glink {
++		compatible = "qcom,x1e80100-pmic-glink",
++			     "qcom,pmic-glink";
++		#address-cells = <1>;
++		#size-cells = <0>;
++		orientation-gpios = <&tlmm 121 GPIO_ACTIVE_HIGH>,
++				    <&tlmm 123 GPIO_ACTIVE_HIGH>;
++
++		/* Left-side rear port */
++		connector@0 {
++			compatible = "usb-c-connector";
++			reg = <0>;
++			power-role = "dual";
++			data-role = "dual";
++
++			ports {
++				#address-cells = <1>;
++				#size-cells = <0>;
++
++				port@0 {
++					reg = <0>;
++
++					pmic_glink_ss0_hs_in: endpoint {
++						remote-endpoint = <&usb_1_ss0_dwc3_hs>;
++					};
++				};
++
++				port@1 {
++					reg = <1>;
++
++					pmic_glink_ss0_ss_in: endpoint {
++						remote-endpoint = <&usb_1_ss0_qmpphy_out>;
++					};
++				};
++
++				port@2 {
++					reg = <2>;
++
++					pmic_glink_ss0_sbu: endpoint {
++						remote-endpoint = <&usb_1_ss0_sbu_mux>;
++					};
++				};
++			};
++		};
++
++		/* Left-side front port */
++		connector@1 {
++			compatible = "usb-c-connector";
++			reg = <1>;
++			power-role = "dual";
++			data-role = "dual";
++
++			ports {
++				#address-cells = <1>;
++				#size-cells = <0>;
++
++				port@0 {
++					reg = <0>;
++
++					pmic_glink_ss1_hs_in: endpoint {
++						remote-endpoint = <&usb_1_ss1_dwc3_hs>;
++					};
++				};
++
++				port@1 {
++					reg = <1>;
++
++					pmic_glink_ss1_ss_in: endpoint {
++						remote-endpoint = <&usb_1_ss1_qmpphy_out>;
++					};
++				};
++
++				port@2 {
++					reg = <2>;
++
++					pmic_glink_ss1_sbu: endpoint {
++						remote-endpoint = <&usb_1_ss1_sbu_mux>;
++					};
++				};
++			};
++		};
++	};
++
++	reserved-memory {
++		linux,cma {
++			compatible = "shared-dma-pool";
++			size = <0x0 0x8000000>;
++			reusable;
++			linux,cma-default;
++		};
++	};
++
++	sound {
++		compatible = "qcom,x1e80100-sndcard";
++		model = "X1E80100-GalaxyBook4Edge";
++		audio-routing = "WooferLeft IN", "WSA WSA_SPK1 OUT",
++				"TweeterLeft IN", "WSA WSA_SPK2 OUT",
++				"WooferRight IN", "WSA2 WSA_SPK2 OUT",
++				"TweeterRight IN", "WSA2 WSA_SPK2 OUT",
++				"IN1_HPHL", "HPHL_OUT",
++				"IN2_HPHR", "HPHR_OUT",
++				"AMIC2", "MIC BIAS2",
++				"VA DMIC0", "MIC BIAS3",
++				"VA DMIC1", "MIC BIAS3",
++				"VA DMIC2", "MIC BIAS1",
++				"VA DMIC3", "MIC BIAS1",
++				"TX SWR_INPUT1", "ADC2_OUTPUT";
++
++		wcd-playback-dai-link {
++			link-name = "WCD Playback";
++
++			codec {
++				sound-dai = <&wcd938x 0>, <&swr1 0>, <&lpass_rxmacro 0>;
++			};
++
++			cpu {
++				sound-dai = <&q6apmbedai RX_CODEC_DMA_RX_0>;
++			};
++
++			platform {
++				sound-dai = <&q6apm>;
++			};
++		};
++
++		wcd-capture-dai-link {
++			link-name = "WCD Capture";
++
++			codec {
++				sound-dai = <&wcd938x 1>, <&swr2 1>, <&lpass_txmacro 0>;
++			};
++
++			cpu {
++				sound-dai = <&q6apmbedai TX_CODEC_DMA_TX_3>;
++			};
++
++			platform {
++				sound-dai = <&q6apm>;
++			};
++		};
++
++		wsa-dai-link {
++			link-name = "WSA Playback";
++
++			codec {
++				sound-dai = <&left_woofer>, <&left_tweeter>,
++					    <&swr0 0>, <&lpass_wsamacro 0>,
++					    <&right_woofer>, <&right_tweeter>,
++					    <&swr3 0>, <&lpass_wsa2macro 0>;
++			};
++
++			cpu {
++				sound-dai = <&q6apmbedai WSA_CODEC_DMA_RX_0>;
++			};
++
++			platform {
++				sound-dai = <&q6apm>;
++			};
++		};
++
++		va-dai-link {
++			link-name = "VA Capture";
++
++			codec {
++				sound-dai = <&lpass_vamacro 0>;
++			};
++
++			cpu {
++				sound-dai = <&q6apmbedai VA_CODEC_DMA_TX_0>;
++			};
++
++			platform {
++				sound-dai = <&q6apm>;
++			};
++		};
++	};
++
++	vreg_octa_vdd: regulator-octa-vdd {
++		compatible = "regulator-fixed";
++
++		regulator-name = "VREG_OCTA_VDD";
++		regulator-min-microvolt = <1800000>;
++		regulator-max-microvolt = <1800000>;
++
++		gpio = <&tlmm 111 GPIO_ACTIVE_HIGH>;
++		enable-active-high;
++
++		pinctrl-0 = <&octa_vdd_en>;
++		pinctrl-names = "default";
++
++		startup-delay-us = <1000>;
++		regulator-enable-ramp-delay = <1000>;
++
++		regulator-always-on;
++		regulator-boot-on;
++	};
++
++	vreg_display_vdd: regulator-display-vdd {
++		compatible = "regulator-fixed";
++
++		regulator-name = "VREG_DISPLAY_VDD";
++		regulator-min-microvolt = <3300000>;
++		regulator-max-microvolt = <3300000>;
++
++		gpio = <&tlmm 120 GPIO_ACTIVE_HIGH>;
++		enable-active-high;
++
++		pinctrl-0 = <&display_vdd_en>;
++		pinctrl-names = "default";
++
++		startup-delay-us = <400000>;
++		regulator-enable-ramp-delay = <400000>;
++
++		vin-supply = <&vreg_octa_vdd>;
++
++		regulator-always-on;
++		regulator-boot-on;
++	};
++
++	vreg_edp_3p3: regulator-edp-3p3 {
++		compatible = "regulator-fixed";
++
++		regulator-name = "VREG_EDP_3P3";
++		regulator-min-microvolt = <3300000>;
++		regulator-max-microvolt = <3300000>;
++
++		gpio = <&tlmm 70 GPIO_ACTIVE_LOW>;
++		enable-active-low;
++
++		pinctrl-0 = <&edp_reg_en>;
++		pinctrl-names = "default";
++
++		startup-delay-us = <1000>;
++		regulator-enable-ramp-delay = <1000>;
++
++		vin-supply = <&vreg_display_vdd>;
++
++		regulator-always-on;
++		regulator-boot-on;
++	};
++
++
++	vreg_misc_3p3: regulator-misc-3p3 {
++		compatible = "regulator-fixed";
++
++		regulator-name = "VREG_MISC_3P3";
++		regulator-min-microvolt = <3300000>;
++		regulator-max-microvolt = <3300000>;
++
++		gpio = <&pm8550ve_8_gpios 6 GPIO_ACTIVE_HIGH>;
++		enable-active-high;
++
++		pinctrl-0 = <&misc_3p3_reg_en>;
++		pinctrl-names = "default";
++
++		regulator-boot-on;
++		regulator-always-on;
++	};
++
++	vph_pwr: regulator-vph-pwr {
++		compatible = "regulator-fixed";
++
++		regulator-name = "vph_pwr";
++		regulator-min-microvolt = <3700000>;
++		regulator-max-microvolt = <3700000>;
++
++		regulator-always-on;
++		regulator-boot-on;
++	};
++
++	vreg_wcn_3p3: regulator-wcn-3p3 {
++		compatible = "regulator-fixed";
++
++		regulator-name = "VREG_WCN_3P3";
++		regulator-min-microvolt = <3300000>;
++		regulator-max-microvolt = <3300000>;
++
++		gpio = <&tlmm 214 GPIO_ACTIVE_HIGH>;
++		enable-active-high;
++
++		pinctrl-0 = <&wcn_sw_en>;
++		pinctrl-names = "default";
++
++		regulator-boot-on;
++		regulator-always-on;
++	};
++
++	usb-1-ss0-sbu-mux {
++		compatible = "onnn,fsusb42", "gpio-sbu-mux";
++
++		enable-gpios = <&tlmm 168 GPIO_ACTIVE_LOW>;
++		select-gpios = <&tlmm 167 GPIO_ACTIVE_HIGH>;
++
++		pinctrl-0 = <&usb_1_ss0_sbu_default>;
++		pinctrl-names = "default";
++
++		mode-switch;
++		orientation-switch;
++
++		port {
++			usb_1_ss0_sbu_mux: endpoint {
++				remote-endpoint = <&pmic_glink_ss0_sbu>;
++			};
++		};
++	};
++
++	usb-1-ss1-sbu-mux {
++		compatible = "onnn,fsusb42", "gpio-sbu-mux";
++
++		enable-gpios = <&tlmm 179 GPIO_ACTIVE_LOW>;
++		select-gpios = <&tlmm 178 GPIO_ACTIVE_HIGH>;
++
++		pinctrl-0 = <&usb_1_ss1_sbu_default>;
++		pinctrl-names = "default";
++
++		mode-switch;
++		orientation-switch;
++
++		port {
++			usb_1_ss1_sbu_mux: endpoint {
++				remote-endpoint = <&pmic_glink_ss1_sbu>;
++			};
++		};
++	};
++
++	wcn7850-pmu {
++		compatible = "qcom,wcn7850-pmu";
++
++		wlan-enable-gpios = <&tlmm 117 GPIO_ACTIVE_HIGH>;
++		bt-enable-gpios = <&tlmm 116 GPIO_ACTIVE_HIGH>;
++
++		pinctrl-0 = <&wcn_wlan_bt_en>;
++		pinctrl-names = "default";
++
++		regulators {
++			vreg_pmu_rfa_cmn: ldo0 {
++				regulator-name = "vreg_pmu_rfa_cmn";
++			};
++
++			vreg_pmu_aon_0p59: ldo1 {
++				regulator-name = "vreg_pmu_aon_0p59";
++			};
++
++			vreg_pmu_wlcx_0p8: ldo2 {
++				regulator-name = "vreg_pmu_wlcx_0p8";
++			};
++
++			vreg_pmu_wlmx_0p85: ldo3 {
++				regulator-name = "vreg_pmu_wlmx_0p85";
++			};
++
++			vreg_pmu_btcmx_0p85: ldo4 {
++				regulator-name = "vreg_pmu_btcmx_0p85";
++			};
++
++			vreg_pmu_rfa_0p8: ldo5 {
++				regulator-name = "vreg_pmu_rfa_0p8";
++			};
++
++			vreg_pmu_rfa_1p2: ldo6 {
++				regulator-name = "vreg_pmu_rfa_1p2";
++			};
++
++			vreg_pmu_rfa_1p8: ldo7 {
++				regulator-name = "vreg_pmu_rfa_1p8";
++			};
++
++			vreg_pmu_pcie_0p9: ldo8 {
++				regulator-name = "vreg_pmu_pcie_0p9";
++			};
++
++			vreg_pmu_pcie_1p8: ldo9 {
++				regulator-name = "vreg_pmu_pcie_1p8";
++			};
++		};
++	};
++};
++
++&apps_rsc {
++	regulators-0 {
++		compatible = "qcom,pm8550-rpmh-regulators";
++		qcom,pmic-id = "b";
++
++		vdd-bob1-supply = <&vph_pwr>;
++		vdd-bob2-supply = <&vph_pwr>;
++		vdd-l1-l4-l10-supply = <&vreg_s4c_1p8>;
++		vdd-l2-l13-l14-supply = <&vreg_bob1>;
++		vdd-l5-l16-supply = <&vreg_bob1>;
++		vdd-l6-l7-supply = <&vreg_bob2>;
++		vdd-l8-l9-supply = <&vreg_bob1>;
++		vdd-l12-supply = <&vreg_s5j_1p2>;
++		vdd-l15-supply = <&vreg_s4c_1p8>;
++		vdd-l17-supply = <&vreg_bob2>;
++
++		vreg_bob1: bob1 {
++			regulator-name = "vreg_bob1";
++			regulator-min-microvolt = <3008000>;
++			regulator-max-microvolt = <3960000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_bob2: bob2 {
++			regulator-name = "vreg_bob2";
++			regulator-min-microvolt = <2504000>;
++			regulator-max-microvolt = <3008000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_l1b_1p8: ldo1 {
++			regulator-name = "vreg_l1b_1p8";
++			regulator-min-microvolt = <1800000>;
++			regulator-max-microvolt = <1800000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_l2b_3p0: ldo2 {
++			regulator-name = "vreg_l2b_3p0";
++			regulator-min-microvolt = <3072000>;
++			regulator-max-microvolt = <3100000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_l4b_1p8: ldo4 {
++			regulator-name = "vreg_l4b_1p8";
++			regulator-min-microvolt = <1800000>;
++			regulator-max-microvolt = <1800000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_l5b_3p0: ldo5 {
++			regulator-name = "vreg_l5b_3p0";
++			regulator-min-microvolt = <3000000>;
++			regulator-max-microvolt = <3000000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_l6b_1p8: ldo6 {
++			regulator-name = "vreg_l6b_1p8";
++			regulator-min-microvolt = <1800000>;
++			regulator-max-microvolt = <2960000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_l7b_2p8: ldo7 {
++			regulator-name = "vreg_l7b_2p8";
++			regulator-always-on;
++			regulator-min-microvolt = <2800000>;
++			regulator-max-microvolt = <2800000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_l8b_3p0: ldo8 {
++			regulator-name = "vreg_l8b_3p0";
++			regulator-min-microvolt = <3072000>;
++			regulator-max-microvolt = <3072000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_l9b_2p9: ldo9 {
++			regulator-name = "vreg_l9b_2p9";
++			regulator-min-microvolt = <2960000>;
++			regulator-max-microvolt = <2960000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_l10b_1p8: ldo10 {
++			regulator-name = "vreg_l10b_1p8";
++			regulator-always-on;
++			regulator-min-microvolt = <1800000>;
++			regulator-max-microvolt = <1800000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_l12b_1p2: ldo12 {
++			regulator-name = "vreg_l12b_1p2";
++			regulator-min-microvolt = <1200000>;
++			regulator-max-microvolt = <1200000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++			regulator-always-on;
++		};
++
++		vreg_l13b_3p0: ldo13 {
++			regulator-name = "vreg_l13b_3p0";
++			regulator-min-microvolt = <3072000>;
++			regulator-max-microvolt = <3100000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_l14b_3p0: ldo14 {
++			regulator-name = "vreg_l14b_3p0";
++			regulator-min-microvolt = <3072000>;
++			regulator-max-microvolt = <3072000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_l15b_1p8: ldo15 {
++			regulator-name = "vreg_l15b_1p8";
++			regulator-min-microvolt = <1800000>;
++			regulator-max-microvolt = <1800000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++			regulator-always-on;
++		};
++
++		vreg_l16b_2p9: ldo16 {
++			regulator-name = "vreg_l16b_2p9";
++			regulator-min-microvolt = <2912000>;
++			regulator-max-microvolt = <2912000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_l17b_2p5: ldo17 {
++			regulator-name = "vreg_l17b_2p5";
++			regulator-min-microvolt = <2504000>;
++			regulator-max-microvolt = <2504000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++	};
++
++	regulators-1 {
++		compatible = "qcom,pm8550ve-rpmh-regulators";
++		qcom,pmic-id = "c";
++
++		vdd-l1-supply = <&vreg_s5j_1p2>;
++		vdd-l2-supply = <&vreg_s1f_0p7>;
++		vdd-l3-supply = <&vreg_s1f_0p7>;
++		vdd-s4-supply = <&vph_pwr>;
++
++		vreg_s4c_1p8: smps4 {
++			regulator-name = "vreg_s4c_1p8";
++			regulator-min-microvolt = <1856000>;
++			regulator-max-microvolt = <2000000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_l1c_1p2: ldo1 {
++			regulator-name = "vreg_l1c_1p2";
++			regulator-min-microvolt = <1200000>;
++			regulator-max-microvolt = <1200000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_l2c_0p8: ldo2 {
++			regulator-name = "vreg_l2c_0p8";
++			regulator-min-microvolt = <880000>;
++			regulator-max-microvolt = <920000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_l3c_0p8: ldo3 {
++			regulator-name = "vreg_l3c_0p8";
++			regulator-min-microvolt = <880000>;
++			regulator-max-microvolt = <920000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++	};
++
++	regulators-2 {
++		compatible = "qcom,pmc8380-rpmh-regulators";
++		qcom,pmic-id = "d";
++
++		vdd-l1-supply = <&vreg_s1f_0p7>;
++		vdd-l2-supply = <&vreg_s1f_0p7>;
++		vdd-l3-supply = <&vreg_s4c_1p8>;
++		vdd-s1-supply = <&vph_pwr>;
++
++		vreg_l1d_0p8: ldo1 {
++			regulator-name = "vreg_l1d_0p8";
++			regulator-min-microvolt = <880000>;
++			regulator-max-microvolt = <920000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_l2d_0p9: ldo2 {
++			regulator-name = "vreg_l2d_0p9";
++			regulator-min-microvolt = <912000>;
++			regulator-max-microvolt = <920000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_l3d_1p8: ldo3 {
++			regulator-name = "vreg_l3d_1p8";
++			regulator-min-microvolt = <1800000>;
++			regulator-max-microvolt = <1800000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++	};
++
++	regulators-3 {
++		compatible = "qcom,pmc8380-rpmh-regulators";
++		qcom,pmic-id = "e";
++
++		vdd-l2-supply = <&vreg_s1f_0p7>;
++		vdd-l3-supply = <&vreg_s5j_1p2>;
++
++		vreg_l2e_0p8: ldo2 {
++			regulator-name = "vreg_l2e_0p8";
++			regulator-min-microvolt = <880000>;
++			regulator-max-microvolt = <920000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_l3e_1p2: ldo3 {
++			regulator-name = "vreg_l3e_1p2";
++			regulator-min-microvolt = <1200000>;
++			regulator-max-microvolt = <1200000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++	};
++
++	regulators-4 {
++		compatible = "qcom,pmc8380-rpmh-regulators";
++		qcom,pmic-id = "f";
++
++		vdd-l1-supply = <&vreg_s5j_1p2>;
++		vdd-l2-supply = <&vreg_s5j_1p2>;
++		vdd-l3-supply = <&vreg_s5j_1p2>;
++		vdd-s1-supply = <&vph_pwr>;
++
++		vreg_s1f_0p7: smps1 {
++			regulator-name = "vreg_s1f_0p7";
++			regulator-min-microvolt = <700000>;
++			regulator-max-microvolt = <1100000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_l1f_1p0: ldo1 {
++			regulator-name = "vreg_l1f_1p0";
++			regulator-min-microvolt = <1024000>;
++			regulator-max-microvolt = <1024000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_l2f_1p0: ldo2 {
++			regulator-name = "vreg_l2f_1p0";
++			regulator-min-microvolt = <1024000>;
++			regulator-max-microvolt = <1024000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_l3f_1p0: ldo3 {
++			regulator-name = "vreg_l3f_1p0";
++			regulator-min-microvolt = <1024000>;
++			regulator-max-microvolt = <1024000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++	};
++
++	regulators-6 {
++		compatible = "qcom,pm8550ve-rpmh-regulators";
++		qcom,pmic-id = "i";
++
++		vdd-l1-supply = <&vreg_s4c_1p8>;
++		vdd-l2-supply = <&vreg_s5j_1p2>;
++		vdd-l3-supply = <&vreg_s1f_0p7>;
++		vdd-s1-supply = <&vph_pwr>;
++		vdd-s2-supply = <&vph_pwr>;
++
++		vreg_s1i_0p9: smps1 {
++			regulator-name = "vreg_s1i_0p9";
++			regulator-min-microvolt = <900000>;
++			regulator-max-microvolt = <920000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_s2i_1p0: smps2 {
++			regulator-name = "vreg_s2i_1p0";
++			regulator-min-microvolt = <1000000>;
++			regulator-max-microvolt = <1100000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_l1i_1p8: ldo1 {
++			regulator-name = "vreg_l1i_1p8";
++			regulator-min-microvolt = <1800000>;
++			regulator-max-microvolt = <1800000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_l2i_1p2: ldo2 {
++			regulator-name = "vreg_l2i_1p2";
++			regulator-min-microvolt = <1200000>;
++			regulator-max-microvolt = <1200000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_l3i_0p8: ldo3 {
++			regulator-name = "vreg_l3i_0p8";
++			regulator-min-microvolt = <880000>;
++			regulator-max-microvolt = <920000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++	};
++
++	regulators-7 {
++		compatible = "qcom,pm8550ve-rpmh-regulators";
++		qcom,pmic-id = "j";
++
++		vdd-l1-supply = <&vreg_s1f_0p7>;
++		vdd-l2-supply = <&vreg_s5j_1p2>;
++		vdd-l3-supply = <&vreg_s1f_0p7>;
++		vdd-s5-supply = <&vph_pwr>;
++
++		vreg_s5j_1p2: smps5 {
++			regulator-name = "vreg_s5j_1p2";
++			regulator-min-microvolt = <1256000>;
++			regulator-max-microvolt = <1304000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_l1j_0p8: ldo1 {
++			regulator-name = "vreg_l1j_0p8";
++			regulator-min-microvolt = <880000>;
++			regulator-max-microvolt = <920000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_l2j_1p2: ldo2 {
++			regulator-name = "vreg_l2j_1p2";
++			regulator-min-microvolt = <1256000>;
++			regulator-max-microvolt = <1256000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_l3j_0p8: ldo3 {
++			regulator-name = "vreg_l3j_0p8";
++			regulator-min-microvolt = <880000>;
++			regulator-max-microvolt = <920000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++	};
++};
++
++&camcc {
++	status = "okay";
++};
++
++&gpu {
++	status = "okay";
++
++	zap-shader {
++		firmware-name = "qcom/x1e80100/SAMSUNG/galaxy-book4-edge/qcdxkmsuc8380.mbn";
++	};
++};
++
++&i2c0 {
++	clock-frequency = <400000>;
++
++	status = "okay";
++
++	keyboard@5 {
++		compatible = "hid-over-i2c";
++		reg = <0x5>;
++
++		hid-descr-addr = <0x20>;
++		interrupts-extended = <&tlmm 67 IRQ_TYPE_LEVEL_LOW>;
++
++		pinctrl-0 = <&kybd_default>;
++		pinctrl-names = "default";
++
++		wakeup-source;
++	};
++};
++
++&i2c5 {
++	clock-frequency = <400000>;
++
++	status = "okay";
++
++	eusb5_repeater: redriver@43 {
++		compatible = "nxp,ptn3222";
++		reg = <0x43>;
++		#phy-cells = <0>;
++
++		vdd3v3-supply = <&vreg_l13b_3p0>;
++		vdd1v8-supply = <&vreg_l4b_1p8>;
++
++		reset-gpios = <&tlmm 7 GPIO_ACTIVE_LOW>;
++
++		pinctrl-0 = <&eusb5_reset_n>;
++		pinctrl-names = "default";
++	};
++
++	eusb6_repeater: redriver@4f {
++		compatible = "nxp,ptn3222";
++		reg = <0x4f>;
++		#phy-cells = <0>;
++
++		vdd3v3-supply = <&vreg_l13b_3p0>;
++		vdd1v8-supply = <&vreg_l4b_1p8>;
++
++		reset-gpios = <&tlmm 184 GPIO_ACTIVE_LOW>;
++
++		pinctrl-0 = <&eusb6_reset_n>;
++		pinctrl-names = "default";
++	};
++};
++
++
++&i2c8 {
++	clock-frequency = <400000>;
++
++	status = "okay";
++
++	touchscreen@5d {
++		compatible = "hid-over-i2c";
++		reg = <0x5d>;
++
++		hid-descr-addr = <0x1>;
++		//interrupts-extended = <&tlmm 34 IRQ_TYPE_LEVEL_LOW>;
++
++		vdd-supply = <&vreg_misc_3p3>;
++
++		//pinctrl-0 = <&ts0_default>;
++		//pinctrl-names = "default";
++	};
++};
++
++&i2c13 {
++	clock-frequency = <400000>;
++
++	status = "okay";
++};
++
++&lpass_tlmm {
++	spkr_01_sd_n_active: spkr-01-sd-n-active-state {
++		pins = "gpio12";
++		function = "gpio";
++		drive-strength = <16>;
++		bias-disable;
++		output-low;
++	};
++
++	spkr_23_sd_n_active: spkr-23-sd-n-active-state {
++		pins = "gpio13";
++		function = "gpio";
++		drive-strength = <16>;
++		bias-disable;
++		output-low;
++	};
++};
++
++&lpass_vamacro {
++	pinctrl-0 = <&dmic01_default>, <&dmic23_default>;
++	pinctrl-names = "default";
++
++	vdd-micb-supply = <&vreg_l1b_1p8>;
++	qcom,dmic-sample-rate = <4800000>;
++};
++
++&mdss {
++	status = "okay";
++};
++
++&mdss_dp0 {
++	status = "okay";
++};
++
++&mdss_dp0_out {
++	data-lanes = <0 1>;
++	link-frequencies = /bits/ 64 <1620000000 2700000000 5400000000 8100000000>;
++};
++
++&mdss_dp1 {
++	status = "okay";
++};
++
++&mdss_dp1_out {
++	data-lanes = <0 1>;
++	link-frequencies = /bits/ 64 <1620000000 2700000000 5400000000 8100000000>;
++};
++
++&mdss_dp2 {
++	status = "okay";
++};
++
++&mdss_dp2_out {
++	data-lanes = <0 1 2 3>;
++};
++
++&mdss_dp3 {
++	/delete-property/ #sound-dai-cells;
++
++	pinctrl-0 = <&edp0_hpd_default>;
++	pinctrl-names = "default";
++
++	status = "okay";
++
++	aux-bus {
++		panel: panel {
++			enable-gpios = <&pmc8380_3_gpios 4 GPIO_ACTIVE_HIGH>;
++			power-supply = <&vreg_edp_3p3>;
++			no-hpd;
++
++			pinctrl-0 = <&edp_bl_en>;
++			pinctrl-names = "default";
++
++			port {
++				edp_panel_in: endpoint {
++					remote-endpoint = <&mdss_dp3_out>;
++				};
++			};
++		};
++	};
++
++	ports {
++		port@1 {
++			reg = <1>;
++			mdss_dp3_out: endpoint {
++				data-lanes = <0 1 2 3>;
++				link-frequencies = /bits/ 64 <1620000000 2700000000 5400000000>;
++
++				remote-endpoint = <&edp_panel_in>;
++			};
++		};
++	};
++};
++
++
++&mdss_dp3_phy {
++	vdda-phy-supply = <&vreg_l3j_0p8>;
++	vdda-pll-supply = <&vreg_l2j_1p2>;
++
++	status = "okay";
++};
++
++&pcie4 {
++	perst-gpios = <&tlmm 146 GPIO_ACTIVE_LOW>;
++	wake-gpios = <&tlmm 148 GPIO_ACTIVE_LOW>;
++
++	pinctrl-0 = <&pcie4_default>;
++	pinctrl-names = "default";
++
++	status = "okay";
++};
++
++&pcie4_phy {
++	vdda-phy-supply = <&vreg_l3i_0p8>;
++	vdda-pll-supply = <&vreg_l3e_1p2>;
++
++	status = "okay";
++};
++
++&pcie4_port0 {
++	wifi@0 {
++		compatible = "pci17cb,1107";
++		reg = <0x10000 0x0 0x0 0x0 0x0>;
++
++		vddaon-supply = <&vreg_pmu_aon_0p59>;
++		vddwlcx-supply = <&vreg_pmu_wlcx_0p8>;
++		vddwlmx-supply = <&vreg_pmu_wlmx_0p85>;
++		vddrfacmn-supply = <&vreg_pmu_rfa_cmn>;
++		vddrfa0p8-supply = <&vreg_pmu_rfa_0p8>;
++		vddrfa1p2-supply = <&vreg_pmu_rfa_1p2>;
++		vddrfa1p8-supply = <&vreg_pmu_rfa_1p8>;
++		vddpcie0p9-supply = <&vreg_pmu_pcie_0p9>;
++		vddpcie1p8-supply = <&vreg_pmu_pcie_1p8>;
++	};
++};
++
++&pm8550ve_8_gpios {
++	misc_3p3_reg_en: misc-3p3-reg-en-state {
++		pins = "gpio6";
++		function = "normal";
++		bias-disable;
++		input-disable;
++		output-enable;
++		drive-push-pull;
++		power-source = <1>; /* 1.8 V */
++		qcom,drive-strength = <PMIC_GPIO_STRENGTH_LOW>;
++	};
++};
++
++&pmc8380_3_gpios {
++	edp_bl_en: edp-bl-en-state {
++		pins = "gpio4";
++		function = "normal";
++		power-source = <1>; /* 1.8V */
++		input-disable;
++		output-enable;
++	};
++};
++
++&qupv3_0 {
++	status = "okay";
++};
++
++&qupv3_1 {
++	status = "okay";
++};
++
++&qupv3_2 {
++	status = "okay";
++};
++
++&remoteproc_adsp {
++	firmware-name = "qcom/x1e80100/SAMSUNG/galaxy-book4-edge/qcadsp8380.mbn",
++			"qcom/x1e80100/SAMSUNG/galaxy-book4-edge/adsp_dtbs.elf";
++
++	status = "okay";
++};
++
++&remoteproc_cdsp {
++	firmware-name = "qcom/x1e80100/SAMSUNG/galaxy-book4-edge/qccdsp8380.mbn",
++			"qcom/x1e80100/SAMSUNG/galaxy-book4-edge/cdsp_dtbs.elf";
++
++	status = "okay";
++};
++
++&swr0 {
++	status = "okay";
++
++	pinctrl-0 = <&wsa_swr_active>, <&spkr_01_sd_n_active>;
++	pinctrl-names = "default";
++
++	/* WSA8845, Left Woofer */
++	left_woofer: speaker@0,0 {
++		compatible = "sdw20217020400";
++		reg = <0 0>;
++		reset-gpios = <&lpass_tlmm 12 GPIO_ACTIVE_LOW>;
++		#sound-dai-cells = <0>;
++		sound-name-prefix = "WooferLeft";
++		vdd-1p8-supply = <&vreg_l15b_1p8>;
++		vdd-io-supply = <&vreg_l12b_1p2>;
++		qcom,port-mapping = <1 2 3 7 10 13>;
++	};
++
++	/* WSA8845, Left Tweeter */
++	left_tweeter: speaker@0,1 {
++		compatible = "sdw20217020400";
++		reg = <0 1>;
++		reset-gpios = <&lpass_tlmm 12 GPIO_ACTIVE_LOW>;
++		#sound-dai-cells = <0>;
++		sound-name-prefix = "TweeterLeft";
++		vdd-1p8-supply = <&vreg_l15b_1p8>;
++		vdd-io-supply = <&vreg_l12b_1p2>;
++		qcom,port-mapping = <4 5 6 7 11 13>;
++	};
++};
++
++&swr1 {
++	status = "okay";
++
++	/* WCD9385 RX */
++	wcd_rx: codec@0,4 {
++		compatible = "sdw20217010d00";
++		reg = <0 4>;
++		qcom,rx-port-mapping = <1 2 3 4 5>;
++	};
++};
++
++&swr2 {
++	status = "okay";
++
++	/* WCD9385 TX */
++	wcd_tx: codec@0,3 {
++		compatible = "sdw20217010d00";
++		reg = <0 3>;
++		qcom,tx-port-mapping = <2 2 3 4>;
++	};
++};
++
++&swr3 {
++	status = "okay";
++
++	pinctrl-0 = <&wsa2_swr_active>, <&spkr_23_sd_n_active>;
++	pinctrl-names = "default";
++
++	/* WSA8845, Right Woofer */
++	right_woofer: speaker@0,0 {
++		compatible = "sdw20217020400";
++		reg = <0 0>;
++		reset-gpios = <&lpass_tlmm 13 GPIO_ACTIVE_LOW>;
++		#sound-dai-cells = <0>;
++		sound-name-prefix = "WooferRight";
++		vdd-1p8-supply = <&vreg_l15b_1p8>;
++		vdd-io-supply = <&vreg_l12b_1p2>;
++		qcom,port-mapping = <1 2 3 7 10 13>;
++	};
++
++	/* WSA8845, Right Tweeter */
++	right_tweeter: speaker@0,1 {
++		compatible = "sdw20217020400";
++		reg = <0 1>;
++		reset-gpios = <&lpass_tlmm 13 GPIO_ACTIVE_LOW>;
++		#sound-dai-cells = <0>;
++		sound-name-prefix = "TweeterRight";
++		vdd-1p8-supply = <&vreg_l15b_1p8>;
++		vdd-io-supply = <&vreg_l12b_1p2>;
++		qcom,port-mapping = <4 5 6 7 11 13>;
++	};
++};
++
++&tlmm {
++	gpio-reserved-ranges = <34 2>, /* Unused */
++			       <44 4>; /* SPI (TPM) */
++
++	edp_reg_en: edp-reg-en-state {
++		pins = "gpio70";
++		function = "gpio";
++		drive-strength = <16>;
++		bias-pull-up;
++		output-low;
++	};
++
++	octa_vdd_en: octa-vdd-en-state {
++		pins = "gpio111";
++		function = "gpio";
++		drive-strength = <16>;
++		bias-pull-up;
++		output-high;
++	};
++
++	display_vdd_en: display-vdd-en-state {
++		pins = "gpio120";
++		function = "gpio";
++		drive-strength = <16>;
++		bias-pull-up;
++		output-high;
++	};
++
++	edp0_hpd_default: edp0-hpd-default-state {
++		pins = "gpio119";
++		function = "edp0_hot";
++		bias-pull-down;
++		input-enable;
++		drive-strength = <2>;
++	};
++
++
++	hall_int_n_default: hall-int-n-state {
++		pins = "gpio92";
++		function = "gpio";
++		bias-disable;
++	};
++
++	kybd_default: kybd-default-state {
++		pins = "gpio67";
++		function = "gpio";
++		bias-disable;
++	};
++
++	hdmi_hpd_default: hdmi-hpd-default-state {
++		pins = "gpio126";
++		function = "usb2_dp";
++		bias-disable;
++	};
++
++	eusb5_reset_n: eusb5-reset-n-state {
++		pins = "gpio7";
++		function = "gpio";
++		drive-strength = <2>;
++		bias-disable;
++		output-low;
++	};
++
++	eusb6_reset_n: eusb6-reset-n-state {
++		pins = "gpio184";
++		function = "gpio";
++		drive-strength = <2>;
++		bias-disable;
++		output-low;
++	};
++
++	pcie4_default: pcie4-default-state {
++		clkreq-n-pins {
++			pins = "gpio147";
++			function = "pcie4_clk";
++			drive-strength = <2>;
++			bias-pull-up;
++		};
++
++		perst-n-pins {
++			pins = "gpio146";
++			function = "gpio";
++			drive-strength = <2>;
++			bias-disable;
++		};
++
++		wake-n-pins {
++			pins = "gpio148";
++			function = "gpio";
++			drive-strength = <2>;
++			bias-pull-up;
++		};
++	};
++
++	tpad_default: tpad-default-state {
++		pins = "gpio3";
++		function = "gpio";
++		bias-disable;
++	};
++
++	ts0_default: ts0-default-state {
++		int-n-pins {
++			pins = "gpio51";
++			function = "gpio";
++			bias-disable;
++		};
++
++		reset-n-pins {
++			pins = "gpio48";
++			function = "gpio";
++			output-high;
++			drive-strength = <16>;
++		};
++	};
++
++	usb_1_ss0_sbu_default: usb-1-ss0-sbu-state {
++		mode-pins {
++			pins = "gpio166";
++			function = "gpio";
++			bias-disable;
++			drive-strength = <2>;
++			output-high;
++		};
++
++		oe-n-pins {
++			pins = "gpio168";
++			function = "gpio";
++			bias-disable;
++			drive-strength = <2>;
++		};
++
++		sel-pins {
++			pins = "gpio167";
++			function = "gpio";
++			bias-disable;
++			drive-strength = <2>;
++		};
++
++	};
++
++	usb_1_ss1_sbu_default: usb-1-ss1-sbu-state {
++		mode-pins {
++			pins = "gpio177";
++			function = "gpio";
++			bias-disable;
++			drive-strength = <2>;
++			output-high;
++		};
++
++		oe-n-pins {
++			pins = "gpio179";
++			function = "gpio";
++			bias-disable;
++			drive-strength = <2>;
++		};
++
++		sel-pins {
++			pins = "gpio178";
++			function = "gpio";
++			bias-disable;
++			drive-strength = <2>;
++		};
++	};
++
++	wcn_sw_en: wcn-sw-en-state {
++		pins = "gpio214";
++		function = "gpio";
++		drive-strength = <2>;
++		bias-disable;
++	};
++
++	wcn_wlan_bt_en: wcn-wlan-bt-en-state {
++		pins = "gpio116", "gpio117";
++		function = "gpio";
++		drive-strength = <2>;
++		bias-disable;
++	};
++
++	wcd_default: wcd-reset-n-active-state {
++		pins = "gpio191";
++		function = "gpio";
++		drive-strength = <16>;
++		bias-disable;
++		output-low;
++	};
++};
++
++&ufs_mem_hc {
++	status = "okay";
++
++	reset-gpios = <&tlmm 238 GPIO_ACTIVE_LOW>;
++	vcc-supply = <&vreg_l17b_2p5>;
++	vcc-max-microamp = <600000>;
++
++	vccq-supply = <&vreg_l2i_1p2>;
++	vccq-max-microamp = <600000>;
++};
++
++&ufs_mem_phy {
++	status = "okay";
++
++	vdda-phy-supply = <&vreg_l3i_0p8>;
++	vdda-pll-supply = <&vreg_l3e_1p2>;
++};
++
++&uart14 {
++	status = "okay";
++
++	bluetooth {
++		compatible = "qcom,wcn7850-bt";
++		max-speed = <3200000>;
++
++		vddaon-supply = <&vreg_pmu_aon_0p59>;
++		vddwlcx-supply = <&vreg_pmu_wlcx_0p8>;
++		vddwlmx-supply = <&vreg_pmu_wlmx_0p85>;
++		vddrfacmn-supply = <&vreg_pmu_rfa_cmn>;
++		vddrfa0p8-supply = <&vreg_pmu_rfa_0p8>;
++		vddrfa1p2-supply = <&vreg_pmu_rfa_1p2>;
++		vddrfa1p8-supply = <&vreg_pmu_rfa_1p8>;
++	};
++};
++
++&uart21 {
++	compatible = "qcom,geni-debug-uart";
++	status = "okay";
++};
++
++&usb_1_ss0 {
++	status = "okay";
++};
++
++&usb_1_ss0_hsphy {
++	vdd-supply = <&vreg_l3j_0p8>;
++	vdda12-supply = <&vreg_l2j_1p2>;
++
++	status = "okay";
++};
++
++&usb_1_ss0_qmpphy {
++	vdda-phy-supply = <&vreg_l2j_1p2>;
++	vdda-pll-supply = <&vreg_l1j_0p8>;
++
++	status = "okay";
++};
++
++&usb_1_ss0 {
++	dr_mode = "host";
++};
++
++&usb_1_ss0_dwc3_hs {
++	remote-endpoint = <&pmic_glink_ss0_hs_in>;
++};
++
++&usb_1_ss0_qmpphy_out {
++	remote-endpoint = <&pmic_glink_ss0_ss_in>;
++};
++
++&usb_1_ss1 {
++	status = "okay";
++};
++
++&usb_1_ss1_hsphy {
++	vdd-supply = <&vreg_l3j_0p8>;
++	vdda12-supply = <&vreg_l2j_1p2>;
++
++	status = "okay";
++};
++
++&usb_1_ss1_qmpphy {
++	vdda-phy-supply = <&vreg_l2j_1p2>;
++	vdda-pll-supply = <&vreg_l2d_0p9>;
++
++	status = "okay";
++};
++
++&usb_1_ss1 {
++	dr_mode = "host";
++};
++
++&usb_1_ss1_dwc3_hs {
++	remote-endpoint = <&pmic_glink_ss1_hs_in>;
++};
++
++&usb_1_ss1_qmpphy_out {
++	remote-endpoint = <&pmic_glink_ss1_ss_in>;
++};
++
++&usb_1_ss2_qmpphy {
++	vdda-phy-supply = <&vreg_l2j_1p2>;
++	vdda-pll-supply = <&vreg_l2d_0p9>;
++
++	/delete-property/ mode-switch;
++	/delete-property/ orientation-switch;
++
++	status = "okay";
++
++	ports {
++		port@0 {
++			#address-cells = <1>;
++			#size-cells = <0>;
++
++			/delete-node/ endpoint;
++
++			usb_1_ss2_qmpphy_out_dp: endpoint@0 {
++				reg = <0>;
++
++				data-lanes = <3 2 1 0>;
++				remote-endpoint = <&hdmi_bridge_dp_in>;
++			};
++		};
++	};
++};
++
++
++/* MP0 goes to the USB-A port(USB3) and FPC */
++&usb_mp {
++	status = "okay";
++
++	/* Limit to single port */
++	phys = <&usb_mp_hsphy0>, <&usb_mp_qmpphy0>;
++	phy-names = "usb2-0", "usb3-0";
++};
++
++&usb_mp_hsphy0 {
++	vdd-supply = <&vreg_l2e_0p8>;
++	vdda12-supply = <&vreg_l3e_1p2>;
++
++	phys = <&eusb6_repeater>;
++
++	status = "okay";
++};
++
++&usb_mp_qmpphy0 {
++	vdda-phy-supply = <&vreg_l3e_1p2>;
++	vdda-pll-supply = <&vreg_l3c_0p8>;
++
++	status = "okay";
++};
+diff --git a/arch/arm64/boot/dts/qcom/x1e80100-samsung-galaxy-book4-edge-14.dts b/arch/arm64/boot/dts/qcom/x1e80100-samsung-galaxy-book4-edge-14.dts
+new file mode 100644
+index 000000000000..333a69a8a459
+--- /dev/null
++++ b/arch/arm64/boot/dts/qcom/x1e80100-samsung-galaxy-book4-edge-14.dts
+@@ -0,0 +1,28 @@
++// SPDX-License-Identifier: BSD-3-Clause
++
++/dts-v1/;
++
++#include "x1-samsung-galaxy-book4-edge.dtsi"
++
++/ {
++	model = "Samsung Galaxy Book4 Edge (14 inch)";
++	compatible = "samsung,galaxy-book4-edge-14", "samsung,galaxy-book4-edge",
++		     "qcom,x1e80100";
++};
++
++&i2c13 {
++	touchpad@40 {
++		compatible = "hid-over-i2c";
++		reg = <0x40>;
++
++		hid-descr-addr = <0xe>;
++		interrupts-extended = <&tlmm 3 IRQ_TYPE_LEVEL_LOW>;
++
++		pinctrl-0 = <&tpad_default>;
++		pinctrl-names = "default";
++	};
++};
++
++&panel {
++	compatible = "samsung,atna40cu07", "samsung,atna33xc20";
++};
+diff --git a/arch/arm64/boot/dts/qcom/x1e84100-samsung-galaxy-book4-edge-16.dts b/arch/arm64/boot/dts/qcom/x1e84100-samsung-galaxy-book4-edge-16.dts
+new file mode 100644
+index 000000000000..947eea411753
+--- /dev/null
++++ b/arch/arm64/boot/dts/qcom/x1e84100-samsung-galaxy-book4-edge-16.dts
+@@ -0,0 +1,31 @@
++// SPDX-License-Identifier: BSD-3-Clause
++
++/dts-v1/;
++
++#include "x1-samsung-galaxy-book4-edge.dtsi"
++
++/ {
++	model = "Samsung Galaxy Book4 Edge (16 inch)";
++	compatible = "samsung,galaxy-book4-edge-16", "samsung,galaxy-book4-edge",
++		     "qcom,x1e80100";
++};
++
++&i2c13 {
++	touchpad@50 {
++		compatible = "hid-over-i2c";
++		reg = <0x50>;
++
++		hid-descr-addr = <0xd1>;
++		interrupts-extended = <&tlmm 3 IRQ_TYPE_LEVEL_LOW>;
++
++		vdd-supply = <&vreg_misc_3p3>;
++		vddl-supply = <&vreg_l15b_1p8>;
++
++		pinctrl-0 = <&tpad_default>;
++		pinctrl-names = "default";
++	};
++};
++
++&panel {
++	compatible = "samsung,atna60cl07", "samsung,atna33xc20";
++};
+-- 
+2.55.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Sat, 26 Sep 2026 18:36:59 +0200
+Subject: power: supply: Rename Galaxy Book EC battery driver for ENE KB9058
+
+---
+ .../power/supply/ene,kb9058-battery.yaml      |  44 ++
+ .../supply/samsung,galaxybook-ec-battery.yaml |  40 --
+ drivers/power/supply/Kconfig                  |  16 +-
+ drivers/power/supply/Makefile                 |   2 +-
+ drivers/power/supply/ene-kb9058-battery.c     | 422 ++++++++++++++++++
+ .../supply/samsung-galaxybook-ec-battery.c    | 418 -----------------
+ 6 files changed, 476 insertions(+), 466 deletions(-)
+ create mode 100644 Documentation/devicetree/bindings/power/supply/ene,kb9058-battery.yaml
+ delete mode 100644 Documentation/devicetree/bindings/power/supply/samsung,galaxybook-ec-battery.yaml
+ create mode 100644 drivers/power/supply/ene-kb9058-battery.c
+ delete mode 100644 drivers/power/supply/samsung-galaxybook-ec-battery.c
+
+diff --git a/Documentation/devicetree/bindings/power/supply/ene,kb9058-battery.yaml b/Documentation/devicetree/bindings/power/supply/ene,kb9058-battery.yaml
+new file mode 100644
+index 000000000000..b7fb121aaa4f
+--- /dev/null
++++ b/Documentation/devicetree/bindings/power/supply/ene,kb9058-battery.yaml
+@@ -0,0 +1,44 @@
++# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
++%YAML 1.2
++---
++$id: http://devicetree.org/schemas/power/supply/ene,kb9058-battery.yaml#
++$schema: http://devicetree.org/meta-schemas/core.yaml#
++
++title: ENE KB9058 embedded controller battery interface
++
++maintainers:
++  - Antheas Kapenekakis <lkml@antheas.dev>
++
++description: |
++  The ENE KB9058 embedded controller exposes battery and AC adapter status
++  through a mailbox at its second I2C address. The register layout follows
++  the Samsung Galaxy Book4 Edge ACPI battery methods.
++
++properties:
++  compatible:
++    items:
++      - const: samsung,np750xqb-kb9058-battery
++      - const: ene,kb9058-battery
++
++  reg:
++    maxItems: 1
++
++required:
++  - compatible
++  - reg
++
++additionalProperties: false
++
++examples:
++  - |
++    i2c {
++        #address-cells = <1>;
++        #size-cells = <0>;
++
++        embedded-controller@64 {
++            compatible = "samsung,np750xqb-kb9058-battery",
++                         "ene,kb9058-battery";
++            reg = <0x64>;
++        };
++    };
++...
+diff --git a/Documentation/devicetree/bindings/power/supply/samsung,galaxybook-ec-battery.yaml b/Documentation/devicetree/bindings/power/supply/samsung,galaxybook-ec-battery.yaml
+deleted file mode 100644
+index 261ee096603a..000000000000
+--- a/Documentation/devicetree/bindings/power/supply/samsung,galaxybook-ec-battery.yaml
++++ /dev/null
+@@ -1,40 +0,0 @@
+-# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+-%YAML 1.2
+----
+-$id: http://devicetree.org/schemas/power/supply/samsung,galaxybook-ec-battery.yaml#
+-$schema: http://devicetree.org/meta-schemas/core.yaml#
+-
+-title: Samsung Galaxy Book4 Edge EC battery
+-
+-maintainers:
+-  - Antheas Kapenekakis <lkml@antheas.dev>
+-
+-description: |
+-  The Samsung EC exposes battery and AC adapter status through a mailbox
+-  on an I2C address listed in the machine ACPI ECTC resources.
+-
+-properties:
+-  compatible:
+-    const: samsung,galaxybook-ec-battery
+-
+-  reg:
+-    maxItems: 1
+-
+-required:
+-  - compatible
+-  - reg
+-
+-additionalProperties: false
+-
+-examples:
+-  - |
+-    i2c {
+-        #address-cells = <1>;
+-        #size-cells = <0>;
+-
+-        battery@64 {
+-            compatible = "samsung,galaxybook-ec-battery";
+-            reg = <0x64>;
+-        };
+-    };
+-...
+diff --git a/drivers/power/supply/Kconfig b/drivers/power/supply/Kconfig
+index b8dced2e4762..0f9b269aae13 100644
+--- a/drivers/power/supply/Kconfig
++++ b/drivers/power/supply/Kconfig
+@@ -176,6 +176,15 @@ config BATTERY_DS2782
+ 	  Say Y here to enable support for the DS2782/DS2786 standalone battery
+ 	  gas-gauge.
+ 
++config BATTERY_ENE_KB9058
++	tristate "ENE KB9058 EC battery and AC adapter"
++	depends on I2C && OF
++	help
++	  Say Y here to report battery and AC adapter status from the ENE
++	  KB9058 EC mailbox on Samsung Galaxy Book4 Edge laptops.
++
++	  This driver builds as the ene-kb9058-battery module.
++
+ config BATTERY_HUAWEI_GAOKUN
+ 	tristate "Huawei Matebook E Go power supply"
+ 	depends on EC_HUAWEI_GAOKUN
+@@ -229,13 +238,6 @@ config BATTERY_SAMSUNG_SDI
+ 	  Say Y to enable support for Samsung SDI battery data.
+ 	  These batteries are used in Samsung mobile phones.
+ 
+-config BATTERY_SAMSUNG_GALAXYBOOK_EC
+-	tristate "Samsung Galaxy Book4 Edge EC battery"
+-	depends on I2C && OF
+-	help
+-	  Say Y here to report battery and AC adapter status from the Samsung
+-	  EC mailbox on Galaxy Book4 Edge laptops with the SAM060B controller.
+-
+ config BATTERY_S2MU005
+ 	tristate "Samsung S2MU005 PMIC fuel gauge driver"
+ 	depends on I2C
+diff --git a/drivers/power/supply/Makefile b/drivers/power/supply/Makefile
+index de5500421678..cea0e6307d27 100644
+--- a/drivers/power/supply/Makefile
++++ b/drivers/power/supply/Makefile
+@@ -31,6 +31,7 @@ obj-$(CONFIG_BATTERY_DS2760)	+= ds2760_battery.o
+ obj-$(CONFIG_BATTERY_DS2780)	+= ds2780_battery.o
+ obj-$(CONFIG_BATTERY_DS2781)	+= ds2781_battery.o
+ obj-$(CONFIG_BATTERY_DS2782)	+= ds2782_battery.o
++obj-$(CONFIG_BATTERY_ENE_KB9058)	+= ene-kb9058-battery.o
+ obj-$(CONFIG_BATTERY_GAUGE_LTC2941)	+= ltc2941-battery-gauge.o
+ obj-$(CONFIG_BATTERY_GOLDFISH)	+= goldfish_battery.o
+ obj-$(CONFIG_BATTERY_HUAWEI_GAOKUN)	+= huawei-gaokun-battery.o
+@@ -40,7 +41,6 @@ obj-$(CONFIG_BATTERY_PMU)	+= pmu_battery.o
+ obj-$(CONFIG_BATTERY_QCOM_BATTMGR)	+= qcom_battmgr.o
+ obj-$(CONFIG_BATTERY_OLPC)	+= olpc_battery.o
+ obj-$(CONFIG_BATTERY_SAMSUNG_SDI)	+= samsung-sdi-battery.o
+-obj-$(CONFIG_BATTERY_SAMSUNG_GALAXYBOOK_EC) += samsung-galaxybook-ec-battery.o
+ obj-$(CONFIG_BATTERY_S2MU005)	+= s2mu005-battery.o
+ obj-$(CONFIG_BATTERY_COLLIE)	+= collie_battery.o
+ obj-$(CONFIG_BATTERY_INGENIC)	+= ingenic-battery.o
+diff --git a/drivers/power/supply/ene-kb9058-battery.c b/drivers/power/supply/ene-kb9058-battery.c
+new file mode 100644
+index 000000000000..84a634ada67f
+--- /dev/null
++++ b/drivers/power/supply/ene-kb9058-battery.c
+@@ -0,0 +1,422 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * Copyright (c) 2026 Antheas Kapenekakis <lkml@antheas.dev>
++ *
++ * Report battery and AC adapter status through the ENE KB9058 EC mailbox.
++ * The NP750XQB ACPI ECTC, BATC and ADP1 methods describe the battery
++ * register layout used here.
++ */
++
++#include <linux/bitops.h>
++#include <linux/cleanup.h>
++#include <linux/delay.h>
++#include <linux/errno.h>
++#include <linux/i2c.h>
++#include <linux/module.h>
++#include <linux/mutex.h>
++#include <linux/of.h>
++#include <linux/power_supply.h>
++#include <linux/slab.h>
++#include <linux/string.h>
++#include <linux/workqueue.h>
++
++#define KB9058_POLL_INTERVAL	(30 * HZ)
++
++#define KB9058_FLAGS		0x80
++#define KB9058_BAT_STATUS	0x84
++#define KB9058_REMAINING	0xa0
++#define KB9058_BAT_VOLTAGE	0xa4
++#define KB9058_CAPACITY	0xb0
++#define KB9058_DESIGN_VOLTAGE	0xb4
++#define KB9058_CYCLES		0xd0
++
++#define KB9058_BAT_PRESENT	BIT(0)
++#define KB9058_AC_PRESENT	BIT(2)
++#define KB9058_BAT_DISCHARGING	BIT(0)
++#define KB9058_BAT_CHARGING	BIT(1)
++#define KB9058_BAT_FULL		BIT(3)
++
++struct kb9058_battery_data {
++	int status;
++	int present;
++	int ac_online;
++	int charge_now;
++	int charge_full;
++	int charge_full_design;
++	int voltage_now;
++	int voltage_min_design;
++	int current_now;
++	int cycle_count;
++};
++
++struct kb9058_battery {
++	struct i2c_client *client;
++	struct power_supply *battery;
++	struct power_supply *ac;
++	struct delayed_work poll_work;
++	/* Serializes mailbox transactions and cached power-supply properties. */
++	struct mutex lock;
++	struct kb9058_battery_data data;
++};
++
++static int kb9058_battery_read_byte(struct i2c_client *client, u8 reg, u8 *value)
++{
++	u8 select[] = { 0x40, 0x00, 0xf4, 0x80, reg };
++	u8 execute[] = { 0x40, 0x00, 0xff, 0x10, 0x88 };
++	u8 request[] = { 0x30, 0x00, 0xf4, 0x80 };
++	u8 response[2];
++	struct i2c_msg msg[] = {
++		{ .addr = client->addr, .len = sizeof(request), .buf = request },
++		{ .addr = client->addr, .flags = I2C_M_RD,
++		  .len = sizeof(response), .buf = response },
++	};
++	int ret;
++
++	ret = i2c_master_send(client, select, sizeof(select));
++	if (ret != sizeof(select))
++		return ret < 0 ? ret : -EIO;
++
++	usleep_range(5000, 6000);
++
++	ret = i2c_master_send(client, execute, sizeof(execute));
++	if (ret != sizeof(execute))
++		return ret < 0 ? ret : -EIO;
++
++	usleep_range(5000, 6000);
++
++	ret = i2c_transfer(client->adapter, msg, ARRAY_SIZE(msg));
++	if (ret != ARRAY_SIZE(msg))
++		return ret < 0 ? ret : -EIO;
++	if (response[0] != 0x50)
++		return -EIO;
++
++	*value = response[1];
++	return 0;
++}
++
++static int kb9058_battery_read_word(struct i2c_client *client, u8 reg,
++					unsigned int offset, int *value)
++{
++	u8 low, high;
++	int ret;
++
++	ret = kb9058_battery_read_byte(client, reg + offset, &high);
++	if (ret)
++		return ret;
++	ret = kb9058_battery_read_byte(client, reg + offset + 1, &low);
++	if (ret)
++		return ret;
++
++	*value = (high << 8) | low;
++	return 0;
++}
++
++static int kb9058_battery_refresh(struct kb9058_battery *ec,
++				      struct kb9058_battery_data *data)
++{
++	struct i2c_client *client = ec->client;
++	u8 flags, state;
++	int current_ma;
++	int ret;
++
++	ret = kb9058_battery_read_byte(client, KB9058_FLAGS, &flags);
++	if (ret)
++		return ret;
++	ret = kb9058_battery_read_byte(client, KB9058_BAT_STATUS, &state);
++	if (ret)
++		return ret;
++
++	data->present = !!(flags & KB9058_BAT_PRESENT);
++	data->ac_online = !!(flags & KB9058_AC_PRESENT);
++
++	if (state & KB9058_BAT_FULL)
++		data->status = POWER_SUPPLY_STATUS_FULL;
++	else if (state & KB9058_BAT_CHARGING)
++		data->status = POWER_SUPPLY_STATUS_CHARGING;
++	else if (state & KB9058_BAT_DISCHARGING)
++		data->status = POWER_SUPPLY_STATUS_DISCHARGING;
++	else
++		data->status = POWER_SUPPLY_STATUS_NOT_CHARGING;
++
++	/* BATC._BST reads the upper big-endian word of B1RR. */
++	ret = kb9058_battery_read_word(client, KB9058_REMAINING, 2,
++					   &data->charge_now);
++	if (ret)
++		return ret;
++	ret = kb9058_battery_read_word(client, KB9058_BAT_VOLTAGE, 2,
++					   &data->voltage_now);
++	if (ret)
++		return ret;
++	ret = kb9058_battery_read_word(client, KB9058_BAT_VOLTAGE, 0,
++					   &current_ma);
++	if (ret)
++		return ret;
++	/* BATC._BIX reads design capacity from the lower word of B1AF. */
++	ret = kb9058_battery_read_word(client, KB9058_CAPACITY, 0,
++					   &data->charge_full_design);
++	if (ret)
++		return ret;
++	ret = kb9058_battery_read_word(client, KB9058_CAPACITY, 2,
++					   &data->charge_full);
++	if (ret)
++		return ret;
++	ret = kb9058_battery_read_word(client, KB9058_DESIGN_VOLTAGE, 0,
++					   &data->voltage_min_design);
++	if (ret)
++		return ret;
++	ret = kb9058_battery_read_word(client, KB9058_CYCLES, 0,
++					   &data->cycle_count);
++	if (ret)
++		return ret;
++
++	/* Unknown EC values match BATC._BST/_BIX's 0xffff sentinel. */
++	if (data->charge_now == 0xffff)
++		data->charge_now = -1;
++	if (data->charge_full_design == 0xffff)
++		data->charge_full_design = -1;
++	if (data->charge_full == 0xffff)
++		data->charge_full = -1;
++	if (data->voltage_now == 0xffff)
++		data->voltage_now = -1;
++	if (data->voltage_min_design == 0xffff)
++		data->voltage_min_design = -1;
++	if (current_ma == 0xffff)
++		current_ma = -1;
++	if (data->cycle_count == 0xffff)
++		data->cycle_count = -1;
++
++	if (current_ma >= 0) {
++		current_ma = abs((s16)current_ma);
++		if (data->status == POWER_SUPPLY_STATUS_DISCHARGING)
++			current_ma = -current_ma;
++	}
++
++	data->current_now = current_ma;
++
++	/* EC units are mAh, mV and mA; power_supply uses micro units. */
++	if (data->charge_now >= 0)
++		data->charge_now *= 1000;
++	if (data->charge_full >= 0)
++		data->charge_full *= 1000;
++	if (data->charge_full_design >= 0)
++		data->charge_full_design *= 1000;
++	if (data->voltage_now >= 0)
++		data->voltage_now *= 1000;
++	if (data->voltage_min_design >= 0)
++		data->voltage_min_design *= 1000;
++	if (current_ma != -1)
++		data->current_now *= 1000;
++
++	return 0;
++}
++
++static enum power_supply_property kb9058_battery_properties[] = {
++	POWER_SUPPLY_PROP_STATUS,
++	POWER_SUPPLY_PROP_PRESENT,
++	POWER_SUPPLY_PROP_TECHNOLOGY,
++	POWER_SUPPLY_PROP_CAPACITY,
++	POWER_SUPPLY_PROP_CHARGE_NOW,
++	POWER_SUPPLY_PROP_CHARGE_FULL,
++	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
++	POWER_SUPPLY_PROP_VOLTAGE_NOW,
++	POWER_SUPPLY_PROP_VOLTAGE_MIN_DESIGN,
++	POWER_SUPPLY_PROP_CURRENT_NOW,
++	POWER_SUPPLY_PROP_CYCLE_COUNT,
++	POWER_SUPPLY_PROP_MODEL_NAME,
++	POWER_SUPPLY_PROP_MANUFACTURER,
++};
++
++static int kb9058_battery_get_property(struct power_supply *psy,
++					   enum power_supply_property prop,
++					   union power_supply_propval *val)
++{
++	struct kb9058_battery *ec = power_supply_get_drvdata(psy);
++	const struct kb9058_battery_data *data = &ec->data;
++	int value;
++
++	guard(mutex)(&ec->lock);
++
++	switch (prop) {
++	case POWER_SUPPLY_PROP_STATUS:
++		value = data->status;
++		break;
++	case POWER_SUPPLY_PROP_PRESENT:
++		value = data->present;
++		break;
++	case POWER_SUPPLY_PROP_TECHNOLOGY:
++		value = POWER_SUPPLY_TECHNOLOGY_LION;
++		break;
++	case POWER_SUPPLY_PROP_CAPACITY:
++		if (data->charge_now < 0 || data->charge_full <= 0)
++			return -ENODATA;
++		value = clamp(100 * (data->charge_now / 1000) /
++			      (data->charge_full / 1000), 0, 100);
++		break;
++	case POWER_SUPPLY_PROP_CHARGE_NOW:
++		value = data->charge_now;
++		break;
++	case POWER_SUPPLY_PROP_CHARGE_FULL:
++		value = data->charge_full;
++		break;
++	case POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN:
++		value = data->charge_full_design;
++		break;
++	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
++		value = data->voltage_now;
++		break;
++	case POWER_SUPPLY_PROP_VOLTAGE_MIN_DESIGN:
++		value = data->voltage_min_design;
++		break;
++	case POWER_SUPPLY_PROP_CURRENT_NOW:
++		value = data->current_now;
++		break;
++	case POWER_SUPPLY_PROP_CYCLE_COUNT:
++		value = data->cycle_count;
++		break;
++	case POWER_SUPPLY_PROP_MODEL_NAME:
++		/* BATC._BIX supplies this fixed model string. */
++		val->strval = "SR Real Battery";
++		return 0;
++	case POWER_SUPPLY_PROP_MANUFACTURER:
++		val->strval = "SAMSUNG Electronics";
++		return 0;
++	default:
++		return -EINVAL;
++	}
++
++	/* Negative current is valid while discharging; -1 marks unknown data. */
++	if (value < 0 && (prop != POWER_SUPPLY_PROP_CURRENT_NOW || value == -1))
++		return -ENODATA;
++
++	val->intval = value;
++	return 0;
++}
++
++static int kb9058_ac_get_property(struct power_supply *psy,
++				      enum power_supply_property prop,
++				      union power_supply_propval *val)
++{
++	struct kb9058_battery *ec = power_supply_get_drvdata(psy);
++
++	if (prop != POWER_SUPPLY_PROP_ONLINE)
++		return -EINVAL;
++
++	guard(mutex)(&ec->lock);
++	val->intval = ec->data.ac_online;
++	return 0;
++}
++
++static enum power_supply_property kb9058_ac_properties[] = {
++	POWER_SUPPLY_PROP_ONLINE,
++};
++
++static const struct power_supply_desc kb9058_battery_desc = {
++	.name = "kb9058-battery",
++	.type = POWER_SUPPLY_TYPE_BATTERY,
++	.properties = kb9058_battery_properties,
++	.num_properties = ARRAY_SIZE(kb9058_battery_properties),
++	.get_property = kb9058_battery_get_property,
++};
++
++static const struct power_supply_desc kb9058_ac_desc = {
++	.name = "kb9058-ac",
++	.type = POWER_SUPPLY_TYPE_MAINS,
++	.properties = kb9058_ac_properties,
++	.num_properties = ARRAY_SIZE(kb9058_ac_properties),
++	.get_property = kb9058_ac_get_property,
++};
++
++static void kb9058_battery_poll(struct work_struct *work)
++{
++	struct kb9058_battery *ec = container_of(to_delayed_work(work),
++						struct kb9058_battery, poll_work);
++	struct kb9058_battery_data data = {};
++	bool changed = false;
++	int ret;
++
++	scoped_guard(mutex, &ec->lock) {
++		ret = kb9058_battery_refresh(ec, &data);
++		if (ret) {
++			dev_warn_ratelimited(&ec->client->dev,
++					     "EC read failed: %d\n", ret);
++		} else {
++			changed = memcmp(&ec->data, &data, sizeof(data));
++			ec->data = data;
++		}
++	}
++
++	if (!ret && changed) {
++		power_supply_changed(ec->battery);
++		power_supply_changed(ec->ac);
++	}
++
++	schedule_delayed_work(&ec->poll_work, KB9058_POLL_INTERVAL);
++}
++
++static int kb9058_battery_probe(struct i2c_client *client)
++{
++	struct power_supply_config cfg = {};
++	struct kb9058_battery *ec;
++	int ret;
++
++	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C))
++		return dev_err_probe(&client->dev, -EOPNOTSUPP,
++				     "adapter lacks combined I2C transfers\n");
++
++	ec = devm_kzalloc(&client->dev, sizeof(*ec), GFP_KERNEL);
++	if (!ec)
++		return -ENOMEM;
++
++	ec->client = client;
++	mutex_init(&ec->lock);
++	INIT_DELAYED_WORK(&ec->poll_work, kb9058_battery_poll);
++
++	ret = kb9058_battery_refresh(ec, &ec->data);
++	if (ret)
++		return dev_err_probe(&client->dev, ret, "failed to read EC battery\n");
++
++	cfg.drv_data = ec;
++	cfg.fwnode = dev_fwnode(&client->dev);
++	ec->battery = devm_power_supply_register(&client->dev,
++						  &kb9058_battery_desc, &cfg);
++	if (IS_ERR(ec->battery))
++		return dev_err_probe(&client->dev, PTR_ERR(ec->battery),
++				     "failed to register battery\n");
++
++	ec->ac = devm_power_supply_register(&client->dev, &kb9058_ac_desc,
++					     &cfg);
++	if (IS_ERR(ec->ac))
++		return dev_err_probe(&client->dev, PTR_ERR(ec->ac),
++				     "failed to register AC supply\n");
++
++	i2c_set_clientdata(client, ec);
++	schedule_delayed_work(&ec->poll_work, KB9058_POLL_INTERVAL);
++
++	return 0;
++}
++
++static void kb9058_battery_remove(struct i2c_client *client)
++{
++	struct kb9058_battery *ec = i2c_get_clientdata(client);
++
++	cancel_delayed_work_sync(&ec->poll_work);
++}
++
++static const struct of_device_id kb9058_battery_of_match[] = {
++	{ .compatible = "ene,kb9058-battery" },
++	{}
++};
++MODULE_DEVICE_TABLE(of, kb9058_battery_of_match);
++
++static struct i2c_driver kb9058_battery_driver = {
++	.driver = {
++		.name = "ene-kb9058-battery",
++		.of_match_table = kb9058_battery_of_match,
++	},
++	.probe = kb9058_battery_probe,
++	.remove = kb9058_battery_remove,
++};
++module_i2c_driver(kb9058_battery_driver);
++
++MODULE_DESCRIPTION("ENE KB9058 EC battery and AC adapter");
++MODULE_LICENSE("GPL");
+diff --git a/drivers/power/supply/samsung-galaxybook-ec-battery.c b/drivers/power/supply/samsung-galaxybook-ec-battery.c
+deleted file mode 100644
+index f473ec09dec6..000000000000
+--- a/drivers/power/supply/samsung-galaxybook-ec-battery.c
++++ /dev/null
+@@ -1,418 +0,0 @@
+-// SPDX-License-Identifier: GPL-2.0-only
+-/*
+- * Copyright (c) 2026 Antheas Kapenekakis <lkml@antheas.dev>
+- *
+- * Report battery and AC adapter status through the Samsung EC mailbox.
+- * The NP750XQB ACPI ECTC, BATC and ADP1 methods describe the battery
+- * register layout used here.
+- */
+-
+-#include <linux/cleanup.h>
+-#include <linux/delay.h>
+-#include <linux/i2c.h>
+-#include <linux/module.h>
+-#include <linux/mutex.h>
+-#include <linux/power_supply.h>
+-#include <linux/workqueue.h>
+-
+-#define SAMSUNG_EC_POLL_INTERVAL	(30 * HZ)
+-
+-#define SAMSUNG_EC_FLAGS		0x80
+-#define SAMSUNG_EC_BAT_STATUS	0x84
+-#define SAMSUNG_EC_REMAINING	0xa0
+-#define SAMSUNG_EC_BAT_VOLTAGE	0xa4
+-#define SAMSUNG_EC_CAPACITY	0xb0
+-#define SAMSUNG_EC_DESIGN_VOLTAGE	0xb4
+-#define SAMSUNG_EC_CYCLES		0xd0
+-
+-struct samsung_ec_battery_data {
+-	int status;
+-	int present;
+-	int ac_online;
+-	int charge_now;
+-	int charge_full;
+-	int charge_full_design;
+-	int voltage_now;
+-	int voltage_min_design;
+-	int current_now;
+-	int cycle_count;
+-};
+-
+-struct samsung_ec_battery {
+-	struct i2c_client *client;
+-	struct power_supply *battery;
+-	struct power_supply *ac;
+-	struct delayed_work poll_work;
+-	struct mutex lock;
+-	struct samsung_ec_battery_data data;
+-};
+-
+-static int samsung_ec_battery_read_byte(struct i2c_client *client, u8 reg, u8 *value)
+-{
+-	u8 select[] = { 0x40, 0x00, 0xf4, 0x80, reg };
+-	u8 execute[] = { 0x40, 0x00, 0xff, 0x10, 0x88 };
+-	u8 request[] = { 0x30, 0x00, 0xf4, 0x80 };
+-	u8 response[2];
+-	struct i2c_msg msg[] = {
+-		{ .addr = client->addr, .len = sizeof(request), .buf = request },
+-		{ .addr = client->addr, .flags = I2C_M_RD,
+-		  .len = sizeof(response), .buf = response },
+-	};
+-	int ret;
+-
+-	ret = i2c_master_send(client, select, sizeof(select));
+-	if (ret != sizeof(select))
+-		return ret < 0 ? ret : -EIO;
+-
+-	usleep_range(5000, 6000);
+-
+-	ret = i2c_master_send(client, execute, sizeof(execute));
+-	if (ret != sizeof(execute))
+-		return ret < 0 ? ret : -EIO;
+-
+-	usleep_range(5000, 6000);
+-
+-	ret = i2c_transfer(client->adapter, msg, ARRAY_SIZE(msg));
+-	if (ret != ARRAY_SIZE(msg))
+-		return ret < 0 ? ret : -EIO;
+-	if (response[0] != 0x50)
+-		return -EIO;
+-
+-	*value = response[1];
+-	return 0;
+-}
+-
+-static int samsung_ec_battery_read_word(struct i2c_client *client, u8 reg,
+-					unsigned int offset, int *value)
+-{
+-	u8 low, high;
+-	int ret;
+-
+-	ret = samsung_ec_battery_read_byte(client, reg + offset, &high);
+-	if (ret)
+-		return ret;
+-	ret = samsung_ec_battery_read_byte(client, reg + offset + 1, &low);
+-	if (ret)
+-		return ret;
+-
+-	*value = (high << 8) | low;
+-	return 0;
+-}
+-
+-static int samsung_ec_battery_refresh(struct samsung_ec_battery *ec,
+-				      struct samsung_ec_battery_data *data)
+-{
+-	struct i2c_client *client = ec->client;
+-	u8 flags, state;
+-	int current_ma;
+-	int ret;
+-
+-	ret = samsung_ec_battery_read_byte(client, SAMSUNG_EC_FLAGS, &flags);
+-	if (ret)
+-		return ret;
+-	ret = samsung_ec_battery_read_byte(client, SAMSUNG_EC_BAT_STATUS, &state);
+-	if (ret)
+-		return ret;
+-
+-	data->present = !!(flags & BIT(0));
+-	data->ac_online = !!(flags & BIT(2));
+-
+-	if (state & BIT(3))
+-		data->status = POWER_SUPPLY_STATUS_FULL;
+-	else if (state & BIT(1))
+-		data->status = POWER_SUPPLY_STATUS_CHARGING;
+-	else if (state & BIT(0))
+-		data->status = POWER_SUPPLY_STATUS_DISCHARGING;
+-	else
+-		data->status = POWER_SUPPLY_STATUS_NOT_CHARGING;
+-
+-	/* BATC._BST reads the upper big-endian word of B1RR. */
+-	ret = samsung_ec_battery_read_word(client, SAMSUNG_EC_REMAINING, 2,
+-					   &data->charge_now);
+-	if (ret)
+-		return ret;
+-	ret = samsung_ec_battery_read_word(client, SAMSUNG_EC_BAT_VOLTAGE, 2,
+-					   &data->voltage_now);
+-	if (ret)
+-		return ret;
+-	ret = samsung_ec_battery_read_word(client, SAMSUNG_EC_BAT_VOLTAGE, 0,
+-					   &current_ma);
+-	if (ret)
+-		return ret;
+-	/* BATC._BIX reads design capacity from the lower word of B1AF. */
+-	ret = samsung_ec_battery_read_word(client, SAMSUNG_EC_CAPACITY, 0,
+-					   &data->charge_full_design);
+-	if (ret)
+-		return ret;
+-	ret = samsung_ec_battery_read_word(client, SAMSUNG_EC_CAPACITY, 2,
+-					   &data->charge_full);
+-	if (ret)
+-		return ret;
+-	ret = samsung_ec_battery_read_word(client, SAMSUNG_EC_DESIGN_VOLTAGE, 0,
+-					   &data->voltage_min_design);
+-	if (ret)
+-		return ret;
+-	ret = samsung_ec_battery_read_word(client, SAMSUNG_EC_CYCLES, 0,
+-					   &data->cycle_count);
+-	if (ret)
+-		return ret;
+-
+-	/* Unknown EC values match BATC._BST/_BIX's 0xffff sentinel. */
+-	if (data->charge_now == 0xffff)
+-		data->charge_now = -1;
+-	if (data->charge_full_design == 0xffff)
+-		data->charge_full_design = -1;
+-	if (data->charge_full == 0xffff)
+-		data->charge_full = -1;
+-	if (data->voltage_now == 0xffff)
+-		data->voltage_now = -1;
+-	if (data->voltage_min_design == 0xffff)
+-		data->voltage_min_design = -1;
+-	if (current_ma == 0xffff)
+-		current_ma = -1;
+-	if (data->cycle_count == 0xffff)
+-		data->cycle_count = -1;
+-
+-	if (current_ma >= 0) {
+-		current_ma = abs((s16)current_ma);
+-		if (data->status == POWER_SUPPLY_STATUS_DISCHARGING)
+-			current_ma = -current_ma;
+-	}
+-
+-	data->current_now = current_ma;
+-
+-	/* EC units are mAh, mV and mA; power_supply uses micro units. */
+-	if (data->charge_now >= 0)
+-		data->charge_now *= 1000;
+-	if (data->charge_full >= 0)
+-		data->charge_full *= 1000;
+-	if (data->charge_full_design >= 0)
+-		data->charge_full_design *= 1000;
+-	if (data->voltage_now >= 0)
+-		data->voltage_now *= 1000;
+-	if (data->voltage_min_design >= 0)
+-		data->voltage_min_design *= 1000;
+-	if (current_ma != -1)
+-		data->current_now *= 1000;
+-
+-	return 0;
+-}
+-
+-static enum power_supply_property samsung_ec_battery_properties[] = {
+-	POWER_SUPPLY_PROP_STATUS,
+-	POWER_SUPPLY_PROP_PRESENT,
+-	POWER_SUPPLY_PROP_TECHNOLOGY,
+-	POWER_SUPPLY_PROP_CAPACITY,
+-	POWER_SUPPLY_PROP_CHARGE_NOW,
+-	POWER_SUPPLY_PROP_CHARGE_FULL,
+-	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
+-	POWER_SUPPLY_PROP_VOLTAGE_NOW,
+-	POWER_SUPPLY_PROP_VOLTAGE_MIN_DESIGN,
+-	POWER_SUPPLY_PROP_CURRENT_NOW,
+-	POWER_SUPPLY_PROP_CYCLE_COUNT,
+-	POWER_SUPPLY_PROP_MODEL_NAME,
+-	POWER_SUPPLY_PROP_MANUFACTURER,
+-};
+-
+-static int samsung_ec_battery_get_property(struct power_supply *psy,
+-					   enum power_supply_property prop,
+-					   union power_supply_propval *val)
+-{
+-	struct samsung_ec_battery *ec = power_supply_get_drvdata(psy);
+-	const struct samsung_ec_battery_data *data = &ec->data;
+-	int ret = 0;
+-
+-	guard(mutex)(&ec->lock);
+-
+-	switch (prop) {
+-	case POWER_SUPPLY_PROP_STATUS:
+-		val->intval = data->status;
+-		break;
+-	case POWER_SUPPLY_PROP_PRESENT:
+-		val->intval = data->present;
+-		break;
+-	case POWER_SUPPLY_PROP_TECHNOLOGY:
+-		val->intval = POWER_SUPPLY_TECHNOLOGY_LION;
+-		break;
+-	case POWER_SUPPLY_PROP_CAPACITY:
+-		if (data->charge_now < 0 || data->charge_full <= 0)
+-			ret = -ENODATA;
+-		else
+-			val->intval = clamp(100 * (data->charge_now / 1000) /
+-					     (data->charge_full / 1000),
+-					     0, 100);
+-		break;
+-	case POWER_SUPPLY_PROP_CHARGE_NOW:
+-		val->intval = data->charge_now;
+-		break;
+-	case POWER_SUPPLY_PROP_CHARGE_FULL:
+-		val->intval = data->charge_full;
+-		break;
+-	case POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN:
+-		val->intval = data->charge_full_design;
+-		break;
+-	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
+-		val->intval = data->voltage_now;
+-		break;
+-	case POWER_SUPPLY_PROP_VOLTAGE_MIN_DESIGN:
+-		val->intval = data->voltage_min_design;
+-		break;
+-	case POWER_SUPPLY_PROP_CURRENT_NOW:
+-		val->intval = data->current_now;
+-		break;
+-	case POWER_SUPPLY_PROP_CYCLE_COUNT:
+-		val->intval = data->cycle_count;
+-		break;
+-	case POWER_SUPPLY_PROP_MODEL_NAME:
+-		val->strval = "Galaxy Book4 Edge Battery";
+-		break;
+-	case POWER_SUPPLY_PROP_MANUFACTURER:
+-		val->strval = "Samsung";
+-		break;
+-	default:
+-		ret = -EINVAL;
+-	}
+-
+-	if (!ret && (prop == POWER_SUPPLY_PROP_CHARGE_NOW ||
+-		     prop == POWER_SUPPLY_PROP_CHARGE_FULL ||
+-		     prop == POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN ||
+-		     prop == POWER_SUPPLY_PROP_VOLTAGE_NOW ||
+-		     prop == POWER_SUPPLY_PROP_VOLTAGE_MIN_DESIGN ||
+-		     prop == POWER_SUPPLY_PROP_CURRENT_NOW ||
+-		     prop == POWER_SUPPLY_PROP_CYCLE_COUNT) && val->intval < 0 &&
+-	    !(prop == POWER_SUPPLY_PROP_CURRENT_NOW && val->intval != -1))
+-		ret = -ENODATA;
+-
+-	return ret;
+-}
+-
+-static int samsung_ec_ac_get_property(struct power_supply *psy,
+-				      enum power_supply_property prop,
+-				      union power_supply_propval *val)
+-{
+-	struct samsung_ec_battery *ec = power_supply_get_drvdata(psy);
+-
+-	if (prop != POWER_SUPPLY_PROP_ONLINE)
+-		return -EINVAL;
+-
+-	guard(mutex)(&ec->lock);
+-	val->intval = ec->data.ac_online;
+-	return 0;
+-}
+-
+-static enum power_supply_property samsung_ec_ac_properties[] = {
+-	POWER_SUPPLY_PROP_ONLINE,
+-};
+-
+-static const struct power_supply_desc samsung_ec_battery_desc = {
+-	.name = "samsung-galaxybook-battery",
+-	.type = POWER_SUPPLY_TYPE_BATTERY,
+-	.properties = samsung_ec_battery_properties,
+-	.num_properties = ARRAY_SIZE(samsung_ec_battery_properties),
+-	.get_property = samsung_ec_battery_get_property,
+-};
+-
+-static const struct power_supply_desc samsung_ec_ac_desc = {
+-	.name = "samsung-galaxybook-ac",
+-	.type = POWER_SUPPLY_TYPE_MAINS,
+-	.properties = samsung_ec_ac_properties,
+-	.num_properties = ARRAY_SIZE(samsung_ec_ac_properties),
+-	.get_property = samsung_ec_ac_get_property,
+-};
+-
+-static void samsung_ec_battery_poll(struct work_struct *work)
+-{
+-	struct samsung_ec_battery *ec = container_of(to_delayed_work(work),
+-						struct samsung_ec_battery, poll_work);
+-	struct samsung_ec_battery_data data = {};
+-	bool changed = false;
+-	int ret;
+-
+-	mutex_lock(&ec->lock);
+-	ret = samsung_ec_battery_refresh(ec, &data);
+-	if (ret) {
+-		dev_warn_ratelimited(&ec->client->dev, "EC read failed: %d\n", ret);
+-	} else {
+-		changed = memcmp(&ec->data, &data, sizeof(data));
+-		ec->data = data;
+-	}
+-	mutex_unlock(&ec->lock);
+-
+-	if (!ret && changed) {
+-		power_supply_changed(ec->battery);
+-		power_supply_changed(ec->ac);
+-	}
+-
+-	schedule_delayed_work(&ec->poll_work, SAMSUNG_EC_POLL_INTERVAL);
+-}
+-
+-static int samsung_ec_battery_probe(struct i2c_client *client)
+-{
+-	struct power_supply_config cfg = {};
+-	struct samsung_ec_battery *ec;
+-	int ret;
+-
+-	ec = devm_kzalloc(&client->dev, sizeof(*ec), GFP_KERNEL);
+-	if (!ec)
+-		return -ENOMEM;
+-
+-	ec->client = client;
+-	mutex_init(&ec->lock);
+-	INIT_DELAYED_WORK(&ec->poll_work, samsung_ec_battery_poll);
+-
+-	ret = samsung_ec_battery_refresh(ec, &ec->data);
+-	if (ret)
+-		return dev_err_probe(&client->dev, ret, "failed to read EC battery\n");
+-
+-	cfg.drv_data = ec;
+-	cfg.fwnode = dev_fwnode(&client->dev);
+-	ec->battery = devm_power_supply_register(&client->dev,
+-						  &samsung_ec_battery_desc, &cfg);
+-	if (IS_ERR(ec->battery))
+-		return dev_err_probe(&client->dev, PTR_ERR(ec->battery),
+-				     "failed to register battery\n");
+-
+-	ec->ac = devm_power_supply_register(&client->dev, &samsung_ec_ac_desc,
+-					     &cfg);
+-	if (IS_ERR(ec->ac))
+-		return dev_err_probe(&client->dev, PTR_ERR(ec->ac),
+-				     "failed to register AC supply\n");
+-
+-	i2c_set_clientdata(client, ec);
+-	schedule_delayed_work(&ec->poll_work, SAMSUNG_EC_POLL_INTERVAL);
+-
+-	return 0;
+-}
+-
+-static void samsung_ec_battery_remove(struct i2c_client *client)
+-{
+-	struct samsung_ec_battery *ec = i2c_get_clientdata(client);
+-
+-	cancel_delayed_work_sync(&ec->poll_work);
+-}
+-
+-static const struct of_device_id samsung_ec_battery_of_match[] = {
+-	{ .compatible = "samsung,galaxybook-ec-battery" },
+-	{}
+-};
+-MODULE_DEVICE_TABLE(of, samsung_ec_battery_of_match);
+-
+-static const struct i2c_device_id samsung_ec_battery_i2c_id[] = {
+-	{ "galaxybook-ec-bat" },
+-	{}
+-};
+-MODULE_DEVICE_TABLE(i2c, samsung_ec_battery_i2c_id);
+-
+-static struct i2c_driver samsung_ec_battery_driver = {
+-	.driver = {
+-		.name = "samsung-galaxybook-ec-battery",
+-		.of_match_table = samsung_ec_battery_of_match,
+-	},
+-	.probe = samsung_ec_battery_probe,
+-	.remove = samsung_ec_battery_remove,
+-	.id_table = samsung_ec_battery_i2c_id,
+-};
+-module_i2c_driver(samsung_ec_battery_driver);
+-
+-MODULE_DESCRIPTION("Samsung Galaxy Book4 Edge EC battery");
+-MODULE_LICENSE("GPL");
+-- 
+2.55.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Sat, 26 Sep 2026 18:37:10 +0200
+Subject: arm64: dts: qcom: Describe NP750XQB KB9058 battery controller
+
+---
+ .../dts/qcom/x1p42100-samsung-galaxy-book4-edge-np750xqb.dts | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/qcom/x1p42100-samsung-galaxy-book4-edge-np750xqb.dts b/arch/arm64/boot/dts/qcom/x1p42100-samsung-galaxy-book4-edge-np750xqb.dts
+index 5382c829200e..bb063afeadfc 100644
+--- a/arch/arm64/boot/dts/qcom/x1p42100-samsung-galaxy-book4-edge-np750xqb.dts
++++ b/arch/arm64/boot/dts/qcom/x1p42100-samsung-galaxy-book4-edge-np750xqb.dts
+@@ -868,8 +868,9 @@ &i2c0 {
+ 
+ 	status = "okay";
+ 
+-	battery@64 {
+-		compatible = "samsung,galaxybook-ec-battery";
++	embedded-controller@64 {
++		compatible = "samsung,np750xqb-kb9058-battery",
++			     "ene,kb9058-battery";
+ 		reg = <0x64>;
+ 	};
+ 
+-- 
+2.55.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Sat, 26 Sep 2026 18:52:24 +0200
+Subject: Revert "sync-arm: add nvidia support"
+
+This reverts commit 46b3e123b9a13f99ab182365793acacf528e264b.
+---
+ sync-arm.sh | 19 -------------------
+ 1 file changed, 19 deletions(-)
+
+diff --git a/sync-arm.sh b/sync-arm.sh
+index 33b72f919ca0..9b420f6eca33 100755
+--- a/sync-arm.sh
++++ b/sync-arm.sh
+@@ -18,7 +18,6 @@ fi
+ 
+ HOST=$1
+ ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+-NVIDIA_DIR=$ROOT/../open-gpu-kernel-modules
+ STAGE_DIR=$ROOT/.sync-arm/stage
+ ASSET_DIR=$ROOT/.sync-arm/boot-assets
+ DEFAULT_EFI_STUB=/usr/lib/systemd/boot/efi/linuxaa64.efi.stub
+@@ -155,24 +154,6 @@ make -s -j "$JOBS" "${MAKE_ARGS[@]}" modules_install "INSTALL_MOD_PATH=$STAGE_DI
+ make -s "${MAKE_ARGS[@]}" dtbs_install \
+     "INSTALL_DTBS_PATH=$STAGE_DIR/lib/modules/$KNAME/dtb"
+ 
+-# Build and stage NVIDIA's open modules alongside the in-tree modules.
+-if [[ -f $NVIDIA_DIR/Makefile ]]; then
+-    NVIDIA_MAKE_ARGS=(-C "$NVIDIA_DIR" ARCH=arm64 TARGET_ARCH=aarch64
+-        "CROSS_COMPILE=$CROSS_COMPILE" "SYSSRC=$ROOT" "SYSOUT=$ROOT"
+-        "CC=${CROSS_COMPILE}gcc" "LD=${CROSS_COMPILE}ld"
+-        "AR=${CROSS_COMPILE}ar" "CXX=${CROSS_COMPILE}g++"
+-        "OBJCOPY=${CROSS_COMPILE}objcopy" "OBJDUMP=${CROSS_COMPILE}objdump"
+-        HOST_CC=gcc HOST_LD=ld HOSTCC=gcc HOSTCXX=g++)
+-
+-    echo "Building NVIDIA modules from $NVIDIA_DIR"
+-    time make -s -j "$JOBS" "${NVIDIA_MAKE_ARGS[@]}" modules
+-    echo "Installing NVIDIA modules to $STAGE_DIR"
+-    make -s -j "$JOBS" "${NVIDIA_MAKE_ARGS[@]}" modules_install \
+-        "INSTALL_MOD_PATH=$STAGE_DIR"
+-else
+-    echo "NVIDIA module sources not found at $NVIDIA_DIR; skipping"
+-fi
+-
+ # Match the x1*/sc8280x* DTB selection and exclusions in the Red Hat spec.
+ DTB_DIR=$STAGE_DIR/lib/modules/$KNAME/dtb/qcom
+ [[ -d $DTB_DIR ]] || die "Qualcomm DTBs were not installed to $DTB_DIR"
+-- 
+2.55.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Sat, 26 Sep 2026 20:48:19 +0200
+Subject: power: supply: ene-kb9058: Refresh battery on EC interrupts
+
+---
+ drivers/power/supply/ene-kb9058-battery.c | 30 ++++++++---------------
+ 1 file changed, 10 insertions(+), 20 deletions(-)
+
+diff --git a/drivers/power/supply/ene-kb9058-battery.c b/drivers/power/supply/ene-kb9058-battery.c
+index 84a634ada67f..911a12dbe690 100644
+--- a/drivers/power/supply/ene-kb9058-battery.c
++++ b/drivers/power/supply/ene-kb9058-battery.c
+@@ -12,15 +12,13 @@
+ #include <linux/delay.h>
+ #include <linux/errno.h>
+ #include <linux/i2c.h>
++#include <linux/interrupt.h>
+ #include <linux/module.h>
+ #include <linux/mutex.h>
+ #include <linux/of.h>
+ #include <linux/power_supply.h>
+ #include <linux/slab.h>
+ #include <linux/string.h>
+-#include <linux/workqueue.h>
+-
+-#define KB9058_POLL_INTERVAL	(30 * HZ)
+ 
+ #define KB9058_FLAGS		0x80
+ #define KB9058_BAT_STATUS	0x84
+@@ -53,7 +51,6 @@ struct kb9058_battery {
+ 	struct i2c_client *client;
+ 	struct power_supply *battery;
+ 	struct power_supply *ac;
+-	struct delayed_work poll_work;
+ 	/* Serializes mailbox transactions and cached power-supply properties. */
+ 	struct mutex lock;
+ 	struct kb9058_battery_data data;
+@@ -326,10 +323,9 @@ static const struct power_supply_desc kb9058_ac_desc = {
+ 	.get_property = kb9058_ac_get_property,
+ };
+ 
+-static void kb9058_battery_poll(struct work_struct *work)
++static irqreturn_t kb9058_battery_irq_thread(int irq, void *ptr)
+ {
+-	struct kb9058_battery *ec = container_of(to_delayed_work(work),
+-						struct kb9058_battery, poll_work);
++	struct kb9058_battery *ec = ptr;
+ 	struct kb9058_battery_data data = {};
+ 	bool changed = false;
+ 	int ret;
+@@ -350,7 +346,7 @@ static void kb9058_battery_poll(struct work_struct *work)
+ 		power_supply_changed(ec->ac);
+ 	}
+ 
+-	schedule_delayed_work(&ec->poll_work, KB9058_POLL_INTERVAL);
++	return IRQ_HANDLED;
+ }
+ 
+ static int kb9058_battery_probe(struct i2c_client *client)
+@@ -362,6 +358,9 @@ static int kb9058_battery_probe(struct i2c_client *client)
+ 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C))
+ 		return dev_err_probe(&client->dev, -EOPNOTSUPP,
+ 				     "adapter lacks combined I2C transfers\n");
++	if (!client->irq)
++		return dev_err_probe(&client->dev, -EINVAL,
++				     "EC interrupt is required\n");
+ 
+ 	ec = devm_kzalloc(&client->dev, sizeof(*ec), GFP_KERNEL);
+ 	if (!ec)
+@@ -369,7 +368,6 @@ static int kb9058_battery_probe(struct i2c_client *client)
+ 
+ 	ec->client = client;
+ 	mutex_init(&ec->lock);
+-	INIT_DELAYED_WORK(&ec->poll_work, kb9058_battery_poll);
+ 
+ 	ret = kb9058_battery_refresh(ec, &ec->data);
+ 	if (ret)
+@@ -390,16 +388,9 @@ static int kb9058_battery_probe(struct i2c_client *client)
+ 				     "failed to register AC supply\n");
+ 
+ 	i2c_set_clientdata(client, ec);
+-	schedule_delayed_work(&ec->poll_work, KB9058_POLL_INTERVAL);
+-
+-	return 0;
+-}
+-
+-static void kb9058_battery_remove(struct i2c_client *client)
+-{
+-	struct kb9058_battery *ec = i2c_get_clientdata(client);
+-
+-	cancel_delayed_work_sync(&ec->poll_work);
++	return devm_request_threaded_irq(&client->dev, client->irq, NULL,
++					 kb9058_battery_irq_thread, IRQF_ONESHOT,
++					 dev_name(&client->dev), ec);
+ }
+ 
+ static const struct of_device_id kb9058_battery_of_match[] = {
+@@ -414,7 +405,6 @@ static struct i2c_driver kb9058_battery_driver = {
+ 		.of_match_table = kb9058_battery_of_match,
+ 	},
+ 	.probe = kb9058_battery_probe,
+-	.remove = kb9058_battery_remove,
+ };
+ module_i2c_driver(kb9058_battery_driver);
+ 
+-- 
+2.55.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Sat, 26 Sep 2026 20:48:24 +0200
+Subject: arm64: dts: qcom: Wire NP750XQB KB9058 interrupt
+
+---
+ .../dts/qcom/x1p42100-samsung-galaxy-book4-edge-np750xqb.dts     | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/arch/arm64/boot/dts/qcom/x1p42100-samsung-galaxy-book4-edge-np750xqb.dts b/arch/arm64/boot/dts/qcom/x1p42100-samsung-galaxy-book4-edge-np750xqb.dts
+index bb063afeadfc..191d40a7dccf 100644
+--- a/arch/arm64/boot/dts/qcom/x1p42100-samsung-galaxy-book4-edge-np750xqb.dts
++++ b/arch/arm64/boot/dts/qcom/x1p42100-samsung-galaxy-book4-edge-np750xqb.dts
+@@ -872,6 +872,7 @@ embedded-controller@64 {
+ 		compatible = "samsung,np750xqb-kb9058-battery",
+ 			     "ene,kb9058-battery";
+ 		reg = <0x64>;
++		interrupts-extended = <&tlmm 66 IRQ_TYPE_EDGE_FALLING>;
+ 	};
+ 
+ 	keyboard@5 {
+-- 
+2.55.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Sat, 26 Sep 2026 20:51:17 +0200
+Subject: arm64: dts: qcom: Drop unused PMIC GLINK on NP750XQB
+
+---
+ .../x1p42100-samsung-galaxy-book4-edge-np750xqb.dts    | 10 ----------
+ 1 file changed, 10 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/qcom/x1p42100-samsung-galaxy-book4-edge-np750xqb.dts b/arch/arm64/boot/dts/qcom/x1p42100-samsung-galaxy-book4-edge-np750xqb.dts
+index 191d40a7dccf..aafe5303bb9a 100644
+--- a/arch/arm64/boot/dts/qcom/x1p42100-samsung-galaxy-book4-edge-np750xqb.dts
++++ b/arch/arm64/boot/dts/qcom/x1p42100-samsung-galaxy-book4-edge-np750xqb.dts
+@@ -122,16 +122,6 @@ hdmi_con: endpoint {
+ 		};
+ 	};
+ 
+-	pmic-glink {
+-		compatible = "qcom,x1e80100-pmic-glink",
+-			     "qcom,sm8550-pmic-glink",
+-			     "qcom,pmic-glink";
+-		#address-cells = <1>;
+-		#size-cells = <0>;
+-		orientation-gpios = <&tlmm 121 GPIO_ACTIVE_HIGH>,
+-				    <&tlmm 123 GPIO_ACTIVE_HIGH>;
+-	};
+-
+ 	reserved-memory {
+ 		linux,cma {
+ 			compatible = "shared-dma-pool";
+-- 
+2.55.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Sat, 26 Sep 2026 20:57:32 +0200
+Subject: power: supply: ene-kb9058: Drop board-specific battery identity
+
+---
+ drivers/power/supply/ene-kb9058-battery.c | 9 ---------
+ 1 file changed, 9 deletions(-)
+
+diff --git a/drivers/power/supply/ene-kb9058-battery.c b/drivers/power/supply/ene-kb9058-battery.c
+index 911a12dbe690..bc60cd6b5e01 100644
+--- a/drivers/power/supply/ene-kb9058-battery.c
++++ b/drivers/power/supply/ene-kb9058-battery.c
+@@ -219,8 +219,6 @@ static enum power_supply_property kb9058_battery_properties[] = {
+ 	POWER_SUPPLY_PROP_VOLTAGE_MIN_DESIGN,
+ 	POWER_SUPPLY_PROP_CURRENT_NOW,
+ 	POWER_SUPPLY_PROP_CYCLE_COUNT,
+-	POWER_SUPPLY_PROP_MODEL_NAME,
+-	POWER_SUPPLY_PROP_MANUFACTURER,
+ };
+ 
+ static int kb9058_battery_get_property(struct power_supply *psy,
+@@ -270,13 +268,6 @@ static int kb9058_battery_get_property(struct power_supply *psy,
+ 	case POWER_SUPPLY_PROP_CYCLE_COUNT:
+ 		value = data->cycle_count;
+ 		break;
+-	case POWER_SUPPLY_PROP_MODEL_NAME:
+-		/* BATC._BIX supplies this fixed model string. */
+-		val->strval = "SR Real Battery";
+-		return 0;
+-	case POWER_SUPPLY_PROP_MANUFACTURER:
+-		val->strval = "SAMSUNG Electronics";
+-		return 0;
+ 	default:
+ 		return -EINVAL;
+ 	}
+-- 
+2.55.0
+

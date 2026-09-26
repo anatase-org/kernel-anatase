@@ -195,13 +195,13 @@ Summary: The Linux kernel
 %define specrpmversion 7.2.7
 %define specversion 7.2.7
 %define patchversion 7.2
-%define pkgrelease an04
+%define pkgrelease an05
 %define kversion 7
 %define tarfile_release 7.2.7
 # This is needed to do merge window version magic
 %define patchlevel 2
 # This allows pkg_release to have configurable %%{?dist} tag
-%define specrelease an04%{?buildid}%{?dist}
+%define specrelease an05%{?buildid}%{?dist}
 # This defines the kabi tarball version
 %define kabiversion 7.2.7
 
@@ -1117,8 +1117,10 @@ Source87: flavors
 Source151: uki_create_addons.py
 Source152: uki_addons.json
 
-%global anatase_hwid_sources %{nil} x1p42100-samsung-galaxy-book4-edge-np750xqb.json
-Source5000: x1p42100-samsung-galaxy-book4-edge-np750xqb.json
+%global anatase_hwid_sources %{nil} x1e80100-samsung-galaxy-book4-edge-14.json x1e84100-samsung-galaxy-book4-edge-16.json x1p42100-samsung-galaxy-book4-edge-np750xqb.json
+Source5000: x1e80100-samsung-galaxy-book4-edge-14.json
+Source5001: x1e84100-samsung-galaxy-book4-edge-16.json
+Source5002: x1p42100-samsung-galaxy-book4-edge-np750xqb.json
 
 Source200: check-kabi
 
@@ -5072,7 +5074,35 @@ fi\
 #
 #
 %changelog
-* Thu Sep 24 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.2.7-an04]
+* Sat Sep 26 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.2.7-an05]
+- power: supply: ene-kb9058: Drop board-specific battery identity (Antheas Kapenekakis)
+- arm64: dts: qcom: Drop unused PMIC GLINK on NP750XQB (Antheas Kapenekakis)
+- arm64: dts: qcom: Wire NP750XQB KB9058 interrupt (Antheas Kapenekakis)
+- power: supply: ene-kb9058: Refresh battery on EC interrupts (Antheas Kapenekakis)
+- Revert "sync-arm: add nvidia support" (Antheas Kapenekakis)
+- arm64: dts: qcom: Describe NP750XQB KB9058 battery controller (Antheas Kapenekakis)
+- power: supply: Rename Galaxy Book EC battery driver for ENE KB9058 (Antheas Kapenekakis)
+- redhat: Add Galaxy Book4 Edge 14/16 DTB hardware IDs (Antheas Kapenekakis)
+- arm64: dts: qcom: Add hamoa Samsung Galaxy Book4 Edge devicetrees (Maxim Storetvedt)
+- dt-bindings: arm: Add Samsung Galaxy Book4 Edge (Maxim Storetvedt)
+- sync-arm: add nvidia support (Antheas Kapenekakis)
+- update dts to reflect power negotiation (Antheas Kapenekakis)
+- usb: typec: samsung-emuec: add USB and power negotiation (Antheas Kapenekakis)
+- configs: select Samsung EmuEC Type-C driver on arm64 (Antheas Kapenekakis)
+- usb: typec: rename S2MM006 driver to samsung-emuec (Antheas Kapenekakis)
+- arm64: dts: qcom: wire Book4 Edge PDIC interrupts (Antheas Kapenekakis)
+- usb: typec: s2mm006: handle power paths from interrupts (Antheas Kapenekakis)
+- configs: enable S2MM006 on arm64 (Antheas Kapenekakis)
+- arm64: dts: qcom: enable Book4 Edge USB-C controllers (Antheas Kapenekakis)
+- usb: typec: add Samsung S2MM006 power path driver (Antheas Kapenekakis)
+- drop random replacement of config (Antheas Kapenekakis)
+- wifi: auth12k: gate RCU modifications on unload (Antheas Kapenekakis)
+- fixup sync more (Antheas Kapenekakis)
+- sync: disable tpm luks empty file for now (Antheas Kapenekakis)
+- hid-asus: propagate fan events to userspace (Antheas Kapenekakis)
+- sync: reboot first (Antheas Kapenekakis)
+- redhat: Enable Zotac ZONE EC on x86 only (Antheas Kapenekakis)
+- hwmon: Add Zotac ZONE EC fan driver (Antheas Kapenekakis)
 - redhat: enable Galaxy Book4 Edge EC battery module (Antheas Kapenekakis)
 - power: supply: add Galaxy Book4 Edge EC battery driver (Antheas Kapenekakis)
 - arm64: dts: qcom: add Galaxy Book4 Edge display audio links (Antheas Kapenekakis)
