@@ -195,13 +195,13 @@ Summary: The Linux kernel
 %define specrpmversion 7.2.7
 %define specversion 7.2.7
 %define patchversion 7.2
-%define pkgrelease an06
+%define pkgrelease an07
 %define kversion 7
 %define tarfile_release 7.2.7
 # This is needed to do merge window version magic
 %define patchlevel 2
 # This allows pkg_release to have configurable %%{?dist} tag
-%define specrelease an06%{?buildid}%{?dist}
+%define specrelease an07%{?buildid}%{?dist}
 # This defines the kabi tarball version
 %define kabiversion 7.2.7
 
@@ -5074,7 +5074,10 @@ fi\
 #
 #
 %changelog
-* Sat Sep 26 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.2.7-an06]
+* Sun Sep 27 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.2.7-an07]
+- arm64: dts: qcom: Wire NP750XQB Type-C retimers and DP outputs (Antheas Kapenekakis)
+- usb: typec: samsung-emuec: Add DisplayPort Alt Mode support (Antheas Kapenekakis)
+- drm/msm/dp: skip PUSH_IDLE when the link was never enabled (Jesse Casco)
 - power: supply: ene-kb9058: Drop board-specific battery identity (Antheas Kapenekakis)
 - arm64: dts: qcom: Drop unused PMIC GLINK on NP750XQB (Antheas Kapenekakis)
 - arm64: dts: qcom: Wire NP750XQB KB9058 interrupt (Antheas Kapenekakis)
