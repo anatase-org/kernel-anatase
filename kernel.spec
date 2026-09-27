@@ -195,13 +195,13 @@ Summary: The Linux kernel
 %define specrpmversion 7.2.7
 %define specversion 7.2.7
 %define patchversion 7.2
-%define pkgrelease an09
+%define pkgrelease an10
 %define kversion 7
 %define tarfile_release 7.2.7
 # This is needed to do merge window version magic
 %define patchlevel 2
 # This allows pkg_release to have configurable %%{?dist} tag
-%define specrelease an09%{?buildid}%{?dist}
+%define specrelease an10%{?buildid}%{?dist}
 # This defines the kabi tarball version
 %define kabiversion 7.2.7
 
@@ -5074,7 +5074,7 @@ fi\
 #
 #
 %changelog
-* Sun Sep 27 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.2.7-an09]
+* Sun Sep 27 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.2.7-an10]
 - redhat: Match NP940XMA Galaxy Book4 Edge 14 DTB (Antheas Kapenekakis)
 - Revert "HID: asus: refactor the two workqueues and init sequence" (Antheas Kapenekakis)
 - arm64: dts: qcom: Wire NP750XQB Type-C retimers and DP outputs (Antheas Kapenekakis)
