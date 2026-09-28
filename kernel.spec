@@ -195,13 +195,13 @@ Summary: The Linux kernel
 %define specrpmversion 7.2.7
 %define specversion 7.2.7
 %define patchversion 7.2
-%define pkgrelease an11
+%define pkgrelease an12
 %define kversion 7
 %define tarfile_release 7.2.7
 # This is needed to do merge window version magic
 %define patchlevel 2
 # This allows pkg_release to have configurable %%{?dist} tag
-%define specrelease an11%{?buildid}%{?dist}
+%define specrelease an12%{?buildid}%{?dist}
 # This defines the kabi tarball version
 %define kabiversion 7.2.7
 
@@ -1117,10 +1117,11 @@ Source87: flavors
 Source151: uki_create_addons.py
 Source152: uki_addons.json
 
-%global anatase_hwid_sources %{nil} x1e80100-samsung-galaxy-book4-edge-14.json x1e84100-samsung-galaxy-book4-edge-16.json x1p42100-samsung-galaxy-book4-edge-np750xqb.json
+%global anatase_hwid_sources %{nil} x1e80100-samsung-galaxy-book4-edge-14.json x1e80100-samsung-galaxy-book4-edge-np940xma.json x1e84100-samsung-galaxy-book4-edge-16.json x1p42100-samsung-galaxy-book4-edge-np750xqb.json
 Source5000: x1e80100-samsung-galaxy-book4-edge-14.json
-Source5001: x1e84100-samsung-galaxy-book4-edge-16.json
-Source5002: x1p42100-samsung-galaxy-book4-edge-np750xqb.json
+Source5001: x1e80100-samsung-galaxy-book4-edge-np940xma.json
+Source5002: x1e84100-samsung-galaxy-book4-edge-16.json
+Source5003: x1p42100-samsung-galaxy-book4-edge-np750xqb.json
 
 Source200: check-kabi
 
@@ -5074,9 +5075,11 @@ fi\
 #
 #
 %changelog
-* Mon Sep 28 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.2.7-an11]
+* Mon Sep 28 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.2.7-an12]
+- redhat: hwids: Match Samsung Galaxy Book4 Edge NP940XMA (Antheas Kapenekakis)
+- arm64: dts: qcom: Add Samsung Galaxy Book4 Edge NP940XMA (Antheas Kapenekakis)
+- arm64: dts: qcom: Use generic ENE battery binding on NP750XQB (Antheas Kapenekakis)
 - drm/i915/vrr: Disable DC balance by default (Mitul Golani)
-- redhat: Match NP940XMA Galaxy Book4 Edge 14 DTB (Antheas Kapenekakis)
 - Revert "HID: asus: refactor the two workqueues and init sequence" (Antheas Kapenekakis)
 - arm64: dts: qcom: Wire NP750XQB Type-C retimers and DP outputs (Antheas Kapenekakis)
 - usb: typec: samsung-emuec: Add DisplayPort Alt Mode support (Antheas Kapenekakis)
