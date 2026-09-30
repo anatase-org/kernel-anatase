@@ -51997,7 +51997,7 @@ index 79d2e92e5c28d771ba5ad292e37f51370806d1dd..4f4fa24ba871e8539e27c3fd2e572910
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Antheas Kapenekakis <lkml@antheas.dev>
 Date: Sat, 26 Sep 2026 11:57:06 +0200
-Subject: usb: typec: add Samsung EmuEC power path driver
+Subject: usb: typec: add Samsung EmuEC TypeC driver
 
 Samsung Galaxy Book4 Edges use the Samsung TypeC controller S2MM006
 where in Windows it is controlled by a driver called EmuEC. Therefore,
@@ -53259,8 +53259,8 @@ index 0000000000000000000000000000000000000000..ec31c491f46b148aa3d90a385e534a03
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Antheas Kapenekakis <lkml@antheas.dev>
-Date: Wed, 30 Sep 2026 12:41:11 +0200
-Subject: power: supply: add Galaxy Book4 Edge EC platform driver
+Date: Wed, 30 Sep 2026 23:00:58 +0200
+Subject: platform: arm64: add Galaxy Book4 Edge EC platform driver
 
 The Galaxy Book4 Edge devices use the ENE-KB9058 IC as their main EC
 platform driver. It provides battery information, controls power
