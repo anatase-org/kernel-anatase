@@ -195,13 +195,13 @@ Summary: The Linux kernel
 %define specrpmversion 7.2.7
 %define specversion 7.2.7
 %define patchversion 7.2
-%define pkgrelease an13
+%define pkgrelease an14
 %define kversion 7
 %define tarfile_release 7.2.7
 # This is needed to do merge window version magic
 %define patchlevel 2
 # This allows pkg_release to have configurable %%{?dist} tag
-%define specrelease an13%{?buildid}%{?dist}
+%define specrelease an14%{?buildid}%{?dist}
 # This defines the kabi tarball version
 %define kabiversion 7.2.7
 
@@ -5074,20 +5074,25 @@ fi\
 #
 #
 %changelog
-* Wed Sep 30 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.2.7-an13]
-- redhat: genspec: use full-index to prevent git changing diffs (Antheas Kapenekakis)
+* Wed Sep 30 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.2.7-an14]
 - redhat: update CONFIG_LOCAL for ARM (Antheas Kapenekakis)
 - redhat: hwids: Map Galaxy Book4 Edge NP940XMA and NP750XQB (Antheas Kapenekakis)
+- arm64: dts: qcom: galaxy-book4-edge: describe EC event interface (Antheas Kapenekakis)
+- arm64: dts: qcom: galaxy-book4-edge: use Samsung EC compatible (Antheas Kapenekakis)
+- arm64: dts: qcom: galaxy-book4-edge: disable bias on eDP HPD pin (Antheas Kapenekakis)
+- arm64: dts: qcom: galaxy-book4-edge: enable USB-A only on 16-inch model (Antheas Kapenekakis)
 - arm64: dts: qcom: Add Galaxy Book4 Edge 15.6-inch X1P42100 (Antheas Kapenekakis)
 - arm64: dts: qcom: Split Galaxy Book4 Edge X1E board description (Antheas Kapenekakis)
 - arm64: dts: qcom: Correct Galaxy Book4 Edge 14/16 hardware (Antheas Kapenekakis)
-- power: supply: add Galaxy Book4 Edge EC battery driver (Antheas Kapenekakis)
+- power: supply: add Galaxy Book4 Edge EC platform driver (Antheas Kapenekakis)
 - usb: typec: add Samsung EmuEC power path driver (Antheas Kapenekakis)
+- ACPI: platform_profile: Allow the class interface when ACPI is disabled (Antheas Kapenekakis)
 - dt-bindings: media: qcom: Add X1P42100 CAMSS (Antheas Kapenekakis)
 - wifi: auth12k: gate RCU modifications on unload (Antheas Kapenekakis)
 - HID: add multi-input quirk for Galaxy Book4 Edge keyboard (Antheas Kapenekakis)
 - ufs: core: skip unsupported timestamp on Kioxia THGJFJT2T85BAT0A (Antheas Kapenekakis)
 - media: qcom: camss: Add X1P42100 support (Antheas Kapenekakis)
+- redhat: genspec: use full-index to prevent git changing diffs (Antheas Kapenekakis)
 - firmware: qcom: scm: Allow QSEECOM on the Samsung Galaxy Book4 Edge (Maxim Storetvedt)
 - Bluetooth: hci_qca: Drop unused event during BT on (Cheng Jiang)
 - arm64: dts: qcom: purwa: Override Iris clocks and operating points (Wangao Wang)
@@ -5097,6 +5102,7 @@ fi\
 - dt-bindings: arm: Add Samsung Galaxy Book4 Edge (Maxim Storetvedt)
 - arm64: dts: qcom: Add hamoa Samsung Galaxy Book4 Edge devicetrees (Maxim Storetvedt)
 - redhat: package local DTB HWID mappings (Antheas Kapenekakis)
+- sync-arm: add grub fallback (useful for handhelds in the future too) (Antheas Kapenekakis)
 - drop random replacement of config (Antheas Kapenekakis)
 - Revert "sync-arm: add nvidia support" (Antheas Kapenekakis)
 - sync-arm: add nvidia support (Antheas Kapenekakis)

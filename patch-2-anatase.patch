@@ -49372,6 +49372,111 @@ index d3fa945a68c40076259a177b05970bfca576875c..9b420f6eca33087127f4973a25f43b25
 
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Wed, 30 Sep 2026 19:10:47 +0200
+Subject: sync-arm: add grub fallback (useful for handhelds in the future too)
+
+---
+ sync-arm.sh | 72 +++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 72 insertions(+)
+
+diff --git a/sync-arm.sh b/sync-arm.sh
+index 9b420f6eca33087127f4973a25f43b25175d151d..e59d5a22de0b26e3c94c4efaa08ed62d058ac38f 100755
+--- a/sync-arm.sh
++++ b/sync-arm.sh
+@@ -2,6 +2,7 @@
+ 
+ # Build an arm64 kernel and boot it once on a remote bootc machine. The UKI
+ # follows redhat/kernel.spec.template's Qualcomm DTB auto-selection rules.
++# If EFI variables are unavailable, GRUB chainloads the same UKI once.
+ # Build in this source tree, replacing its current in-tree kernel config.
+ 
+ set -euo pipefail
+@@ -226,8 +227,79 @@ done
+ scp "$STAGE_DIR/ukernel-arm.efi" "$HOST:/tmp/ukernel-arm.efi"
+ ssh "$HOST" /bin/bash -s <<'REMOTE_BOOT'
+ set -euo pipefail
++
+ sudo -n install -m 0644 /tmp/ukernel-arm.efi /boot/efi/EFI/ukernel-arm.efi
+ 
++if ! sudo -n efibootmgr -v >/dev/null 2>&1; then
++    echo 'EFI variables unavailable; preparing a one-shot GRUB UKI entry.'
++    for tool in grub2-reboot grub2-script-check findmnt; do
++        command -v "$tool" >/dev/null || {
++            echo "GRUB test requires $tool" >&2
++            exit 1
++        }
++    done
++    sudo -n grep -Fq 'source $prefix/custom.cfg' /boot/grub2/grub.cfg || {
++        echo 'GRUB does not source /boot/grub2/custom.cfg' >&2
++        exit 1
++    }
++    [[ -f /usr/lib/grub/arm64-efi/chain.mod ]] || {
++        echo 'GRUB UKI fallback requires the matching grub2-efi-aa64-modules package' >&2
++        exit 1
++    }
++    # The other dependencies are built into the installed GRUB image.
++    sudo -n install -d -m 0755 /boot/grub2/arm64-efi
++    sudo -n install -m 0644 /usr/lib/grub/arm64-efi/chain.mod /boot/grub2/arm64-efi/
++
++    esp_uuid=$(findmnt -n -o UUID --mountpoint /boot/efi)
++    [[ $esp_uuid =~ ^[[:xdigit:]-]+$ ]] || {
++        echo 'Invalid EFI filesystem UUID' >&2
++        exit 1
++    }
++
++    temp_dir=$(mktemp -d)
++    trap 'rm -rf -- "$temp_dir"' EXIT
++    cat > "$temp_dir/menu.cfg" <<EOF
++# Consume the request before handing control to the UKI.
++if [ "\${next_entry}" = sync-arm ]; then
++    unset next_entry
++    if [ "\${env_block}" ]; then
++        if save_env -f "\${env_block}" next_entry; then
++            set default=sync-arm
++        fi
++    else
++        if save_env next_entry; then
++            set default=sync-arm
++        fi
++    fi
++fi
++
++menuentry 'Custom ARM Kernel' --id sync-arm {
++    insmod part_gpt
++    insmod fat
++    insmod chain
++    # Keep root on /boot so stock entries still work if chainloading fails.
++    search --no-floppy --fs-uuid --set=sync_arm_esp $esp_uuid
++    chainloader (\${sync_arm_esp})/EFI/ukernel-arm.efi
++}
++EOF
++    if [[ -f /boot/grub2/custom.cfg ]]; then
++        sudo -n cat /boot/grub2/custom.cfg > "$temp_dir/custom.cfg"
++    else
++        : > "$temp_dir/custom.cfg"
++    fi
++    if ! grep -Fxq 'source $prefix/sync-arm.cfg' "$temp_dir/custom.cfg"; then
++        printf '\nsource $prefix/sync-arm.cfg\n' >> "$temp_dir/custom.cfg"
++    fi
++    grub2-script-check "$temp_dir/menu.cfg"
++    grub2-script-check "$temp_dir/custom.cfg"
++    sudo -n install -m 0644 "$temp_dir/menu.cfg" /boot/grub2/sync-arm.cfg
++    sudo -n install -m 0644 "$temp_dir/custom.cfg" /boot/grub2/custom.cfg
++    sudo -n grub2-reboot sync-arm
++    echo 'GRUB test prepared; rebooting into the UKI once.'
++    sudo -n systemctl reboot --no-block
++    exit 0
++fi
++
+ find_bootnum() {
+     local line
+     while IFS= read -r line; do
+-- 
+2.55.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Maxim Storetvedt <mstoretv@cern.ch>
 Date: Sun, 20 Sep 2026 20:41:04 +0200
 Subject: arm64: dts: qcom: Add hamoa Samsung Galaxy Book4 Edge devicetrees
@@ -51759,6 +51864,138 @@ index 0000000000000000000000000000000000000000..50089ad3ef05496069351397bb25aec8
 
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Wed, 30 Sep 2026 22:42:59 +0200
+Subject: ACPI: platform_profile: Allow the class interface when ACPI is
+ disabled
+
+Register the per-device platform-profile class on systems booted without ACPI. Keep legacy ACPI sysfs attribute creation, notifications, group updates and removal conditional on ACPI being enabled to avoid accessing an uninitialized acpi_kobj.
+
+Fixes: dd133162c9cf ("ACPI: platform_profile: Avoid initializing on non-ACPI platforms")
+---
+ .../userspace-api/sysfs-platform_profile.rst  |  1 +
+ drivers/acpi/platform_profile.c               | 38 +++++++++++--------
+ 2 files changed, 24 insertions(+), 15 deletions(-)
+
+diff --git a/Documentation/userspace-api/sysfs-platform_profile.rst b/Documentation/userspace-api/sysfs-platform_profile.rst
+index 6613e188242a85faf5c5a8776d0c9dcdc841da4f..b044a3c84a529759492eef09ad8405eaaff93df2 100644
+--- a/Documentation/userspace-api/sysfs-platform_profile.rst
++++ b/Documentation/userspace-api/sysfs-platform_profile.rst
+@@ -59,6 +59,7 @@ all handlers don't support a profile.
+ 
+ Individual drivers will register a 'platform_profile' class device that has
+ similar semantics as the ``/sys/firmware/acpi/platform_profile`` interface.
++Only the class interface is available when the system is booted without ACPI.
+ 
+ To discover which driver is associated with a platform profile handler the
+ user can read the ``name`` attribute of the class device.
+diff --git a/drivers/acpi/platform_profile.c b/drivers/acpi/platform_profile.c
+index 79d2e92e5c28d771ba5ad292e37f51370806d1dd..4f4fa24ba871e8539e27c3fd2e5729104ca79e6b 100644
+--- a/drivers/acpi/platform_profile.c
++++ b/drivers/acpi/platform_profile.c
+@@ -216,7 +216,8 @@ static ssize_t profile_store(struct device *dev,
+ 			return ret;
+ 	}
+ 
+-	sysfs_notify(acpi_kobj, NULL, "platform_profile");
++	if (!acpi_disabled)
++		sysfs_notify(acpi_kobj, NULL, "platform_profile");
+ 
+ 	return count;
+ }
+@@ -436,7 +437,8 @@ static ssize_t platform_profile_store(struct kobject *kobj,
+ 			return ret;
+ 	}
+ 
+-	sysfs_notify(acpi_kobj, NULL, "platform_profile");
++	if (!acpi_disabled)
++		sysfs_notify(acpi_kobj, NULL, "platform_profile");
+ 
+ 	return count;
+ }
+@@ -482,7 +484,8 @@ void platform_profile_notify(struct device *dev)
+ 	scoped_cond_guard(mutex_intr, return, &profile_lock) {
+ 		_notify_class_profile(dev, NULL);
+ 	}
+-	sysfs_notify(acpi_kobj, NULL, "platform_profile");
++	if (!acpi_disabled)
++		sysfs_notify(acpi_kobj, NULL, "platform_profile");
+ }
+ EXPORT_SYMBOL_GPL(platform_profile_notify);
+ 
+@@ -532,7 +535,8 @@ int platform_profile_cycle(void)
+ 			return err;
+ 	}
+ 
+-	sysfs_notify(acpi_kobj, NULL, "platform_profile");
++	if (!acpi_disabled)
++		sysfs_notify(acpi_kobj, NULL, "platform_profile");
+ 
+ 	return 0;
+ }
+@@ -605,11 +609,12 @@ struct device *platform_profile_register(struct device *dev, const char *name,
+ 		goto cleanup_ida;
+ 	}
+ 
+-	sysfs_notify(acpi_kobj, NULL, "platform_profile");
+-
+-	err = sysfs_update_group(acpi_kobj, &platform_profile_group);
+-	if (err)
+-		goto cleanup_cur;
++	if (!acpi_disabled) {
++		sysfs_notify(acpi_kobj, NULL, "platform_profile");
++		err = sysfs_update_group(acpi_kobj, &platform_profile_group);
++		if (err)
++			goto cleanup_cur;
++	}
+ 
+ 	return ppdev;
+ 
+@@ -641,8 +646,10 @@ void platform_profile_remove(struct device *dev)
+ 	ida_free(&platform_profile_ida, pprof->minor);
+ 	device_unregister(&pprof->dev);
+ 
+-	sysfs_notify(acpi_kobj, NULL, "platform_profile");
+-	sysfs_update_group(acpi_kobj, &platform_profile_group);
++	if (!acpi_disabled) {
++		sysfs_notify(acpi_kobj, NULL, "platform_profile");
++		sysfs_update_group(acpi_kobj, &platform_profile_group);
++	}
+ }
+ EXPORT_SYMBOL_GPL(platform_profile_remove);
+ 
+@@ -690,13 +697,13 @@ static int __init platform_profile_init(void)
+ {
+ 	int err;
+ 
+-	if (acpi_disabled)
+-		return -EOPNOTSUPP;
+-
+ 	err = class_register(&platform_profile_class);
+ 	if (err)
+ 		return err;
+ 
++	if (acpi_disabled)
++		return 0;
++
+ 	err = sysfs_create_group(acpi_kobj, &platform_profile_group);
+ 	if (err)
+ 		class_unregister(&platform_profile_class);
+@@ -706,7 +713,8 @@ static int __init platform_profile_init(void)
+ 
+ static void __exit platform_profile_exit(void)
+ {
+-	sysfs_remove_group(acpi_kobj, &platform_profile_group);
++	if (!acpi_disabled)
++		sysfs_remove_group(acpi_kobj, &platform_profile_group);
+ 	class_unregister(&platform_profile_class);
+ }
+ module_init(platform_profile_init);
+-- 
+2.55.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
 Date: Sat, 26 Sep 2026 11:57:06 +0200
 Subject: usb: typec: add Samsung EmuEC power path driver
 
@@ -53023,50 +53260,73 @@ index 0000000000000000000000000000000000000000..ec31c491f46b148aa3d90a385e534a03
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Antheas Kapenekakis <lkml@antheas.dev>
 Date: Wed, 30 Sep 2026 12:41:11 +0200
-Subject: power: supply: add Galaxy Book4 Edge EC battery driver
+Subject: power: supply: add Galaxy Book4 Edge EC platform driver
 
-The Galaxy Book4 Edge devices use the ENE-KB9058 IC to monitor for
-battery information. Add a simple interrupt based driver for it.
+The Galaxy Book4 Edge devices use the ENE-KB9058 IC as their main EC
+platform driver. It provides battery information, controls power
+profiles, and keyboard backlight. In addition, a secondary I2C node
+provides special button information, specifically the fan and keyboard
+backlight keys. Those keys initially produce HID vendor reports, which
+then route through I2C to reach the EC driver in Windows.
+
+Therefore, add a fully functional EC driver for the platform,
+implementing platform profiles, keyboard backlight, and battery
+information. Wire the secondary I2C to this driver, so backlight and fan
+key notifications route through it and update the device state directly.
 
 Assisted-by: LLM
 Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
 ---
- .../power/supply/ene,kb9058-battery.yaml      |  49 +++
- drivers/power/supply/Kconfig                  |   9 +
- drivers/power/supply/Makefile                 |   1 +
- drivers/power/supply/ene-kb9058-battery.c     | 403 ++++++++++++++++++
- 4 files changed, 462 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/power/supply/ene,kb9058-battery.yaml
- create mode 100644 drivers/power/supply/ene-kb9058-battery.c
+ .../samsung,galaxybook4-edge-ec.yaml          |  89 +++
+ MAINTAINERS                                   |   7 +
+ drivers/platform/arm64/Kconfig                |  16 +
+ drivers/platform/arm64/Makefile               |   1 +
+ .../platform/arm64/samsung-galaxybook-ec.c    | 729 ++++++++++++++++++
+ drivers/usb/typec/samsung-emuec.c             |  24 +-
+ 6 files changed, 856 insertions(+), 10 deletions(-)
+ create mode 100644 Documentation/devicetree/bindings/embedded-controller/samsung,galaxybook4-edge-ec.yaml
+ create mode 100644 drivers/platform/arm64/samsung-galaxybook-ec.c
 
-diff --git a/Documentation/devicetree/bindings/power/supply/ene,kb9058-battery.yaml b/Documentation/devicetree/bindings/power/supply/ene,kb9058-battery.yaml
+diff --git a/Documentation/devicetree/bindings/embedded-controller/samsung,galaxybook4-edge-ec.yaml b/Documentation/devicetree/bindings/embedded-controller/samsung,galaxybook4-edge-ec.yaml
 new file mode 100644
-index 0000000000000000000000000000000000000000..d3eef50e8023a4e1863910db928c82f9c2daf901
+index 0000000000000000000000000000000000000000..3888b3c3f911d2a543043bbcbf2d398ecb965089
 --- /dev/null
-+++ b/Documentation/devicetree/bindings/power/supply/ene,kb9058-battery.yaml
-@@ -0,0 +1,49 @@
++++ b/Documentation/devicetree/bindings/embedded-controller/samsung,galaxybook4-edge-ec.yaml
+@@ -0,0 +1,89 @@
 +# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 +%YAML 1.2
 +---
-+$id: http://devicetree.org/schemas/power/supply/ene,kb9058-battery.yaml#
++$id: http://devicetree.org/schemas/embedded-controller/samsung,galaxybook4-edge-ec.yaml#
 +$schema: http://devicetree.org/meta-schemas/core.yaml#
 +
-+title: ENE KB9058 embedded controller battery interface
++title: Samsung Galaxy Book4 Edge Embedded Controller
 +
 +maintainers:
 +  - Antheas Kapenekakis <lkml@antheas.dev>
 +
 +description: |
 +  The ENE KB9058 embedded controller exposes battery and AC adapter status
-+  through a mailbox at its second I2C address. The register layout follows
-+  the Samsung Galaxy Book4 Edge ACPI battery methods.
++  and keyboard backlight control through a mailbox at its second I2C
++  address. The battery register layout follows the Samsung Galaxy Book4
++  Edge ACPI battery methods. A separate I2C interface reports events,
++  signalled through the mailbox interface interrupt.
 +
 +properties:
 +  compatible:
-+    const: ene,kb9058-battery
++    enum:
++      - samsung,galaxybook4-edge-ec
++      - samsung,galaxybook4-edge-ec-events
 +
 +  reg:
 +    maxItems: 1
++
++  samsung,event-interface:
++    $ref: /schemas/types.yaml#/definitions/phandle
++    description:
++      EC event interface on a separate I2C bus. The referenced node supplies
++      its I2C address through reg. Events use the mailbox interface interrupt.
++      The referenced node must be disabled to prevent independent enumeration;
++      the mailbox driver creates and owns its I2C client.
 +
 +  interrupts:
 +    maxItems: 1
@@ -53074,7 +53334,23 @@ index 0000000000000000000000000000000000000000..d3eef50e8023a4e1863910db928c82f9
 +required:
 +  - compatible
 +  - reg
-+  - interrupts
++
++allOf:
++  - if:
++      properties:
++        compatible:
++          const: samsung,galaxybook4-edge-ec
++    then:
++      required:
++        - interrupts
++    else:
++      required:
++        - status
++      properties:
++        status:
++          const: disabled
++        interrupts: false
++        samsung,event-interface: false
 +
 +additionalProperties: false
 +
@@ -53087,56 +53363,89 @@ index 0000000000000000000000000000000000000000..d3eef50e8023a4e1863910db928c82f9
 +        #size-cells = <0>;
 +
 +        embedded-controller@64 {
-+            compatible = "ene,kb9058-battery";
++            compatible = "samsung,galaxybook4-edge-ec";
 +            reg = <0x64>;
++            samsung,event-interface = <&ec_events>;
 +            interrupt-parent = <&gpio0>;
 +            interrupts = <66 IRQ_TYPE_EDGE_FALLING>;
 +        };
 +    };
++
++    i2c-events {
++        #address-cells = <1>;
++        #size-cells = <0>;
++
++        ec_events: embedded-controller@62 {
++            compatible = "samsung,galaxybook4-edge-ec-events";
++            reg = <0x62>;
++            status = "disabled";
++        };
++    };
 +...
-diff --git a/drivers/power/supply/Kconfig b/drivers/power/supply/Kconfig
-index f0ede1cecb6a86957957ae74c3a1912b9fcf5a0f..0f9b269aae13db15cbe258d7bd29ad1ca5a96faa 100644
---- a/drivers/power/supply/Kconfig
-+++ b/drivers/power/supply/Kconfig
-@@ -176,6 +176,15 @@ config BATTERY_DS2782
- 	  Say Y here to enable support for the DS2782/DS2786 standalone battery
- 	  gas-gauge.
+diff --git a/MAINTAINERS b/MAINTAINERS
+index e09f0e044c29b58827d24000b6094aaf227cb9a5..564208a3bf6cbf552e4e84f5e2a581de9e905e1f 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -24043,6 +24043,13 @@ L:	linux-fbdev@vger.kernel.org
+ S:	Maintained
+ F:	drivers/video/fbdev/s3c-fb.c
  
-+config BATTERY_ENE_KB9058
-+	tristate "ENE KB9058 EC battery and AC adapter"
++SAMSUNG GALAXY BOOK ARM64 EMBEDDED CONTROLLER DRIVER
++M:	Antheas Kapenekakis <lkml@antheas.dev>
++L:	linux-arm-msm@vger.kernel.org
++S:	Maintained
++F:	Documentation/devicetree/bindings/embedded-controller/samsung,galaxybook4-edge-ec.yaml
++F:	drivers/platform/arm64/samsung-galaxybook-ec.c
++
+ SAMSUNG GALAXY BOOK DRIVER
+ M:	Joshua Grisham <josh@joshuagrisham.com>
+ L:	platform-driver-x86@vger.kernel.org
+diff --git a/drivers/platform/arm64/Kconfig b/drivers/platform/arm64/Kconfig
+index e32e01b2a9bdd970d6f2b2bf6b051472c9a16103..9582f0ebd61173e066f013f82a86ebc7e75c7e01 100644
+--- a/drivers/platform/arm64/Kconfig
++++ b/drivers/platform/arm64/Kconfig
+@@ -103,4 +103,20 @@ config EC_QCOM_HAMOA
+ 
+ 	  This driver currently supports Hamoa/Purwa/Glymur reference devices.
+ 
++config EC_SAMSUNG_GALAXYBOOK
++	tristate "Samsung Galaxy Book Embedded Controller driver"
++	depends on ARCH_QCOM || COMPILE_TEST
 +	depends on I2C && OF
++	depends on POWER_SUPPLY && LEDS_CLASS
++	select ACPI_PLATFORM_PROFILE
 +	help
-+	  Say Y here to report battery and AC adapter status from the ENE
-+	  KB9058 EC mailbox on Samsung Galaxy Book4 Edge laptops.
++	  Say Y here to enable the embedded controller driver for Samsung
++	  Galaxy Book4 Edge laptops. The driver reports battery and AC
++	  adapter status and controls keyboard backlight brightness through
++	  the ENE KB9058 EC mailbox, and handles the keyboard backlight
++	  brightness hotkey and fan policy platform profiles.
 +
-+	  This driver builds as the ene-kb9058-battery module.
++	  To compile this driver as a module, choose M here: the module
++	  will be called samsung-galaxybook-ec.
 +
- config BATTERY_HUAWEI_GAOKUN
- 	tristate "Huawei Matebook E Go power supply"
- 	depends on EC_HUAWEI_GAOKUN
-diff --git a/drivers/power/supply/Makefile b/drivers/power/supply/Makefile
-index 31fe4a145929a01346f363d22b933c0a1b4da215..cea0e6307d277361155ae92a5d3be9b4a7c466f7 100644
---- a/drivers/power/supply/Makefile
-+++ b/drivers/power/supply/Makefile
-@@ -31,6 +31,7 @@ obj-$(CONFIG_BATTERY_DS2760)	+= ds2760_battery.o
- obj-$(CONFIG_BATTERY_DS2780)	+= ds2780_battery.o
- obj-$(CONFIG_BATTERY_DS2781)	+= ds2781_battery.o
- obj-$(CONFIG_BATTERY_DS2782)	+= ds2782_battery.o
-+obj-$(CONFIG_BATTERY_ENE_KB9058)	+= ene-kb9058-battery.o
- obj-$(CONFIG_BATTERY_GAUGE_LTC2941)	+= ltc2941-battery-gauge.o
- obj-$(CONFIG_BATTERY_GOLDFISH)	+= goldfish_battery.o
- obj-$(CONFIG_BATTERY_HUAWEI_GAOKUN)	+= huawei-gaokun-battery.o
-diff --git a/drivers/power/supply/ene-kb9058-battery.c b/drivers/power/supply/ene-kb9058-battery.c
+ endif # ARM64_PLATFORM_DEVICES
+diff --git a/drivers/platform/arm64/Makefile b/drivers/platform/arm64/Makefile
+index 7681be4a46e94e7cb80e50bcc5b724cb0961357b..b5e0beb3cf5822eef704bfdc8877ae981b9f31e8 100644
+--- a/drivers/platform/arm64/Makefile
++++ b/drivers/platform/arm64/Makefile
+@@ -10,3 +10,4 @@ obj-$(CONFIG_EC_HUAWEI_GAOKUN)	+= huawei-gaokun-ec.o
+ obj-$(CONFIG_EC_LENOVO_YOGA_C630) += lenovo-yoga-c630.o
+ obj-$(CONFIG_EC_LENOVO_THINKPAD_T14S) += lenovo-thinkpad-t14s.o
+ obj-$(CONFIG_EC_QCOM_HAMOA) += qcom-hamoa-ec.o
++obj-$(CONFIG_EC_SAMSUNG_GALAXYBOOK) += samsung-galaxybook-ec.o
+diff --git a/drivers/platform/arm64/samsung-galaxybook-ec.c b/drivers/platform/arm64/samsung-galaxybook-ec.c
 new file mode 100644
-index 0000000000000000000000000000000000000000..bc60cd6b5e01f85154bfb473c6d68360618fa9fa
+index 0000000000000000000000000000000000000000..6bf9057e6ab01df15ab6e5dc7159044123046e97
 --- /dev/null
-+++ b/drivers/power/supply/ene-kb9058-battery.c
-@@ -0,0 +1,403 @@
-+// SPDX-License-Identifier: GPL-2.0-only
++++ b/drivers/platform/arm64/samsung-galaxybook-ec.c
+@@ -0,0 +1,729 @@
++// SPDX-License-Identifier: GPL-2.0-only OR BSD-2-Clause
 +/*
 + * Copyright (c) 2026 Antheas Kapenekakis <lkml@antheas.dev>
 + *
-+ * Report battery and AC adapter status through the ENE KB9058 EC mailbox.
++ * Report battery and AC adapter status and control the keyboard backlight
++ * through the ENE KB9058 EC mailbox, and report EC hotkey events.
 + * The NP750XQB ACPI ECTC, BATC and ADP1 methods describe the battery
 + * register layout used here.
 + */
@@ -53147,28 +53456,30 @@ index 0000000000000000000000000000000000000000..bc60cd6b5e01f85154bfb473c6d68360
 +#include <linux/errno.h>
 +#include <linux/i2c.h>
 +#include <linux/interrupt.h>
++#include <linux/leds.h>
 +#include <linux/module.h>
 +#include <linux/mutex.h>
 +#include <linux/of.h>
 +#include <linux/power_supply.h>
++#include <linux/platform_profile.h>
 +#include <linux/slab.h>
 +#include <linux/string.h>
 +
-+#define KB9058_FLAGS		0x80
-+#define KB9058_BAT_STATUS	0x84
-+#define KB9058_REMAINING	0xa0
-+#define KB9058_BAT_VOLTAGE	0xa4
-+#define KB9058_CAPACITY	0xb0
-+#define KB9058_DESIGN_VOLTAGE	0xb4
-+#define KB9058_CYCLES		0xd0
++#define GALAXYBOOK_EC_FLAGS		0x80
++#define GALAXYBOOK_EC_BAT_STATUS	0x84
++#define GALAXYBOOK_EC_REMAINING		0xa0
++#define GALAXYBOOK_EC_BAT_VOLTAGE	0xa4
++#define GALAXYBOOK_EC_CAPACITY		0xb0
++#define GALAXYBOOK_EC_DESIGN_VOLTAGE	0xb4
++#define GALAXYBOOK_EC_CYCLES		0xd0
 +
-+#define KB9058_BAT_PRESENT	BIT(0)
-+#define KB9058_AC_PRESENT	BIT(2)
-+#define KB9058_BAT_DISCHARGING	BIT(0)
-+#define KB9058_BAT_CHARGING	BIT(1)
-+#define KB9058_BAT_FULL		BIT(3)
++#define GALAXYBOOK_EC_BAT_PRESENT	BIT(0)
++#define GALAXYBOOK_EC_AC_PRESENT	BIT(2)
++#define GALAXYBOOK_EC_BAT_DISCHARGING	BIT(0)
++#define GALAXYBOOK_EC_BAT_CHARGING	BIT(1)
++#define GALAXYBOOK_EC_BAT_FULL		BIT(3)
 +
-+struct kb9058_battery_data {
++struct galaxybook_battery_data {
 +	int status;
 +	int present;
 +	int ac_online;
@@ -53181,26 +53492,155 @@ index 0000000000000000000000000000000000000000..bc60cd6b5e01f85154bfb473c6d68360
 +	int cycle_count;
 +};
 +
-+struct kb9058_battery {
++struct samsung_galaxybook_ec {
 +	struct i2c_client *client;
++	struct i2c_client *events;
 +	struct power_supply *battery;
 +	struct power_supply *ac;
-+	/* Serializes mailbox transactions and cached power-supply properties. */
++	struct led_classdev kbd_backlight;
++	struct device *profile_dev;
++	enum platform_profile_option profile;
++	/* Serializes mailbox transactions and cached supply/profile state. */
 +	struct mutex lock;
-+	struct kb9058_battery_data data;
++	struct galaxybook_battery_data data;
 +};
 +
-+static int kb9058_battery_read_byte(struct i2c_client *client, u8 reg, u8 *value)
++static int galaxybook_ec_read_mailbox(struct i2c_client *client, u16 address,
++				     u8 *value)
 +{
-+	u8 select[] = { 0x40, 0x00, 0xf4, 0x80, reg };
-+	u8 execute[] = { 0x40, 0x00, 0xff, 0x10, 0x88 };
-+	u8 request[] = { 0x30, 0x00, 0xf4, 0x80 };
++	u8 request[] = { 0x30, 0x00, address >> 8, address & 0xff };
 +	u8 response[2];
 +	struct i2c_msg msg[] = {
 +		{ .addr = client->addr, .len = sizeof(request), .buf = request },
 +		{ .addr = client->addr, .flags = I2C_M_RD,
 +		  .len = sizeof(response), .buf = response },
 +	};
++	int ret;
++
++	ret = i2c_transfer(client->adapter, msg, ARRAY_SIZE(msg));
++	if (ret != ARRAY_SIZE(msg))
++		return ret < 0 ? ret : -EIO;
++	if (response[0] != 0x50)
++		return -EIO;
++
++	*value = response[1];
++	return 0;
++}
++
++static int galaxybook_ec_wait_ready(struct i2c_client *client)
++{
++	u8 command;
++	int ret, i;
++
++	/* Wait for the command register to clear. */
++	for (i = 0; i < 30; i++) {
++		ret = galaxybook_ec_read_mailbox(client, 0xff10, &command);
++		if (ret)
++			return ret;
++		if (!command)
++			return 0;
++
++		usleep_range(1000, 2000);
++	}
++
++	return -ETIMEDOUT;
++}
++
++static int galaxybook_kbd_backlight_set(struct led_classdev *led,
++				      enum led_brightness brightness)
++{
++	struct samsung_galaxybook_ec *ec =
++		container_of(led, struct samsung_galaxybook_ec, kbd_backlight);
++	u8 select[] = { 0x40, 0x00, 0xf4, 0x80, brightness };
++	u8 execute[] = { 0x40, 0x00, 0xff, 0x10, 0xfd };
++	int ret;
++
++	guard(mutex)(&ec->lock);
++
++	ret = galaxybook_ec_wait_ready(ec->client);
++	if (ret)
++		return ret;
++
++	ret = i2c_master_send(ec->client, select, sizeof(select));
++	if (ret != sizeof(select))
++		return ret < 0 ? ret : -EIO;
++
++	usleep_range(5000, 6000);
++
++	ret = i2c_master_send(ec->client, execute, sizeof(execute));
++	if (ret != sizeof(execute))
++		return ret < 0 ? ret : -EIO;
++
++	return galaxybook_ec_wait_ready(ec->client);
++}
++
++static int galaxybook_kbd_backlight_read(struct samsung_galaxybook_ec *ec,
++				       enum led_brightness *brightness)
++{
++	u8 select[] = { 0x40, 0x00, 0xf4, 0x80, 0x00 };
++	u8 execute[] = { 0x40, 0x00, 0xff, 0x10, 0xfc };
++	u8 level;
++	int ret;
++
++	guard(mutex)(&ec->lock);
++
++	ret = galaxybook_ec_wait_ready(ec->client);
++	if (ret)
++		return ret;
++
++	/* Stage two zero bytes before executing the read command. */
++	ret = i2c_master_send(ec->client, select, sizeof(select));
++	if (ret != sizeof(select))
++		return ret < 0 ? ret : -EIO;
++
++	usleep_range(5000, 6000);
++
++	select[3] = 0x81;
++	ret = i2c_master_send(ec->client, select, sizeof(select));
++	if (ret != sizeof(select))
++		return ret < 0 ? ret : -EIO;
++
++	usleep_range(5000, 6000);
++
++	ret = i2c_master_send(ec->client, execute, sizeof(execute));
++	if (ret != sizeof(execute))
++		return ret < 0 ? ret : -EIO;
++
++	ret = galaxybook_ec_wait_ready(ec->client);
++	if (ret)
++		return ret;
++
++	ret = galaxybook_ec_read_mailbox(ec->client, 0xf480, &level);
++	if (ret)
++		return ret;
++	if (level > ec->kbd_backlight.max_brightness)
++		return -EIO;
++
++	*brightness = level;
++	return 0;
++}
++
++static enum led_brightness galaxybook_kbd_backlight_get(struct led_classdev *led)
++{
++	struct samsung_galaxybook_ec *ec =
++		container_of(led, struct samsung_galaxybook_ec, kbd_backlight);
++	enum led_brightness brightness;
++	int ret;
++
++	ret = galaxybook_kbd_backlight_read(ec, &brightness);
++	if (ret) {
++		dev_warn_ratelimited(&ec->client->dev,
++				     "failed to read keyboard backlight: %d\n", ret);
++		return -EIO;
++	}
++
++	return brightness;
++}
++
++static int galaxybook_ec_read_byte(struct i2c_client *client, u8 reg, u8 *value)
++{
++	u8 select[] = { 0x40, 0x00, 0xf4, 0x80, reg };
++	u8 execute[] = { 0x40, 0x00, 0xff, 0x10, 0x88 };
 +	int ret;
 +
 +	ret = i2c_master_send(client, select, sizeof(select));
@@ -53215,26 +53655,19 @@ index 0000000000000000000000000000000000000000..bc60cd6b5e01f85154bfb473c6d68360
 +
 +	usleep_range(5000, 6000);
 +
-+	ret = i2c_transfer(client->adapter, msg, ARRAY_SIZE(msg));
-+	if (ret != ARRAY_SIZE(msg))
-+		return ret < 0 ? ret : -EIO;
-+	if (response[0] != 0x50)
-+		return -EIO;
-+
-+	*value = response[1];
-+	return 0;
++	return galaxybook_ec_read_mailbox(client, 0xf480, value);
 +}
 +
-+static int kb9058_battery_read_word(struct i2c_client *client, u8 reg,
-+					unsigned int offset, int *value)
++static int galaxybook_ec_read_word(struct i2c_client *client, u8 reg,
++				   unsigned int offset, int *value)
 +{
 +	u8 low, high;
 +	int ret;
 +
-+	ret = kb9058_battery_read_byte(client, reg + offset, &high);
++	ret = galaxybook_ec_read_byte(client, reg + offset, &high);
 +	if (ret)
 +		return ret;
-+	ret = kb9058_battery_read_byte(client, reg + offset + 1, &low);
++	ret = galaxybook_ec_read_byte(client, reg + offset + 1, &low);
 +	if (ret)
 +		return ret;
 +
@@ -53242,61 +53675,61 @@ index 0000000000000000000000000000000000000000..bc60cd6b5e01f85154bfb473c6d68360
 +	return 0;
 +}
 +
-+static int kb9058_battery_refresh(struct kb9058_battery *ec,
-+				      struct kb9058_battery_data *data)
++static int galaxybook_battery_refresh(struct samsung_galaxybook_ec *ec,
++				      struct galaxybook_battery_data *data)
 +{
 +	struct i2c_client *client = ec->client;
 +	u8 flags, state;
 +	int current_ma;
 +	int ret;
 +
-+	ret = kb9058_battery_read_byte(client, KB9058_FLAGS, &flags);
++	ret = galaxybook_ec_read_byte(client, GALAXYBOOK_EC_FLAGS, &flags);
 +	if (ret)
 +		return ret;
-+	ret = kb9058_battery_read_byte(client, KB9058_BAT_STATUS, &state);
++	ret = galaxybook_ec_read_byte(client, GALAXYBOOK_EC_BAT_STATUS, &state);
 +	if (ret)
 +		return ret;
 +
-+	data->present = !!(flags & KB9058_BAT_PRESENT);
-+	data->ac_online = !!(flags & KB9058_AC_PRESENT);
++	data->present = !!(flags & GALAXYBOOK_EC_BAT_PRESENT);
++	data->ac_online = !!(flags & GALAXYBOOK_EC_AC_PRESENT);
 +
-+	if (state & KB9058_BAT_FULL)
++	if (state & GALAXYBOOK_EC_BAT_FULL)
 +		data->status = POWER_SUPPLY_STATUS_FULL;
-+	else if (state & KB9058_BAT_CHARGING)
++	else if (state & GALAXYBOOK_EC_BAT_CHARGING)
 +		data->status = POWER_SUPPLY_STATUS_CHARGING;
-+	else if (state & KB9058_BAT_DISCHARGING)
++	else if (state & GALAXYBOOK_EC_BAT_DISCHARGING)
 +		data->status = POWER_SUPPLY_STATUS_DISCHARGING;
 +	else
 +		data->status = POWER_SUPPLY_STATUS_NOT_CHARGING;
 +
 +	/* BATC._BST reads the upper big-endian word of B1RR. */
-+	ret = kb9058_battery_read_word(client, KB9058_REMAINING, 2,
-+					   &data->charge_now);
++	ret = galaxybook_ec_read_word(client, GALAXYBOOK_EC_REMAINING, 2,
++				      &data->charge_now);
 +	if (ret)
 +		return ret;
-+	ret = kb9058_battery_read_word(client, KB9058_BAT_VOLTAGE, 2,
-+					   &data->voltage_now);
++	ret = galaxybook_ec_read_word(client, GALAXYBOOK_EC_BAT_VOLTAGE, 2,
++				      &data->voltage_now);
 +	if (ret)
 +		return ret;
-+	ret = kb9058_battery_read_word(client, KB9058_BAT_VOLTAGE, 0,
-+					   &current_ma);
++	ret = galaxybook_ec_read_word(client, GALAXYBOOK_EC_BAT_VOLTAGE, 0,
++				      &current_ma);
 +	if (ret)
 +		return ret;
 +	/* BATC._BIX reads design capacity from the lower word of B1AF. */
-+	ret = kb9058_battery_read_word(client, KB9058_CAPACITY, 0,
-+					   &data->charge_full_design);
++	ret = galaxybook_ec_read_word(client, GALAXYBOOK_EC_CAPACITY, 0,
++				      &data->charge_full_design);
 +	if (ret)
 +		return ret;
-+	ret = kb9058_battery_read_word(client, KB9058_CAPACITY, 2,
-+					   &data->charge_full);
++	ret = galaxybook_ec_read_word(client, GALAXYBOOK_EC_CAPACITY, 2,
++				      &data->charge_full);
 +	if (ret)
 +		return ret;
-+	ret = kb9058_battery_read_word(client, KB9058_DESIGN_VOLTAGE, 0,
-+					   &data->voltage_min_design);
++	ret = galaxybook_ec_read_word(client, GALAXYBOOK_EC_DESIGN_VOLTAGE, 0,
++				      &data->voltage_min_design);
 +	if (ret)
 +		return ret;
-+	ret = kb9058_battery_read_word(client, KB9058_CYCLES, 0,
-+					   &data->cycle_count);
++	ret = galaxybook_ec_read_word(client, GALAXYBOOK_EC_CYCLES, 0,
++				      &data->cycle_count);
 +	if (ret)
 +		return ret;
 +
@@ -53341,7 +53774,7 @@ index 0000000000000000000000000000000000000000..bc60cd6b5e01f85154bfb473c6d68360
 +	return 0;
 +}
 +
-+static enum power_supply_property kb9058_battery_properties[] = {
++static enum power_supply_property galaxybook_battery_properties[] = {
 +	POWER_SUPPLY_PROP_STATUS,
 +	POWER_SUPPLY_PROP_PRESENT,
 +	POWER_SUPPLY_PROP_TECHNOLOGY,
@@ -53353,14 +53786,15 @@ index 0000000000000000000000000000000000000000..bc60cd6b5e01f85154bfb473c6d68360
 +	POWER_SUPPLY_PROP_VOLTAGE_MIN_DESIGN,
 +	POWER_SUPPLY_PROP_CURRENT_NOW,
 +	POWER_SUPPLY_PROP_CYCLE_COUNT,
++	POWER_SUPPLY_PROP_MODEL_NAME,
 +};
 +
-+static int kb9058_battery_get_property(struct power_supply *psy,
++static int galaxybook_battery_get_property(struct power_supply *psy,
 +					   enum power_supply_property prop,
 +					   union power_supply_propval *val)
 +{
-+	struct kb9058_battery *ec = power_supply_get_drvdata(psy);
-+	const struct kb9058_battery_data *data = &ec->data;
++	struct samsung_galaxybook_ec *ec = power_supply_get_drvdata(psy);
++	const struct galaxybook_battery_data *data = &ec->data;
 +	int value;
 +
 +	guard(mutex)(&ec->lock);
@@ -53402,6 +53836,9 @@ index 0000000000000000000000000000000000000000..bc60cd6b5e01f85154bfb473c6d68360
 +	case POWER_SUPPLY_PROP_CYCLE_COUNT:
 +		value = data->cycle_count;
 +		break;
++	case POWER_SUPPLY_PROP_MODEL_NAME:
++		val->strval = "Samsung Galaxy Book Battery";
++		return 0;
 +	default:
 +		return -EINVAL;
 +	}
@@ -53414,49 +53851,186 @@ index 0000000000000000000000000000000000000000..bc60cd6b5e01f85154bfb473c6d68360
 +	return 0;
 +}
 +
-+static int kb9058_ac_get_property(struct power_supply *psy,
++static int galaxybook_ac_get_property(struct power_supply *psy,
 +				      enum power_supply_property prop,
 +				      union power_supply_propval *val)
 +{
-+	struct kb9058_battery *ec = power_supply_get_drvdata(psy);
-+
-+	if (prop != POWER_SUPPLY_PROP_ONLINE)
-+		return -EINVAL;
++	struct samsung_galaxybook_ec *ec = power_supply_get_drvdata(psy);
 +
 +	guard(mutex)(&ec->lock);
-+	val->intval = ec->data.ac_online;
++	switch (prop) {
++	case POWER_SUPPLY_PROP_ONLINE:
++		val->intval = ec->data.ac_online;
++		return 0;
++	case POWER_SUPPLY_PROP_MODEL_NAME:
++		val->strval = "Samsung Galaxy Book AC Adapter";
++		return 0;
++	default:
++		return -EINVAL;
++	}
++}
++
++static enum power_supply_property galaxybook_ac_properties[] = {
++	POWER_SUPPLY_PROP_ONLINE,
++	POWER_SUPPLY_PROP_MODEL_NAME,
++};
++
++static const struct power_supply_desc galaxybook_battery_desc = {
++	.name = "samsung-galaxybook-battery",
++	.type = POWER_SUPPLY_TYPE_BATTERY,
++	.properties = galaxybook_battery_properties,
++	.num_properties = ARRAY_SIZE(galaxybook_battery_properties),
++	.get_property = galaxybook_battery_get_property,
++};
++
++static const struct power_supply_desc galaxybook_ac_desc = {
++	.name = "samsung-galaxybook-ac",
++	.type = POWER_SUPPLY_TYPE_MAINS,
++	.properties = galaxybook_ac_properties,
++	.num_properties = ARRAY_SIZE(galaxybook_ac_properties),
++	.get_property = galaxybook_ac_get_property,
++};
++
++static int galaxybook_profile_set(struct device *dev,
++				 enum platform_profile_option profile)
++{
++	struct samsung_galaxybook_ec *ec = dev_get_drvdata(dev);
++	u8 select[] = { 0x40, 0x00, 0xf4, 0x80, 0x80 };
++	u8 execute[] = { 0x40, 0x00, 0xff, 0x10, 0xee };
++	u8 mode;
++	int ret;
++
++	/* The Galaxy Book4 Edge ACPI PRF3 method maps Optimized to EC auto mode (0). */
++	switch (profile) {
++	case PLATFORM_PROFILE_QUIET:
++		mode = 0x0a;
++		break;
++	case PLATFORM_PROFILE_BALANCED:
++		mode = 0x00;
++		break;
++	case PLATFORM_PROFILE_PERFORMANCE:
++		mode = 0x15;
++		break;
++	default:
++		return -EINVAL;
++	}
++
++	guard(mutex)(&ec->lock);
++
++	ret = galaxybook_ec_wait_ready(ec->client);
++	if (ret)
++		return ret;
++
++	/* PRF3 issues extended command 0xee with payload [0x80, mode]. */
++	ret = i2c_master_send(ec->client, select, sizeof(select));
++	if (ret != sizeof(select))
++		return ret < 0 ? ret : -EIO;
++	usleep_range(5000, 6000);
++
++	select[3] = 0x81;
++	select[4] = mode;
++	ret = i2c_master_send(ec->client, select, sizeof(select));
++	if (ret != sizeof(select))
++		return ret < 0 ? ret : -EIO;
++	usleep_range(5000, 6000);
++
++	ret = i2c_master_send(ec->client, execute, sizeof(execute));
++	if (ret != sizeof(execute))
++		return ret < 0 ? ret : -EIO;
++
++	ret = galaxybook_ec_wait_ready(ec->client);
++	if (!ret)
++		ec->profile = profile;
++	return ret;
++}
++
++static int galaxybook_profile_get(struct device *dev,
++				 enum platform_profile_option *profile)
++{
++	struct samsung_galaxybook_ec *ec = dev_get_drvdata(dev);
++
++	guard(mutex)(&ec->lock);
++
++	/* No EC profile getter is defined; return the last completed selection. */
++	*profile = ec->profile;
 +	return 0;
 +}
 +
-+static enum power_supply_property kb9058_ac_properties[] = {
-+	POWER_SUPPLY_PROP_ONLINE,
-+};
-+
-+static const struct power_supply_desc kb9058_battery_desc = {
-+	.name = "kb9058-battery",
-+	.type = POWER_SUPPLY_TYPE_BATTERY,
-+	.properties = kb9058_battery_properties,
-+	.num_properties = ARRAY_SIZE(kb9058_battery_properties),
-+	.get_property = kb9058_battery_get_property,
-+};
-+
-+static const struct power_supply_desc kb9058_ac_desc = {
-+	.name = "kb9058-ac",
-+	.type = POWER_SUPPLY_TYPE_MAINS,
-+	.properties = kb9058_ac_properties,
-+	.num_properties = ARRAY_SIZE(kb9058_ac_properties),
-+	.get_property = kb9058_ac_get_property,
-+};
-+
-+static irqreturn_t kb9058_battery_irq_thread(int irq, void *ptr)
++static int galaxybook_profile_probe(void *drvdata, unsigned long *choices)
 +{
-+	struct kb9058_battery *ec = ptr;
-+	struct kb9058_battery_data data = {};
++	__set_bit(PLATFORM_PROFILE_QUIET, choices);
++	__set_bit(PLATFORM_PROFILE_BALANCED, choices);
++	__set_bit(PLATFORM_PROFILE_PERFORMANCE, choices);
++	return 0;
++}
++
++static const struct platform_profile_ops galaxybook_profile_ops = {
++	.probe = galaxybook_profile_probe,
++	.profile_get = galaxybook_profile_get,
++	.profile_set = galaxybook_profile_set,
++};
++
++static bool galaxybook_ec_handle_event(struct samsung_galaxybook_ec *ec)
++{
++	u8 event[12];
++	unsigned int brightness;
++	int ret;
++
++	if (!ec->events)
++		return false;
++
++	/* Read one event packet without a preceding command write. */
++	ret = i2c_master_recv(ec->events, event, sizeof(event));
++	if (ret != sizeof(event)) {
++		dev_warn_ratelimited(&ec->client->dev,
++				     "EC event read failed: %d\n",
++				     ret < 0 ? ret : -EIO);
++		return false;
++	}
++
++	if (event[0] != 0x01)
++		return false;
++
++	if (event[2] == 0x0b) {
++		if (ec->profile_dev) {
++			ret = platform_profile_cycle();
++			if (ret)
++				dev_warn_ratelimited(&ec->client->dev,
++						     "failed to cycle platform profile: %d\n", ret);
++		}
++		return true;
++	}
++
++	if (event[2] == 0x09) {
++		if (ec->kbd_backlight.dev) {
++			brightness = (ec->kbd_backlight.brightness + 1) %
++				     (ec->kbd_backlight.max_brightness + 1);
++			ret = led_set_brightness_sync(&ec->kbd_backlight, brightness);
++			if (ret)
++				dev_warn_ratelimited(&ec->client->dev,
++						     "failed to set keyboard backlight: %d\n", ret);
++			else
++				led_classdev_notify_brightness_hw_changed(&ec->kbd_backlight,
++									 brightness);
++		}
++		return true;
++	}
++
++	return false;
++}
++
++static irqreturn_t galaxybook_ec_irq_thread(int irq, void *ptr)
++{
++	struct samsung_galaxybook_ec *ec = ptr;
++	struct galaxybook_battery_data data = {};
 +	bool changed = false;
 +	int ret;
 +
++	if (galaxybook_ec_handle_event(ec))
++		return IRQ_HANDLED;
++
 +	scoped_guard(mutex, &ec->lock) {
-+		ret = kb9058_battery_refresh(ec, &data);
++		ret = galaxybook_battery_refresh(ec, &data);
 +		if (ret) {
 +			dev_warn_ratelimited(&ec->client->dev,
 +					     "EC read failed: %d\n", ret);
@@ -53474,10 +54048,13 @@ index 0000000000000000000000000000000000000000..bc60cd6b5e01f85154bfb473c6d68360
 +	return IRQ_HANDLED;
 +}
 +
-+static int kb9058_battery_probe(struct i2c_client *client)
++static int samsung_galaxybook_ec_probe(struct i2c_client *client)
 +{
 +	struct power_supply_config cfg = {};
-+	struct kb9058_battery *ec;
++	struct samsung_galaxybook_ec *ec;
++	struct device_node *node, *bus;
++	struct i2c_adapter *adapter;
++	u32 address;
 +	int ret;
 +
 +	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C))
@@ -53494,47 +54071,155 @@ index 0000000000000000000000000000000000000000..bc60cd6b5e01f85154bfb473c6d68360
 +	ec->client = client;
 +	mutex_init(&ec->lock);
 +
-+	ret = kb9058_battery_refresh(ec, &ec->data);
++	ret = galaxybook_battery_refresh(ec, &ec->data);
 +	if (ret)
 +		return dev_err_probe(&client->dev, ret, "failed to read EC battery\n");
 +
 +	cfg.drv_data = ec;
 +	cfg.fwnode = dev_fwnode(&client->dev);
 +	ec->battery = devm_power_supply_register(&client->dev,
-+						  &kb9058_battery_desc, &cfg);
++						  &galaxybook_battery_desc, &cfg);
 +	if (IS_ERR(ec->battery))
 +		return dev_err_probe(&client->dev, PTR_ERR(ec->battery),
 +				     "failed to register battery\n");
 +
-+	ec->ac = devm_power_supply_register(&client->dev, &kb9058_ac_desc,
++	ec->ac = devm_power_supply_register(&client->dev, &galaxybook_ac_desc,
 +					     &cfg);
 +	if (IS_ERR(ec->ac))
 +		return dev_err_probe(&client->dev, PTR_ERR(ec->ac),
 +				     "failed to register AC supply\n");
 +
++	ec->kbd_backlight.name = "samsung-galaxybook::kbd_backlight";
++	ec->kbd_backlight.max_brightness = 3;
++	ec->kbd_backlight.brightness_set_blocking = galaxybook_kbd_backlight_set;
++	ec->kbd_backlight.brightness_get = galaxybook_kbd_backlight_get;
++	ec->kbd_backlight.flags = LED_CORE_SUSPENDRESUME | LED_BRIGHT_HW_CHANGED;
++
++	ret = galaxybook_kbd_backlight_read(ec, &ec->kbd_backlight.brightness);
++	if (!ret) {
++		ret = devm_led_classdev_register(&client->dev, &ec->kbd_backlight);
++		if (ret)
++			return dev_err_probe(&client->dev, ret,
++					     "failed to register keyboard backlight\n");
++	}
++
++	node = of_parse_phandle(client->dev.of_node, "samsung,event-interface", 0);
++	if (node) {
++		ret = of_property_read_u32(node, "reg", &address);
++		bus = of_get_parent(node);
++		of_node_put(node);
++		if (ret || address > 0x7f) {
++			of_node_put(bus);
++			return dev_err_probe(&client->dev, -EINVAL,
++					     "invalid EC event address\n");
++		}
++
++		adapter = of_get_i2c_adapter_by_node(bus);
++		of_node_put(bus);
++		if (!adapter)
++			return dev_err_probe(&client->dev, -EPROBE_DEFER,
++					     "EC event bus is not ready\n");
++
++		if (!i2c_check_functionality(adapter, I2C_FUNC_I2C)) {
++			i2c_put_adapter(adapter);
++			return dev_err_probe(&client->dev, -EOPNOTSUPP,
++					     "event adapter lacks I2C transfers\n");
++		}
++
++		ec->events = devm_i2c_new_dummy_device(&client->dev, adapter, address);
++		i2c_put_adapter(adapter);
++		if (IS_ERR(ec->events))
++			return dev_err_probe(&client->dev, PTR_ERR(ec->events),
++					     "failed to initialize EC event interface\n");
++	}
++
 +	i2c_set_clientdata(client, ec);
++
++	/* Establish a known fan policy before exposing the cached profile. */
++	ret = galaxybook_profile_set(&client->dev, PLATFORM_PROFILE_BALANCED);
++	if (!ret) {
++		ec->profile_dev = devm_platform_profile_register(&client->dev,
++							 "samsung-galaxybook", ec,
++							 &galaxybook_profile_ops);
++		if (IS_ERR(ec->profile_dev))
++			return dev_err_probe(&client->dev, PTR_ERR(ec->profile_dev),
++					     "failed to register platform profiles\n");
++	} else {
++		dev_warn(&client->dev, "platform profiles unavailable: %d\n", ret);
++	}
 +	return devm_request_threaded_irq(&client->dev, client->irq, NULL,
-+					 kb9058_battery_irq_thread, IRQF_ONESHOT,
++					 galaxybook_ec_irq_thread, IRQF_ONESHOT,
 +					 dev_name(&client->dev), ec);
 +}
 +
-+static const struct of_device_id kb9058_battery_of_match[] = {
-+	{ .compatible = "ene,kb9058-battery" },
++static const struct of_device_id samsung_galaxybook_ec_of_match[] = {
++	{ .compatible = "samsung,galaxybook4-edge-ec" },
 +	{}
 +};
-+MODULE_DEVICE_TABLE(of, kb9058_battery_of_match);
++MODULE_DEVICE_TABLE(of, samsung_galaxybook_ec_of_match);
 +
-+static struct i2c_driver kb9058_battery_driver = {
++static struct i2c_driver samsung_galaxybook_ec_driver = {
 +	.driver = {
-+		.name = "ene-kb9058-battery",
-+		.of_match_table = kb9058_battery_of_match,
++		.name = "samsung-galaxybook-ec",
++		.of_match_table = samsung_galaxybook_ec_of_match,
 +	},
-+	.probe = kb9058_battery_probe,
++	.probe = samsung_galaxybook_ec_probe,
 +};
-+module_i2c_driver(kb9058_battery_driver);
++module_i2c_driver(samsung_galaxybook_ec_driver);
 +
-+MODULE_DESCRIPTION("ENE KB9058 EC battery and AC adapter");
-+MODULE_LICENSE("GPL");
++MODULE_DESCRIPTION("Samsung Galaxy Book embedded controller");
++MODULE_LICENSE("Dual BSD/GPL");
+diff --git a/drivers/usb/typec/samsung-emuec.c b/drivers/usb/typec/samsung-emuec.c
+index ec31c491f46b148aa3d90a385e534a0321d7199a..caf94d65ebd0a8e06d5f03fc6110c9ab79be5204 100644
+--- a/drivers/usb/typec/samsung-emuec.c
++++ b/drivers/usb/typec/samsung-emuec.c
+@@ -781,16 +781,17 @@ static void samsung_emuec_sync(struct work_struct *work)
+ 	source_path_attached = bc & BIT(4);
+ 	consumer_path_active = sw & BIT(1);
+ 
+-	if (orientation == TYPEC_ORIENTATION_NONE ||
+-	    (!vbus_present && !source_path_attached)) {
++	if (orientation == TYPEC_ORIENTATION_NONE) {
+ 		samsung_emuec_detach(pdic);
+ 		return;
+ 	}
+ 
+-	/* The BC and PD role bits can settle at different times. */
+-	if ((power_role == TYPEC_SOURCE && !source_path_attached) ||
+-	    (power_role == TYPEC_SINK && !vbus_present))
++	/* A sink needs external VBUS; a source may need its path enabled first. */
++	if (power_role == TYPEC_SINK && !vbus_present) {
++		mod_delayed_work(system_dfl_wq, &pdic->work,
++				 msecs_to_jiffies(150));
+ 		return;
++	}
+ 
+ 	mode = power_role == TYPEC_SOURCE ? SAMSUNG_EMUEC_MODE_PROVIDER :
+ 					    SAMSUNG_EMUEC_MODE_CONSUMER;
+@@ -809,15 +810,18 @@ static void samsung_emuec_sync(struct work_struct *work)
+ 				 "failed to enable %s path: %d\n",
+ 				 mode == SAMSUNG_EMUEC_MODE_PROVIDER ?
+ 				 "provider" : "consumer", ret);
+-		else {
++		else
+ 			pdic->attempted_mode = mode;
+-			mod_delayed_work(system_dfl_wq, &pdic->work,
+-					 msecs_to_jiffies(150));
+-		}
+ 	}
+ 
+-	if (!(sw & status_bit))
++	if (!(sw & status_bit) ||
++	    (power_role == TYPEC_SOURCE && !source_path_attached)) {
++		/* Keep checking until the requested power path becomes active. */
++		if (pdic->attempted_mode == mode)
++			mod_delayed_work(system_dfl_wq, &pdic->work,
++					 msecs_to_jiffies(150));
+ 		return;
++	}
+ 
+ 	if (pdic->attached && (pdic->power_role != power_role ||
+ 			       pdic->data_role != data_role))
 -- 
 2.55.0
 
@@ -56359,6 +57044,208 @@ index 0000000000000000000000000000000000000000..24b70461743989b9d04f56ddf70260fe
 +
 +	status = "okay";
 +};
+-- 
+2.55.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Wed, 30 Sep 2026 19:39:48 +0200
+Subject: arm64: dts: qcom: galaxy-book4-edge: enable USB-A only on 16-inch
+ model
+
+The 14-inch Galaxy Book4 Edge has no USB-A port, but inherits the
+multiport USB controller and PHY enablement from the shared X1E device
+tree. On this model, xHCI setup times out with -ETIMEDOUT after about
+17 seconds, delaying boot.
+
+Move the multiport controller and PHY configuration into the 16-inch
+DTS. The 14-inch model now inherits their disabled status from the SoC
+device tree, while its two USB-C controllers remain enabled. The
+15-inch model has separate USB-A configuration and is unaffected.
+
+Build the 14-, 15- and 16-inch DTBs and verify the resulting controller
+and PHY status properties. Hardware boot validation is pending.
+---
+ .../qcom/x1e-samsung-galaxy-book4-edge.dtsi   | 25 -------------------
+ .../x1e84100-samsung-galaxy-book4-edge-16.dts | 25 +++++++++++++++++++
+ 2 files changed, 25 insertions(+), 25 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/qcom/x1e-samsung-galaxy-book4-edge.dtsi b/arch/arm64/boot/dts/qcom/x1e-samsung-galaxy-book4-edge.dtsi
+index ab100ee4b3baa57f4192797da32f429bddcb8eac..97b67182427b42658fe23ddea11dfc8f7dff3ac5 100644
+--- a/arch/arm64/boot/dts/qcom/x1e-samsung-galaxy-book4-edge.dtsi
++++ b/arch/arm64/boot/dts/qcom/x1e-samsung-galaxy-book4-edge.dtsi
+@@ -541,28 +541,3 @@ usb_1_ss2_qmpphy_out_dp: endpoint@0 {
+ 		};
+ 	};
+ };
+-
+-/* MP0 goes to the USB-A port(USB3) and FPC */
+-&usb_mp {
+-	status = "okay";
+-
+-	/* Limit to single port */
+-	phys = <&usb_mp_hsphy0>, <&usb_mp_qmpphy0>;
+-	phy-names = "usb2-0", "usb3-0";
+-};
+-
+-&usb_mp_hsphy0 {
+-	vdd-supply = <&vreg_l2e_0p8>;
+-	vdda12-supply = <&vreg_l3e_1p2>;
+-
+-	phys = <&eusb6_repeater>;
+-
+-	status = "okay";
+-};
+-
+-&usb_mp_qmpphy0 {
+-	vdda-phy-supply = <&vreg_l3e_1p2>;
+-	vdda-pll-supply = <&vreg_l3c_0p8>;
+-
+-	status = "okay";
+-};
+diff --git a/arch/arm64/boot/dts/qcom/x1e84100-samsung-galaxy-book4-edge-16.dts b/arch/arm64/boot/dts/qcom/x1e84100-samsung-galaxy-book4-edge-16.dts
+index 4040d52232423cb509a1c9388fd85644ad8761fe..2ccc0ecf9a860c0219617e902e215c4a5a99bf06 100644
+--- a/arch/arm64/boot/dts/qcom/x1e84100-samsung-galaxy-book4-edge-16.dts
++++ b/arch/arm64/boot/dts/qcom/x1e84100-samsung-galaxy-book4-edge-16.dts
+@@ -29,3 +29,28 @@ touchpad@50 {
+ &panel {
+ 	compatible = "samsung,atna60cl07", "samsung,atna33xc20";
+ };
++
++/* MP0 goes to the USB-A port(USB3) and FPC */
++&usb_mp {
++	status = "okay";
++
++	/* Limit to single port */
++	phys = <&usb_mp_hsphy0>, <&usb_mp_qmpphy0>;
++	phy-names = "usb2-0", "usb3-0";
++};
++
++&usb_mp_hsphy0 {
++	vdd-supply = <&vreg_l2e_0p8>;
++	vdda12-supply = <&vreg_l3e_1p2>;
++
++	phys = <&eusb6_repeater>;
++
++	status = "okay";
++};
++
++&usb_mp_qmpphy0 {
++	vdda-phy-supply = <&vreg_l3e_1p2>;
++	vdda-pll-supply = <&vreg_l3c_0p8>;
++
++	status = "okay";
++};
+-- 
+2.55.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Wed, 30 Sep 2026 19:48:53 +0200
+Subject: arm64: dts: qcom: galaxy-book4-edge: disable bias on eDP HPD pin
+
+The shared X1E Galaxy Book4 Edge pin configuration adds bias-pull-down
+on top of the bias-disable property inherited from the SoC device tree.
+This leaves conflicting bias settings and triggers the pinctrl warning
+"cannot have multiple bias configurations" during boot.
+
+Explicitly specify bias-disable instead of bias-pull-down to retain the
+SoC bias setting without the conflict.
+
+Build the 14- and 16-inch DTBs and verify that their eDP HPD pin nodes
+contain bias-disable with no bias-pull-down. Hardware validation is
+pending; this does not establish a fix for the intermittent display
+reset failure.
+---
+ arch/arm64/boot/dts/qcom/x1e-samsung-galaxy-book4-edge.dtsi | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/arm64/boot/dts/qcom/x1e-samsung-galaxy-book4-edge.dtsi b/arch/arm64/boot/dts/qcom/x1e-samsung-galaxy-book4-edge.dtsi
+index 97b67182427b42658fe23ddea11dfc8f7dff3ac5..34feba350bd7ee16d20ca1fb575d15a433e54f6d 100644
+--- a/arch/arm64/boot/dts/qcom/x1e-samsung-galaxy-book4-edge.dtsi
++++ b/arch/arm64/boot/dts/qcom/x1e-samsung-galaxy-book4-edge.dtsi
+@@ -403,7 +403,7 @@ &tlmm {
+ 	edp0_hpd_default: edp0-hpd-default-state {
+ 		pins = "gpio119";
+ 		function = "edp0_hot";
+-		bias-pull-down;
++		bias-disable;
+ 		input-enable;
+ 		drive-strength = <2>;
+ 	};
+-- 
+2.55.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Wed, 30 Sep 2026 20:21:08 +0200
+Subject: arm64: dts: qcom: galaxy-book4-edge: use Samsung EC compatible
+
+---
+ arch/arm64/boot/dts/qcom/x1-samsung-galaxy-book4-edge.dtsi | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/arm64/boot/dts/qcom/x1-samsung-galaxy-book4-edge.dtsi b/arch/arm64/boot/dts/qcom/x1-samsung-galaxy-book4-edge.dtsi
+index 5a527b3e78b9ce194d736c05d8c0b08e76c08526..85f52a7343772ea4d2caec17666803cc64ecf6c9 100644
+--- a/arch/arm64/boot/dts/qcom/x1-samsung-galaxy-book4-edge.dtsi
++++ b/arch/arm64/boot/dts/qcom/x1-samsung-galaxy-book4-edge.dtsi
+@@ -659,7 +659,7 @@ &i2c0 {
+ 	status = "okay";
+ 
+ 	embedded-controller@64 {
+-		compatible = "ene,kb9058-battery";
++		compatible = "samsung,galaxybook4-edge-ec";
+ 		reg = <0x64>;
+ 		interrupts-extended = <&tlmm 66 IRQ_TYPE_EDGE_FALLING>;
+ 	};
+-- 
+2.55.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Wed, 30 Sep 2026 22:16:10 +0200
+Subject: arm64: dts: qcom: galaxy-book4-edge: describe EC event interface
+
+Describe the EC event interface at address 0x62 on I2C5 and reference it from the mailbox node. Leave the event node disabled for independent enumeration because the mailbox driver owns its I2C client and shared interrupt.
+---
+ .../boot/dts/qcom/x1-samsung-galaxy-book4-edge.dtsi | 13 +++++++++++++
+ 1 file changed, 13 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/qcom/x1-samsung-galaxy-book4-edge.dtsi b/arch/arm64/boot/dts/qcom/x1-samsung-galaxy-book4-edge.dtsi
+index 85f52a7343772ea4d2caec17666803cc64ecf6c9..dc396ec73b60711e20361ae15d6bc9499458b35a 100644
+--- a/arch/arm64/boot/dts/qcom/x1-samsung-galaxy-book4-edge.dtsi
++++ b/arch/arm64/boot/dts/qcom/x1-samsung-galaxy-book4-edge.dtsi
+@@ -661,6 +661,7 @@ &i2c0 {
+ 	embedded-controller@64 {
+ 		compatible = "samsung,galaxybook4-edge-ec";
+ 		reg = <0x64>;
++		samsung,event-interface = <&ec_events>;
+ 		interrupts-extended = <&tlmm 66 IRQ_TYPE_EDGE_FALLING>;
+ 	};
+ 
+@@ -675,6 +676,18 @@ keyboard@5 {
+ 	};
+ };
+ 
++&i2c5 {
++	clock-frequency = <400000>;
++	status = "okay";
++
++	ec_events: embedded-controller@62 {
++		compatible = "samsung,galaxybook4-edge-ec-events";
++		reg = <0x62>;
++		/* The mailbox driver owns this secondary interface. */
++		status = "disabled";
++	};
++};
++
+ &lpass_tlmm {
+ 	spkr_01_sd_n_active: spkr-01-sd-n-active-state {
+ 		pins = "gpio12";
 -- 
 2.55.0
 
