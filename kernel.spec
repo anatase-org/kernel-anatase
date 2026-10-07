@@ -195,13 +195,13 @@ Summary: The Linux kernel
 %define specrpmversion 7.2.7
 %define specversion 7.2.7
 %define patchversion 7.2
-%define pkgrelease an14
+%define pkgrelease an15
 %define kversion 7
 %define tarfile_release 7.2.7
 # This is needed to do merge window version magic
 %define patchlevel 2
 # This allows pkg_release to have configurable %%{?dist} tag
-%define specrelease an14%{?buildid}%{?dist}
+%define specrelease an15%{?buildid}%{?dist}
 # This defines the kabi tarball version
 %define kabiversion 7.2.7
 
@@ -5074,7 +5074,7 @@ fi\
 #
 #
 %changelog
-* Wed Sep 30 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.2.7-an14]
+* Wed Oct 07 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.2.7-an15]
 - redhat: update CONFIG_LOCAL for ARM (Antheas Kapenekakis)
 - redhat: hwids: Map Galaxy Book4 Edge NP940XMA and NP750XQB (Antheas Kapenekakis)
 - arm64: dts: qcom: galaxy-book4-edge: describe EC event interface (Antheas Kapenekakis)
