@@ -195,13 +195,13 @@ Summary: The Linux kernel
 %define specrpmversion 7.2.7
 %define specversion 7.2.7
 %define patchversion 7.2
-%define pkgrelease an15
+%define pkgrelease an16
 %define kversion 7
 %define tarfile_release 7.2.7
 # This is needed to do merge window version magic
 %define patchlevel 2
 # This allows pkg_release to have configurable %%{?dist} tag
-%define specrelease an15%{?buildid}%{?dist}
+%define specrelease an16%{?buildid}%{?dist}
 # This defines the kabi tarball version
 %define kabiversion 7.2.7
 
@@ -1023,7 +1023,7 @@ Source1: Makefile.rhelver
 Source2: %{name}.changelog
 
 %define evdi_version 1.15.0
-%define nvidia_version 615.71.09-an01
+%define nvidia_version 615.78.08-an01
 %define nvidia_version_rel 1
 %define nvidia_epoch 3
 %if %{with_nvidia}
@@ -5074,7 +5074,9 @@ fi\
 #
 #
 %changelog
-* Wed Oct 07 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.2.7-an15]
+* Thu Oct 08 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.2.7-an16]
+- bump nvidia (Antheas Kapenekakis)
+- hid: 8bitdo: unify handling, fix ABXY mapping on ultimates (Antheas Kapenekakis)
 - redhat: update CONFIG_LOCAL for ARM (Antheas Kapenekakis)
 - redhat: hwids: Map Galaxy Book4 Edge NP940XMA and NP750XQB (Antheas Kapenekakis)
 - arm64: dts: qcom: galaxy-book4-edge: describe EC event interface (Antheas Kapenekakis)
