@@ -57452,3 +57452,47 @@ index 778764ac170ebdbefc347c3a23d18fc9527cc486..bd497cec0ef5065a5de219047a79173c
 -- 
 2.55.0
 
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Sat, 10 Oct 2026 13:11:21 +0200
+Subject: platform/x86/amd: dptc: Add KONKR FIT support
+
+Match the KONKR system vendor and KONKR FIT product name and use the
+existing 30W handheld limits preset. Recognize the Ryzen AI 9 HX 470
+alongside the already supported HX 370.
+---
+ drivers/platform/x86/amd/dptc.c | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
+
+diff --git a/drivers/platform/x86/amd/dptc.c b/drivers/platform/x86/amd/dptc.c
+index bd497cec0ef5065a5de219047a79173cf155f505..79a693c35bbef589a89edaab9c40b297e3f10f52 100644
+--- a/drivers/platform/x86/amd/dptc.c
++++ b/drivers/platform/x86/amd/dptc.c
+@@ -185,6 +185,7 @@ static const char * const dptc_soc_table[] = {
+ 	"AMD RYZEN AI MAX 385",
+ 	"AMD RYZEN AI MAX 380",
+ 	/* Ryzen AI */
++	"AMD Ryzen AI 9 HX 470",
+ 	"AMD Ryzen AI 9 HX 370",
+ 	/* Ryzen 8000 */
+ 	"AMD Ryzen 7 8840U",
+@@ -569,6 +570,15 @@ static const struct dmi_system_id dptc_dmi_table[] = {
+ 		},
+ 		.driver_data = (void *)&limits_30w,
+ 	},
++	/* KONKR - 30W */
++	{
++		.ident = "KONKR FIT",
++		.matches = {
++			DMI_EXACT_MATCH(DMI_SYS_VENDOR, "KONKR"),
++			DMI_EXACT_MATCH(DMI_PRODUCT_NAME, "KONKR FIT"),
++		},
++		.driver_data = (void *)&limits_30w,
++	},
+ 	/* AYANEO AI MAX handhelds */
+ 	{
+ 		.ident = "AYANEO NEXT 2",
+-- 
+2.55.0
+
