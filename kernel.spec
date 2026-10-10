@@ -195,13 +195,13 @@ Summary: The Linux kernel
 %define specrpmversion 7.2.7
 %define specversion 7.2.7
 %define patchversion 7.2
-%define pkgrelease an16
+%define pkgrelease an17
 %define kversion 7
 %define tarfile_release 7.2.7
 # This is needed to do merge window version magic
 %define patchlevel 2
 # This allows pkg_release to have configurable %%{?dist} tag
-%define specrelease an16%{?buildid}%{?dist}
+%define specrelease an17%{?buildid}%{?dist}
 # This defines the kabi tarball version
 %define kabiversion 7.2.7
 
@@ -5074,7 +5074,8 @@ fi\
 #
 #
 %changelog
-* Thu Oct 08 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.2.7-an16]
+* Sat Oct 10 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.2.7-an17]
+- platform/x86/amd: dptc: Add AYANEO NEXT 2 support (Antheas Kapenekakis)
 - bump nvidia (Antheas Kapenekakis)
 - hid: 8bitdo: unify handling, fix ABXY mapping on ultimates (Antheas Kapenekakis)
 - redhat: update CONFIG_LOCAL for ARM (Antheas Kapenekakis)
