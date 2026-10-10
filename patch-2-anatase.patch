@@ -57496,3 +57496,28 @@ index bd497cec0ef5065a5de219047a79173cf155f505..79a693c35bbef589a89edaab9c40b297
 -- 
 2.55.0
 
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Sat, 10 Oct 2026 16:00:34 +0200
+Subject: platform/x86/amd: dptc: Recognize Ryzen 5 7640U
+
+---
+ drivers/platform/x86/amd/dptc.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/platform/x86/amd/dptc.c b/drivers/platform/x86/amd/dptc.c
+index 79a693c35bbef589a89edaab9c40b297e3f10f52..5ba5d9959de412463381db13d9526b08ca589b02 100644
+--- a/drivers/platform/x86/amd/dptc.c
++++ b/drivers/platform/x86/amd/dptc.c
+@@ -191,6 +191,7 @@ static const char * const dptc_soc_table[] = {
+ 	"AMD Ryzen 7 8840U",
+ 	/* Ryzen 7040 */
+ 	"AMD Ryzen 7 7840U",
++	"AMD Ryzen 5 7640U",
+ 	/* Ryzen 6000 */
+ 	"AMD Ryzen 7 6800U",
+ 	"AMD Ryzen 7 6600U",
+-- 
+2.55.0
+

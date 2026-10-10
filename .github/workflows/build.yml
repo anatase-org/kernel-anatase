@@ -77,12 +77,6 @@ jobs:
           PUSH_IMAGE: "1"
         run: ./build.sh
 
-      - name: Publish release
-        if: ${{ github.ref_type == 'tag' }}
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh release edit "$GITHUB_REF_NAME" --draft=false --prerelease=false
-
       # - name: Generate OCI attestation
       #   uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3
       #   with:
@@ -91,12 +85,20 @@ jobs:
       #     push-to-registry: true
 
   notify:
-    name: Trigger Anatase build
+    name: Publish release and trigger Anatase build
+    # Publish and notify only after every architecture/Fedora build succeeds.
     needs: build
     if: ${{ needs.build.result == 'success' }}
     runs-on: ubuntu-26.04
     environment: "prod"
     steps:
+      - name: Publish release
+        if: ${{ github.ref_type == 'tag' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: gh release edit "$GITHUB_REF_NAME" --draft=false --prerelease=false
+
       - name: Trigger Anatase build
         env:
           ANATASE_TRIGGER: ${{ secrets.ANATASE_TRIGGER }}
