@@ -57521,3 +57521,35 @@ index 79a693c35bbef589a89edaab9c40b297e3f10f52..5ba5d9959de412463381db13d9526b08
 -- 
 2.55.0
 
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Wed, 14 Oct 2026 23:19:28 +0200
+Subject: platform/x86: ayaneo-ec: Add AYANEO NEXT 2 support
+
+Match the AYA board vendor and AB09 board name reported by the NEXT 2 and use the existing charge-control quirk to enable fan control and charging/bypass control.
+---
+ drivers/platform/x86/ayaneo-ec.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/drivers/platform/x86/ayaneo-ec.c b/drivers/platform/x86/ayaneo-ec.c
+index 08e679347e9b4422ff0da3246f58a46228e50855..7c26975c0628ef9a313140c4f2de2ff3dfe11084 100644
+--- a/drivers/platform/x86/ayaneo-ec.c
++++ b/drivers/platform/x86/ayaneo-ec.c
+@@ -146,6 +146,13 @@ static const struct dmi_system_id dmi_table[] = {
+ 		},
+ 		.driver_data = (void *)&quirk_ayaneo3,
+ 	},
++	{
++		.matches = {
++			DMI_EXACT_MATCH(DMI_BOARD_VENDOR, "AYA"),
++			DMI_EXACT_MATCH(DMI_BOARD_NAME, "AB09"),
++		},
++		.driver_data = (void *)&quirk_charge_limit,
++	},
+ 	{
+ 		.matches = {
+ 			DMI_EXACT_MATCH(DMI_SYS_VENDOR, "Mysten Labs, Inc."),
+-- 
+2.55.0
+

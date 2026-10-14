@@ -195,13 +195,13 @@ Summary: The Linux kernel
 %define specrpmversion 7.2.7
 %define specversion 7.2.7
 %define patchversion 7.2
-%define pkgrelease an19
+%define pkgrelease an20
 %define kversion 7
 %define tarfile_release 7.2.7
 # This is needed to do merge window version magic
 %define patchlevel 2
 # This allows pkg_release to have configurable %%{?dist} tag
-%define specrelease an19%{?buildid}%{?dist}
+%define specrelease an20%{?buildid}%{?dist}
 # This defines the kabi tarball version
 %define kabiversion 7.2.7
 
@@ -5074,7 +5074,8 @@ fi\
 #
 #
 %changelog
-* Sat Oct 10 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.2.7-an19]
+* Wed Oct 14 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.2.7-an20]
+- platform/x86: ayaneo-ec: Add AYANEO NEXT 2 support (Antheas Kapenekakis)
 - platform/x86/amd: dptc: Recognize Ryzen 5 7640U (Antheas Kapenekakis)
 - platform/x86/amd: dptc: Add KONKR FIT support (Antheas Kapenekakis)
 - platform/x86/amd: dptc: Add AYANEO NEXT 2 support (Antheas Kapenekakis)
