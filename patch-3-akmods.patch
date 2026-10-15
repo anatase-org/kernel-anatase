@@ -11135,16 +11135,16 @@ index 0000000..675325d
 +kunit_test_suite(evdi_test_suite);
 # ----------------------------------------
 # Module: fanatecff
-# Version: 0.2.3
+# Version: bc2601b
 # ----------------------------------------
 diff --git a/drivers/custom/fanatecff/Kbuild b/drivers/custom/fanatecff/Kbuild
 new file mode 100644
-index 0000000..341ab3d
+index 0000000..dae85d0
 --- /dev/null
 +++ b/drivers/custom/fanatecff/Kbuild
 @@ -0,0 +1,2 @@
 +obj-m := hid-fanatec.o 
-+hid-fanatec-y := hid-ftec.o hid-ftecff.o hid-ftecff-tuning.o
++hid-fanatec-y := hid-ftec.o hid-ftecff.o hid-ftecff-tuning.o hid-ftecff-wheel.o
 diff --git a/drivers/custom/fanatecff/Makefile b/drivers/custom/fanatecff/Makefile
 new file mode 100644
 index 0000000..686e32a
@@ -11532,10 +11532,10 @@ index 0000000..9e887d6
 +
 diff --git a/drivers/custom/fanatecff/hid-ftec.c b/drivers/custom/fanatecff/hid-ftec.c
 new file mode 100644
-index 0000000..4ca907c
+index 0000000..45281c0
 --- /dev/null
 +++ b/drivers/custom/fanatecff/hid-ftec.c
-@@ -0,0 +1,1175 @@
+@@ -0,0 +1,1231 @@
 +#include "hid-ftec.h"
 +
 +#include <linux/device.h>
@@ -12060,9 +12060,8 @@ index 0000000..4ca907c
 +	GET_EFFECT_OR_RETURN(effect);
 +
 +	DEBUG("set_envelope: %x %x %x %x %x %x %x", effect->id, params->id,
-+	      effect->type, params->attack_level,
-+	      params->fade_level, params->attack_time,
-+	      params->fade_time);
++	      effect->type, params->attack_level, params->fade_level,
++	      params->attack_time, params->fade_time);
 +
 +	switch (effect->type) {
 +	case FF_CONSTANT:
@@ -12126,9 +12125,11 @@ index 0000000..4ca907c
 +	DEBUG("set_periodic: %x %x %x %x %x %x", effect->id, params->id,
 +	      params->period, params->magnitude, params->offset, params->phase);
 +
-+	effect->u.periodic.period = params->period == 0xffff ? 0 : params->period;
-+	// NOTE: some games abuse periodic to actually send constant force
-+	if (effect->u.periodic.period != 0) {
++	effect->u.periodic.period = params->period == 0xffff ? 0 :
++							       params->period;
++	// NOTE: some games abuse periodic to send constant force. gMotor/ISI sims (GTR2)
++	// use a zero-magnitude Sine with the force in the DC offset -> route to constant.
++	if (effect->u.periodic.period != 0 && params->magnitude != 0) {
 +		effect->u.periodic.magnitude = params->magnitude;
 +		effect->u.periodic.offset = params->offset;
 +		effect->u.periodic.phase = 0x10000ULL * params->phase / 360;
@@ -12155,11 +12156,11 @@ index 0000000..4ca907c
 +
 +	PID_HANDLER_PROLOGUE(struct set_effect);
 +	GET_EFFECT_OR_RETURN(effect);
-+	DEBUG("set_effect: %x %x %x %x %x %x %x %x %x %x", effect->id, params->id,
-+	      params->type_idx, params->duration,
-+	      params->start_delay, params->gain_percent,
-+	      params->axes_enable, params->direction_enable,
-+	      params->direction[0], params->direction[1]);
++	DEBUG("set_effect: %x %x %x %x %x %x %x %x %x %x", effect->id,
++	      params->id, params->type_idx, params->duration,
++	      params->start_delay, params->gain_percent, params->axes_enable,
++	      params->direction_enable, params->direction[0],
++	      params->direction[1]);
 +
 +	// NOTE: ignore type provided by set-effect if effect type
 +	//  already set by set_constant or set_periodic
@@ -12174,13 +12175,16 @@ index 0000000..4ca907c
 +	}
 +
 +	if (effect->type == FF_CONSTANT) {
-+		effect->u.constant.level = (effect->u.constant.level * params->gain_percent) / 100;
++		effect->u.constant.level =
++			(effect->u.constant.level * params->gain_percent) / 100;
 +	} else if (effect->type == FF_PERIODIC) {
-+		effect->u.periodic.magnitude = (effect->u.periodic.magnitude * params->gain_percent) / 100;
++		effect->u.periodic.magnitude =
++			(effect->u.periodic.magnitude * params->gain_percent) /
++			100;
 +	}
 +
-+	effect->replay.length = 
-+		params->duration == 0xffff ? 0 : params->duration;
++	effect->replay.length = params->duration == 0xffff ? 0 :
++							     params->duration;
 +	effect->replay.delay = params->start_delay;
 +	effect->trigger.interval = params->trigger_repeat_interval;
 +	effect->trigger.button = params->trigger_button;
@@ -12189,7 +12193,7 @@ index 0000000..4ca907c
 +	if (params->direction_enable && params->direction[0] != 0) {
 +		effect->direction = 0x10000ULL * params->direction[0] / 36000;
 +	} else {
-+		// default direction +X 
++		// default direction +X
 +		effect->direction = 0x4000;
 +	}
 +
@@ -12237,8 +12241,7 @@ index 0000000..4ca907c
 +			(void)ff->upload(inputdev, effect, NULL);
 +		}
 +		ftec_client_report_state(drv_data->client.hdev,
-+					 PID_EFFECT_STATE_STARTED,
-+					 effect->id);
++					 PID_EFFECT_STATE_STARTED, effect->id);
 +	}
 +
 +	(void)ff->playback(inputdev, effect->id, params->count);
@@ -12256,7 +12259,8 @@ index 0000000..4ca907c
 +	DEBUG("device_control: %x", params->ctrl);
 +
 +	if (params->stop_all_effects || params->reset) {
-+		DEBUG("device_control: stop effects%s", params->reset ? " and reset" : "");
++		DEBUG("device_control: stop effects%s",
++		      params->reset ? " and reset" : "");
 +		size_t i;
 +		for (i = 0; i < ARRAY_SIZE(drv_data->client.effects); ++i) {
 +			if (drv_data->client.effects[i].id) {
@@ -12411,8 +12415,8 @@ index 0000000..4ca907c
 +	} else if (hdev->product == PODIUM_WHEELBASE_DD1_DEVICE_ID ||
 +		   hdev->product == PODIUM_WHEELBASE_DD2_DEVICE_ID ||
 +		   hdev->product == CSL_DD_WHEELBASE_DEVICE_ID) {
-+	    // technically max_range is 2520, but 2530 is used as 'auto'
-+		drv_data->max_range = 2530; 
++		// technically max_range is 2520, but 2530 is used as 'auto'
++		drv_data->max_range = 2530;
 +	}
 +
 +	hid_set_drvdata(hdev, (void *)drv_data);
@@ -12577,11 +12581,8 @@ index 0000000..4ca907c
 +	[0x0d] = BTN_0, /* Shifter R */
 +	[0x0e] = BTN_1, /* Shifter 1 */
 +	[0x0f] = BTN_2, /* ... */
-+	[0x10] = BTN_3,
-+	[0x11] = BTN_4,
-+	[0x12] = BTN_5,
-+	[0x13] = BTN_6,
-+	[0x14] = BTN_7, /* Shifter 7 */
++	[0x10] = BTN_3,		[0x11] = BTN_4, [0x12] = BTN_5,
++	[0x13] = BTN_6,		[0x14] = BTN_7, /* Shifter 7 */
 +	[0x15] = BTN_8, /* unknown */
 +	[0x16] = BTN_MODE, /* PS, XBOX, R toggle-up */
 +	[0x17] = BTN_C, /* Funky stick twist left */
@@ -12674,9 +12675,11 @@ index 0000000..4ca907c
 +	{ HID_USB_DEVICE(FANATEC_VENDOR_ID, CLUBSPORT_PEDALS_V3_DEVICE_ID),
 +	  .driver_data = FTEC_PEDALS },
 +	{ HID_USB_DEVICE(FANATEC_VENDOR_ID, CSL_ELITE_WHEELBASE_DEVICE_ID),
-+	  .driver_data = FTEC_FF | FTEC_TUNING_MENU | FTEC_WHEELBASE_LEDS | FTEC_HIGHRES },
++	  .driver_data = FTEC_FF | FTEC_TUNING_MENU | FTEC_WHEELBASE_LEDS |
++			 FTEC_HIGHRES },
 +	{ HID_USB_DEVICE(FANATEC_VENDOR_ID, CSL_ELITE_PS4_WHEELBASE_DEVICE_ID),
-+	  .driver_data = FTEC_FF | FTEC_TUNING_MENU | FTEC_WHEELBASE_LEDS | FTEC_HIGHRES },
++	  .driver_data = FTEC_FF | FTEC_TUNING_MENU | FTEC_WHEELBASE_LEDS |
++			 FTEC_HIGHRES },
 +	{ HID_USB_DEVICE(FANATEC_VENDOR_ID, CSL_ELITE_PEDALS_DEVICE_ID),
 +	  .driver_data = FTEC_PEDALS },
 +	{ HID_USB_DEVICE(FANATEC_VENDOR_ID, CSL_LC_PEDALS_DEVICE_ID),
@@ -12706,22 +12709,78 @@ index 0000000..4ca907c
 +	.remove = ftec_remove,
 +	.raw_event = ftec_raw_event,
 +};
-+module_hid_driver(fanatec_driver)
++
++static struct class * _class_create(const char * name)
++{
++	struct class* _class;
++
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
++	_class = class_create(name);
++#else
++	ftec_wheel_class = class_create(THIS_MODULE, name);
++#endif
++	return _class;
++
++}
++
++static int __init fanatec_module_init(void)
++{
++	int ret;
++
++	if (IS_ERR(ftec_tuning_class = _class_create("ftec_tuning"))) {
++		ret = PTR_ERR(ftec_tuning_class);
++		ftec_tuning_class = NULL;
++		return ret;
++	}
++
++	if (IS_ERR(ftec_wheel_class = _class_create("ftec_wheel"))) {
++		ret = PTR_ERR(ftec_wheel_class);
++		class_destroy(ftec_tuning_class);
++		ftec_tuning_class = NULL;
++		ftec_wheel_class = NULL;
++		return ret;
++	}
++
++	if ((ret = hid_register_driver(&fanatec_driver))) {
++		class_destroy(ftec_tuning_class);
++		class_destroy(ftec_wheel_class);
++		ftec_tuning_class = NULL;
++		ftec_wheel_class = NULL;
++	}
++	return ret;
++}
++
++static void __exit fanatec_module_exit(void)
++{
++	hid_unregister_driver(&fanatec_driver);
++	if (ftec_tuning_class)
++		class_destroy(ftec_tuning_class);
++	if (ftec_wheel_class)
++		class_destroy(ftec_wheel_class);
++	ftec_wheel_class = NULL;
++	ftec_tuning_class = NULL;
++}
++
++module_init(fanatec_module_init);
++module_exit(fanatec_module_exit);
 +
 +MODULE_LICENSE("GPL");
 +MODULE_AUTHOR("gotzl");
 +MODULE_DESCRIPTION("A driver for the Fanatec CSL Elite");
 diff --git a/drivers/custom/fanatecff/hid-ftec.h b/drivers/custom/fanatecff/hid-ftec.h
 new file mode 100644
-index 0000000..455e485
+index 0000000..d07334e
 --- /dev/null
 +++ b/drivers/custom/fanatecff/hid-ftec.h
-@@ -0,0 +1,180 @@
+@@ -0,0 +1,217 @@
 +#ifndef __HID_FTEC_H
 +#define __HID_FTEC_H
 +
 +#include <linux/module.h>
 +#include <linux/input.h>
++#if IS_REACHABLE(CONFIG_LEDS_CLASS)
++#include <linux/leds.h>
++#endif
 +
 +#define FANATEC_VENDOR_ID 0x0eb7
 +
@@ -12741,13 +12800,13 @@ index 0000000..455e485
 +#define PORSCHE_911_WHEELBASE_DEVICE_ID 0x0197
 +
 +// wheels
-+#define CSL_STEERING_WHEEL_P1_V2 0x08
-+#define CSL_ELITE_STEERING_WHEEL_WRC_ID 0x04
-+#define CSL_ELITE_STEERING_WHEEL_MCLAREN_GT3_V2_ID 0x0b
-+#define CLUBSPORT_STEERING_WHEEL_F1_IS_ID 0x21
-+#define CLUBSPORT_STEERING_WHEEL_FORMULA_V2_ID 0x0a
-+#define PODIUM_STEERING_WHEEL_PORSCHE_911_GT3_R_ID 0x0c
-+#define PODIUM_BUTTON_MODULE_ENDURANCE_ID 0x06
++#define CSL_STEERING_WHEEL_P1_V2_ID 0x0008
++#define CSL_ELITE_STEERING_WHEEL_WRC_ID 0x0412
++#define CSL_ELITE_STEERING_WHEEL_MCLAREN_GT3_V2_ID 0x310b
++#define CLUBSPORT_STEERING_WHEEL_F1_IS_ID 0x2102
++#define CLUBSPORT_STEERING_WHEEL_FORMULA_V2_ID 0x000a
++// #define PODIUM_STEERING_WHEEL_PORSCHE_911_GT3_R_ID 0x0c12
++#define PODIUM_BUTTON_MODULE_ENDURANCE_ID 0x060c
 +
 +// quirks
 +#define FTEC_FF 0x001
@@ -12761,7 +12820,8 @@ index 0000000..455e485
 +#define FTEC_WHEEL_REPORT_SIZE 34
 +
 +// misc
-+#define LEDS 9
++#define LEDS_WHEELBASE 9
++#define MAX_LEDS 15 // 9 LEDS + 6 FLAGS
 +#define FTECFF_MAX_EFFECTS 16
 +
 +struct ftecff_effect_state {
@@ -12801,6 +12861,26 @@ index 0000000..455e485
 +	u8 cmd;
 +};
 +
++struct ftec_wheel {
++	u16 id;
++	char *name;
++	u8 flags;
++	u8 n_leds;
++};
++
++struct ftec_wheel_classdev {
++	struct device *dev;
++	const struct ftec_wheel *wheel;
++#if IS_REACHABLE(CONFIG_LEDS_CLASS)
++	u16 led_state;
++	struct led_classdev *led[MAX_LEDS];
++#endif
++#if IS_REACHABLE(CONFIG_LEDS_CLASS_MULTICOLOR)
++	u16 led_state_mc[MAX_LEDS];
++	struct led_classdev_mc *led_mc[MAX_LEDS];
++#endif
++};
++
 +struct ftec_tuning_classdev {
 +	struct device *dev;
 +	// the data from the last update we got from the device, shifted by 1
@@ -12832,11 +12912,13 @@ index 0000000..455e485
 +	u16 min_range;
 +#if IS_REACHABLE(CONFIG_LEDS_CLASS)
 +	u16 led_state;
-+	struct led_classdev *led[LEDS];
++	struct led_classdev *led[LEDS_WHEELBASE];
 +#endif
-+	u8 wheel_id;
++	u16 wheel_id;
 +	u16 fw_version;
++	struct work_struct wheel_work;
 +	struct ftec_tuning_classdev tuning;
++	struct ftec_wheel_classdev wheel;
 +	u8 last_tuning_event[FTEC_TUNING_REPORT_SIZE];
 +	u8 last_wheel_event[FTEC_WHEEL_REPORT_SIZE];
 +};
@@ -12888,6 +12970,10 @@ index 0000000..455e485
 +int ftecff_init(struct hid_device *);
 +void ftecff_remove(struct hid_device *);
 +int ftecff_raw_event(struct hid_device *, struct hid_report *, u8 *, int);
++void send_report_request_to_device(struct ftec_drv_data *);
++
++extern struct class *ftec_tuning_class;
++extern struct class *ftec_wheel_class;
 +
 +int ftec_tuning_classdev_register(struct device *,
 +				  struct ftec_tuning_classdev *);
@@ -12895,14 +12981,21 @@ index 0000000..455e485
 +ssize_t _ftec_tuning_show(struct device *, enum ftec_tuning_attrs_enum, char *);
 +ssize_t _ftec_tuning_store(struct device *, enum ftec_tuning_attrs_enum,
 +			   const char *, size_t);
++int ftec_wheel_classdev_register(struct device *, struct ftec_wheel_classdev *,
++				 u16);
++void ftec_wheel_classdev_unregister(struct ftec_wheel_classdev *);
++#if IS_REACHABLE(CONFIG_LEDS_CLASS)
++int _ftec_led_update_state(struct led_classdev *, enum led_brightness,
++			   struct led_classdev *[], int, u16);
++#endif
 +
 +#endif
 diff --git a/drivers/custom/fanatecff/hid-ftecff-tuning.c b/drivers/custom/fanatecff/hid-ftecff-tuning.c
 new file mode 100644
-index 0000000..525d535
+index 0000000..33563d0
 --- /dev/null
 +++ b/drivers/custom/fanatecff/hid-ftecff-tuning.c
-@@ -0,0 +1,395 @@
+@@ -0,0 +1,393 @@
 +#include <linux/module.h>
 +#include <linux/hid.h>
 +
@@ -13178,9 +13271,7 @@ index 0000000..525d535
 +		   ftec_tuning_advanced_mode_show,
 +		   ftec_tuning_advanced_mode_store);
 +
-+static struct class ftec_tuning_class = {
-+	.name = "ftec_tuning",
-+};
++struct class *ftec_tuning_class;
 +
 +int ftec_tuning_classdev_register(struct device *parent,
 +				  struct ftec_tuning_classdev *ftec_tuning_cdev)
@@ -13188,12 +13279,13 @@ index 0000000..525d535
 +	struct hid_device *hdev = to_hid_device(parent);
 +	int ret;
 +
-+	ret = class_register(&ftec_tuning_class);
-+	if (ret)
-+		return 0;
-+
-+	ftec_tuning_cdev->dev = device_create(&ftec_tuning_class, parent, 0,
++	ftec_tuning_cdev->dev = device_create(ftec_tuning_class, parent, 0,
 +					      NULL, "%s", dev_name(&hdev->dev));
++	if (IS_ERR(ftec_tuning_cdev->dev)) {
++		hid_err(hdev, "error creating ftec_tuning device\n");
++		ftec_tuning_cdev->dev = NULL;
++		return -1;
++	}
 +
 +#define CREATE_SYSFS_FILE(name)                                                  \
 +	ret = device_create_file(ftec_tuning_cdev->dev, &dev_attr_##name);       \
@@ -13296,14 +13388,427 @@ index 0000000..525d535
 +	}
 +
 +	device_unregister(ftec_tuning_cdev->dev);
-+	class_unregister(&ftec_tuning_class);
++}
+diff --git a/drivers/custom/fanatecff/hid-ftecff-wheel.c b/drivers/custom/fanatecff/hid-ftecff-wheel.c
+new file mode 100644
+index 0000000..c92ecd2
+--- /dev/null
++++ b/drivers/custom/fanatecff/hid-ftecff-wheel.c
+@@ -0,0 +1,408 @@
++#include <linux/module.h>
++#include <linux/hid.h>
++#include <linux/leds.h>
++#include <linux/led-class-multicolor.h>
++
++#include "hid-ftec.h"
++
++#define FTEC_WHEEL_SINGLE_MC 0x1
++#define FTEC_WHEEL_FLAG_MC 0x2
++
++#if IS_REACHABLE(CONFIG_LEDS_CLASS)
++static void ftec_set_leds(struct hid_device *hid, u16 leds);
++#endif
++
++#if IS_REACHABLE(CONFIG_LEDS_CLASS_MULTICOLOR)
++static void ftec_wheel_set_led_mc(struct hid_device *hid, u16 led_state_mc[],
++				  u8 n_leds, bool rpm_leds)
++{
++	u8 *buf = kmalloc_array(FTEC_TUNING_REPORT_SIZE, sizeof(u8),
++				GFP_KERNEL | __GFP_ZERO);
++	if (!buf) {
++		hid_err(hid, "ftec_wheel_set_led_mc: Unable to malloc array.");
++		return;
++	}
++
++	/* FIXME: switch between LED and FLAG leds */
++	int j, ret, offset = rpm_leds ? 0 : 9;
++
++	buf[0] = 0xff;
++	buf[1] = 0x01;
++
++	buf[2] = rpm_leds ? 0x00 : 0x01;
++
++	for (j = 0; j < n_leds; j++) {
++		buf[3 + (2 * j)] = led_state_mc[offset + j] >> 8;
++		buf[3 + (2 * j) + 1] = led_state_mc[offset + j] & 0xff;
++	}
++	ret = hid_hw_output_report(hid, &buf[0], FTEC_TUNING_REPORT_SIZE);
++	kfree(buf);
++}
++
++static int ftec_wheel_led_mc_set_brightness(struct led_classdev *cdev,
++					    enum led_brightness brightness)
++{
++	struct device *dev = cdev->dev->parent->parent;
++	struct hid_device *hid = to_hid_device(dev);
++	struct ftec_drv_data *drv_data = hid_get_drvdata(hid);
++	struct led_classdev_mc *mc_cdev = lcdev_to_mccdev(cdev);
++	uint8_t red, green, blue;
++	int j, n;
++	u16 led_state_mc[MAX_LEDS];
++
++	if (!drv_data) {
++		hid_err(hid, "Device data not found.");
++		return -1;
++	}
++
++	for (j = 0; j < MAX_LEDS && j < drv_data->wheel.wheel->n_leds; j++) {
++		if (mc_cdev == drv_data->wheel.led_mc[j]) {
++			led_mc_calc_color_components(mc_cdev, brightness);
++			red = mc_cdev->subled_info[0].brightness;
++			green = mc_cdev->subled_info[1].brightness;
++			blue = mc_cdev->subled_info[2].brightness;
++
++			if (drv_data->wheel.wheel->flags &
++			    FTEC_WHEEL_SINGLE_MC) {
++#if IS_REACHABLE(CONFIG_LEDS_CLASS)
++				u16 leds = ((green & 0x1) << 8) |
++					   ((red & 0x1) << 4) | (blue & 0x1);
++				ftec_set_leds(hid, leds);
++#endif
++			} else {
++				/* BGR565 encoding */
++				drv_data->wheel.led_state_mc[j] =
++					((u16)(blue >> (8 - 5)) << (6 + 5)) |
++					((u16)(green >> (8 - 6)) << 5) |
++					(u16)(red >> (8 - 5));
++				memcpy(led_state_mc,
++				       drv_data->wheel.led_state_mc,
++				       sizeof(led_state_mc));
++
++				/* FIXME: switch between RPM and FLAG leds */
++				n = j < 9 ? 9 : 6;
++				ftec_wheel_set_led_mc(hid, led_state_mc, n,
++						      j < 9);
++			}
++			return 0;
++		}
++	}
++	return -1;
++}
++
++static int
++ftec_wheel_init_multicolor(struct hid_device *hid,
++			   struct ftec_wheel_classdev *ftec_wheel_cdev, int i)
++{
++	struct mc_subled *mc_led_info;
++	struct led_classdev_mc *led;
++	struct led_classdev *led_cdev;
++	int ret;
++
++	mc_led_info = devm_kmalloc_array(ftec_wheel_cdev->dev, 3,
++					 sizeof(*mc_led_info),
++					 GFP_KERNEL | __GFP_ZERO);
++	if (!mc_led_info)
++		return -ENOMEM;
++
++	mc_led_info[0].color_index = LED_COLOR_ID_RED;
++	mc_led_info[1].color_index = LED_COLOR_ID_GREEN;
++	mc_led_info[2].color_index = LED_COLOR_ID_BLUE;
++
++	led = devm_kzalloc(ftec_wheel_cdev->dev, sizeof(struct led_classdev_mc),
++			   GFP_KERNEL);
++	if (!led)
++		return -ENOMEM;
++
++	led->subled_info = mc_led_info;
++	led->num_colors = 3;
++
++	led_cdev = &led->led_cdev;
++	/* FIXME: hardcoded switch bitween RPM LEDs strip above the display,
++	 * and FLAG LEDs left/right of the display, found eg on F1 steering wheels */
++	led_cdev->name = devm_kasprintf(
++		ftec_wheel_cdev->dev, GFP_KERNEL, "%s:%04x:RGB:%s%i",
++		dev_name(&hid->dev), ftec_wheel_cdev->wheel->id,
++		i < 9 ? "RPM" : (i < 12 ? "RFLAG" : "LFLAG"),
++		i < 9 ? i + 1 : (i % 3) + 1);
++	if (!led_cdev->name)
++		return -ENOMEM;
++
++	led_cdev->brightness = 255;
++	led_cdev->max_brightness = 255;
++	if (ftec_wheel_cdev->wheel->flags & FTEC_WHEEL_SINGLE_MC) {
++		led_cdev->brightness = 1;
++		led_cdev->max_brightness = 1;
++	}
++	led_cdev->brightness_set_blocking = ftec_wheel_led_mc_set_brightness;
++
++	ret = led_classdev_multicolor_register(ftec_wheel_cdev->dev, led);
++	if (ret < 0) {
++		hid_err(hid, "Cannot register multicolor LED device\n");
++		return ret;
++	}
++
++	ftec_wheel_cdev->led_mc[i] = led;
++	return 0;
++}
++#endif
++
++#if IS_REACHABLE(CONFIG_LEDS_CLASS)
++static void ftec_set_leds(struct hid_device *hid, u16 leds)
++{
++	struct ftec_drv_data *drv_data;
++	unsigned long flags;
++	s32 *value;
++
++	drv_data = hid_get_drvdata(hid);
++	if (!drv_data) {
++		hid_err(hid, "Private driver data not found!\n");
++		return;
++	}
++
++	spin_lock_irqsave(&drv_data->report_lock, flags);
++
++	value = drv_data->report->field[0]->value;
++
++	value[0] = 0xf8;
++	value[1] = 0x09;
++	value[2] = 0x08;
++	value[3] = (leds >> 8) & 0xff;
++	value[4] = leds & 0xff;
++	value[5] = 0x00;
++	value[6] = 0x00;
++
++	send_report_request_to_device(drv_data);
++	spin_unlock_irqrestore(&drv_data->report_lock, flags);
++}
++
++int _ftec_led_update_state(struct led_classdev *led_cdev,
++			   enum led_brightness value,
++			   struct led_classdev *leds[], int n, u16 led_state)
++{
++	int i, state = 0;
++	for (i = 0; i < MAX_LEDS && i < n; i++) {
++		if (led_cdev != leds[i])
++			continue;
++		state = (led_state >> i) & 1;
++		if (value == LED_OFF && state) {
++			led_state &= ~(1 << i);
++		} else if (value != LED_OFF && !state) {
++			led_state |= 1 << i;
++		}
++		break;
++	}
++	return led_state;
++}
++
++static void ftec_wheel_led_set_brightness(struct led_classdev *led_cdev,
++					  enum led_brightness value)
++{
++	struct device *dev = led_cdev->dev->parent->parent;
++	struct hid_device *hid = to_hid_device(dev);
++	struct ftec_drv_data *drv_data = hid_get_drvdata(hid);
++
++	if (!drv_data) {
++		hid_err(hid, "Device data not found.");
++		return;
++	}
++
++	drv_data->wheel.led_state = _ftec_led_update_state(
++		led_cdev, value, drv_data->wheel.led,
++		drv_data->wheel.wheel->n_leds, drv_data->wheel.led_state);
++	ftec_set_leds(hid, drv_data->wheel.led_state);
++}
++
++static enum led_brightness
++ftec_wheel_led_get_brightness(struct led_classdev *led_cdev)
++{
++	struct device *dev = led_cdev->dev->parent->parent;
++	struct hid_device *hid = to_hid_device(dev);
++	struct ftec_drv_data *drv_data = hid_get_drvdata(hid);
++	int i, value = 0;
++
++	if (!drv_data) {
++		hid_err(hid, "Device data not found.");
++		return LED_OFF;
++	}
++
++	for (i = 0; i < MAX_LEDS && i < drv_data->wheel.wheel->n_leds; i++) {
++		if (led_cdev == drv_data->wheel.led[i]) {
++			value = (drv_data->wheel.led_state >> i) & 1;
++			break;
++		}
++	}
++
++	return value ? LED_ON : LED_OFF;
++}
++
++static int ftec_wheel_init_led(struct hid_device *hid,
++			       struct ftec_wheel_classdev *ftec_wheel_cdev,
++			       int i, int j)
++{
++	struct led_classdev *led;
++	int ret;
++
++	led = devm_kzalloc(ftec_wheel_cdev->dev, sizeof(struct led_classdev),
++			   GFP_KERNEL);
++	if (!led)
++		return -ENOMEM;
++
++	led->name = devm_kasprintf(ftec_wheel_cdev->dev, GFP_KERNEL,
++				   "%s:%04x:RPM%d", dev_name(&hid->dev),
++				   ftec_wheel_cdev->wheel->id, i + 1);
++	if (!led->name)
++		return -ENOMEM;
++
++	led->brightness = LED_OFF;
++	led->max_brightness = LED_ON;
++	led->brightness_get = ftec_wheel_led_get_brightness;
++	led->brightness_set = ftec_wheel_led_set_brightness;
++
++	ret = led_classdev_register(ftec_wheel_cdev->dev, led);
++	if (ret < 0) {
++		hid_err(hid, "Cannot register LED device.");
++		return ret;
++	}
++
++	ftec_wheel_cdev->led[j] = led;
++	return 0;
++}
++#endif
++
++static void ftec_wheel_deinit_leds(struct ftec_wheel_classdev *ftec_wheel_cdev)
++{
++#if IS_REACHABLE(CONFIG_LEDS_CLASS)
++	int i;
++
++	for (i = 0; i < MAX_LEDS; i++) {
++#if IS_REACHABLE(CONFIG_LEDS_CLASS_MULTICOLOR)
++		if (ftec_wheel_cdev->led_mc[i])
++			led_classdev_multicolor_unregister(
++				ftec_wheel_cdev->led_mc[i]);
++		ftec_wheel_cdev->led_mc[i] = NULL;
++#endif
++		if (ftec_wheel_cdev->led[i])
++			led_classdev_unregister(ftec_wheel_cdev->led[i]);
++		ftec_wheel_cdev->led[i] = NULL;
++	}
++#endif
++}
++
++static int ftec_wheel_init_leds(struct hid_device *hid,
++				struct ftec_wheel_classdev *ftec_wheel_cdev)
++{
++#if IS_REACHABLE(CONFIG_LEDS_CLASS)
++	int i;
++
++	for (i = 0; i < MAX_LEDS && i < ftec_wheel_cdev->wheel->n_leds; i++) {
++		if (ftec_wheel_cdev->wheel->flags &
++		    (FTEC_WHEEL_SINGLE_MC | FTEC_WHEEL_FLAG_MC)) {
++#if IS_REACHABLE(CONFIG_LEDS_CLASS_MULTICOLOR)
++			if (ftec_wheel_init_multicolor(hid, ftec_wheel_cdev, i))
++				goto err;
++#endif
++		} else {
++			// Note: order of LEDs seems reversed on F1 IS rim
++			if (ftec_wheel_init_led(hid, ftec_wheel_cdev, i,
++						ftec_wheel_cdev->wheel->n_leds -
++							i - 1))
++				goto err;
++		}
++	}
++	return 0;
++err:
++	ftec_wheel_deinit_leds(ftec_wheel_cdev);
++	return -1;
++#else
++	return 0;
++#endif
++}
++
++static ssize_t ftec_wheel_name_show(struct device *dev,
++				    struct device_attribute *attr, char *buf)
++{
++	struct ftec_drv_data *drv_data =
++		hid_get_drvdata(to_hid_device(dev->parent));
++	return scnprintf(buf, PAGE_SIZE, "%s\n", drv_data->wheel.wheel->name);
++}
++static DEVICE_ATTR(name, S_IRUSR | S_IRGRP | S_IROTH, ftec_wheel_name_show,
++		   NULL);
++
++struct class *ftec_wheel_class;
++
++static const struct ftec_wheel wheels[] = {
++	{ CSL_STEERING_WHEEL_P1_V2_ID, "CSL Steering Wheel P1 V2 / BMW",
++	  FTEC_WHEEL_SINGLE_MC, 1 },
++	{ CSL_ELITE_STEERING_WHEEL_WRC_ID, "CSL Elite Steering Wheel WRC",
++	  FTEC_WHEEL_SINGLE_MC, 1 },
++	{ CSL_ELITE_STEERING_WHEEL_MCLAREN_GT3_V2_ID,
++		  "CSL Elite Steering Wheel McLaren GT3", 0, 0 },
++	{ CLUBSPORT_STEERING_WHEEL_F1_IS_ID, "ClubSport Steering Wheel F1 IS",
++	  0, 9 },
++	{ CLUBSPORT_STEERING_WHEEL_FORMULA_V2_ID,
++	  "ClubSport Steering Wheel Formula V2", FTEC_WHEEL_FLAG_MC, 15 },
++	//	{ PODIUM_STEERING_WHEEL_PORSCHE_911_GT3_R_ID,
++	//	  "Podium Steering Wheel Porsche 911 GT3 R", 0, 9 },
++	{ PODIUM_BUTTON_MODULE_ENDURANCE_ID, "Podium Button Module Endurance",
++	  FTEC_WHEEL_FLAG_MC, 15 },
++	{}
++};
++
++int ftec_wheel_classdev_register(struct device *parent,
++				 struct ftec_wheel_classdev *ftec_wheel_cdev,
++				 u16 wheel_id)
++{
++	struct hid_device *hdev = to_hid_device(parent);
++	int j;
++
++	ftec_wheel_cdev->dev = device_create(ftec_wheel_class, parent, 0, NULL,
++					     "%s", dev_name(&hdev->dev));
++	if (IS_ERR(ftec_wheel_cdev->dev)) {
++		hid_err(hdev, "error creating ftec_wheel device\n");
++		ftec_wheel_cdev->dev = NULL;
++		return -1;
++	}
++
++	ftec_wheel_cdev->wheel = NULL;
++	for (j = 0; wheels[j].id != 0; j++) {
++		if (wheels[j].id == wheel_id) {
++			ftec_wheel_cdev->wheel = &wheels[j];
++			break;
++		}
++	}
++
++	if (!ftec_wheel_cdev->wheel) {
++		hid_err(hdev, "unknown wheel_id 0x%04x\n", wheel_id);
++		goto err_unregister;
++	}
++
++	if (ftec_wheel_init_leds(hdev, ftec_wheel_cdev)) {
++		hid_err(hdev, "error init leds\n");
++		goto err_unregister;
++	}
++
++	if (device_create_file(ftec_wheel_cdev->dev, &dev_attr_name)) {
++		hid_err(hdev, "error creating sysfs interface for 'name'\n");
++		goto err_deinit_leds;
++	}
++
++	return 0;
++
++err_deinit_leds:
++	ftec_wheel_deinit_leds(ftec_wheel_cdev);
++err_unregister:
++	device_unregister(ftec_wheel_cdev->dev);
++	ftec_wheel_cdev->dev = NULL;
++	ftec_wheel_cdev->wheel = NULL;
++	return -1;
++}
++
++void ftec_wheel_classdev_unregister(struct ftec_wheel_classdev *ftec_wheel_cdev)
++{
++	device_remove_file(ftec_wheel_cdev->dev, &dev_attr_name);
++	ftec_wheel_deinit_leds(ftec_wheel_cdev);
++	device_unregister(ftec_wheel_cdev->dev);
++	ftec_wheel_cdev->dev = NULL;
++	ftec_wheel_cdev->wheel = NULL;
 +}
 diff --git a/drivers/custom/fanatecff/hid-ftecff.c b/drivers/custom/fanatecff/hid-ftecff.c
 new file mode 100644
-index 0000000..0d778c6
+index 0000000..f4fb6cc
 --- /dev/null
 +++ b/drivers/custom/fanatecff/hid-ftecff.c
-@@ -0,0 +1,1398 @@
+@@ -0,0 +1,1385 @@
 +#include <linux/module.h>
 +#include <linux/device.h>
 +#include <linux/hid.h>
@@ -13327,16 +13832,15 @@ index 0000000..0d778c6
 +int init_range = 0;
 +module_param(init_range, int, 0);
 +
-+// parameter to enable an LED indicating that the module is loaded
-+int enable_module_init_led = 0;
-+module_param(enable_module_init_led, int, 0);
-+
 +// parameter to enable detailed raw-event logging
 +unsigned long debug_raw_event = 0;
 +module_param(debug_raw_event, ulong, 0);
-+#define DEBUG_RAW_EVENT_WHEEL_REPORT  0
++#define DEBUG_RAW_EVENT_WHEEL_REPORT 0
 +#define DEBUG_RAW_EVENT_TUNING_REPORT 1
 +
++// parameter to enable 8bit damper/inertia/friction coefficients
++int enable_highres_dynamic_effects = 0;
++module_param(enable_highres_dynamic_effects, int, 0);
 +
 +#define DEFAULT_TIMER_PERIOD 2
 +
@@ -13483,7 +13987,7 @@ index 0000000..0d778c6
 +	return point ? segbits[num_index] + segbits[10] : segbits[num_index];
 +}
 +
-+static void send_report_request_to_device(struct ftec_drv_data *drv_data)
++void send_report_request_to_device(struct ftec_drv_data *drv_data)
 +{
 +	struct hid_device *hdev = drv_data->hid;
 +	struct hid_report *report = drv_data->report;
@@ -13613,7 +14117,7 @@ index 0000000..0d778c6
 +			       struct device_attribute *attr, char *buf)
 +{
 +	struct ftec_drv_data *drv_data = hid_get_drvdata(to_hid_device(dev));
-+	return scnprintf(buf, PAGE_SIZE, "0x%02x\n", drv_data->wheel_id);
++	return scnprintf(buf, PAGE_SIZE, "0x%04x\n", drv_data->wheel_id);
 +}
 +static DEVICE_ATTR(wheel_id, S_IRUSR | S_IRGRP | S_IROTH, ftec_wheel_show,
 +		   NULL);
@@ -13696,14 +14200,11 @@ index 0000000..0d778c6
 +static DEVICE_ATTR(display, S_IWUSR | S_IWGRP, NULL, ftec_set_display);
 +
 +#if IS_REACHABLE(CONFIG_LEDS_CLASS)
-+static void ftec_set_leds(struct hid_device *hid, u16 leds)
++static void ftec_set_leds_wheelbase(struct hid_device *hid, u16 leds)
 +{
 +	struct ftec_drv_data *drv_data;
 +	unsigned long flags;
 +	s32 *value;
-+	u16 _leds = 0;
-+	int i;
-+
 +	drv_data = hid_get_drvdata(hid);
 +	if (!drv_data) {
 +		hid_err(hid, "Private driver data not found!\n");
@@ -13712,37 +14213,13 @@ index 0000000..0d778c6
 +
 +	spin_lock_irqsave(&drv_data->report_lock, flags);
 +
-+	if (drv_data->quirks & FTEC_WHEELBASE_LEDS) {
-+		// dbg_hid(" ... set_leds base %04X\n", leds);
-+
-+		value = drv_data->report->field[0]->value;
-+
-+		value[0] = 0xf8;
-+		value[1] = 0x13;
-+		value[2] = leds & 0xff;
-+		value[3] = 0x00;
-+		value[4] = 0x00;
-+		value[5] = 0x00;
-+		value[6] = 0x00;
-+
-+		send_report_request_to_device(drv_data);
-+	}
-+
-+	// reshuffle, since first led is highest bit
-+	for (i = 0; i < LEDS; i++) {
-+		if (leds >> i & 1)
-+			_leds |= 1 << (LEDS - i - 1);
-+	}
-+
-+	// dbg_hid(" ... set_leds wheel %04X\n", _leds);
-+
 +	value = drv_data->report->field[0]->value;
 +
 +	value[0] = 0xf8;
-+	value[1] = 0x09;
-+	value[2] = 0x08;
-+	value[3] = (_leds >> 8) & 0xff;
-+	value[4] = _leds & 0xff;
++	value[1] = 0x13;
++	value[2] = leds & 0xff;
++	value[3] = 0x00;
++	value[4] = 0x00;
 +	value[5] = 0x00;
 +	value[6] = 0x00;
 +
@@ -13756,26 +14233,16 @@ index 0000000..0d778c6
 +	struct device *dev = led_cdev->dev->parent;
 +	struct hid_device *hid = to_hid_device(dev);
 +	struct ftec_drv_data *drv_data = hid_get_drvdata(hid);
-+	int i, state = 0;
 +
 +	if (!drv_data) {
 +		hid_err(hid, "Device data not found.");
 +		return;
 +	}
 +
-+	for (i = 0; i < LEDS; i++) {
-+		if (led_cdev != drv_data->led[i])
-+			continue;
-+		state = (drv_data->led_state >> i) & 1;
-+		if (value == LED_OFF && state) {
-+			drv_data->led_state &= ~(1 << i);
-+			ftec_set_leds(hid, drv_data->led_state);
-+		} else if (value != LED_OFF && !state) {
-+			drv_data->led_state |= 1 << i;
-+			ftec_set_leds(hid, drv_data->led_state);
-+		}
-+		break;
-+	}
++	drv_data->led_state =
++		_ftec_led_update_state(led_cdev, value, drv_data->led,
++				       LEDS_WHEELBASE, drv_data->led_state);
++	ftec_set_leds_wheelbase(hid, drv_data->led_state);
 +}
 +
 +static enum led_brightness
@@ -13791,7 +14258,7 @@ index 0000000..0d778c6
 +		return LED_OFF;
 +	}
 +
-+	for (i = 0; i < LEDS; i++)
++	for (i = 0; i < LEDS_WHEELBASE; i++)
 +		if (led_cdev == drv_data->led[i]) {
 +			value = (drv_data->led_state >> i) & 1;
 +			break;
@@ -13817,30 +14284,13 @@ index 0000000..0d778c6
 +		return -1;
 +	}
 +
-+	if (enable_module_init_led) {
-+		// wheel LED initialization sequence
-+		// not sure what's needed
-+		s32 *value;
-+		value = drv_data->report->field[0]->value;
-+
-+		value[0] = 0xf8;
-+		value[1] = 0x09;
-+		value[2] = 0x08;
-+		value[3] = 0x01; // set green led to indicate driver is loaded
-+		value[4] = 0x00;
-+		value[5] = 0x00;
-+		value[6] = 0x00;
-+
-+		send_report_request_to_device(drv_data);
-+	}
-+
 +	drv_data->led_state = 0;
-+	for (j = 0; j < LEDS; j++)
++	for (j = 0; j < LEDS_WHEELBASE; j++)
 +		drv_data->led[j] = NULL;
 +
 +	name_sz = strlen(dev_name(&hid->dev)) + 8;
 +
-+	for (j = 0; j < LEDS; j++) {
++	for (j = 0; j < LEDS_WHEELBASE; j++) {
 +		led = kzalloc(sizeof(struct led_classdev) + name_sz,
 +			      GFP_KERNEL);
 +		if (!led) {
@@ -13865,7 +14315,7 @@ index 0000000..0d778c6
 +				j);
 +err_leds:
 +			/* Deregister LEDs (if any) */
-+			for (j = 0; j < LEDS; j++) {
++			for (j = 0; j < LEDS_WHEELBASE; j++) {
 +				led = drv_data->led[j];
 +				drv_data->led[j] = NULL;
 +				if (!led)
@@ -14050,9 +14500,19 @@ index 0000000..0d778c6
 +	case FF_DAMPER:
 +	case FF_INERTIA:
 +	case FF_FRICTION:
-+		slot->current_cmd[2] = SCALE_COEFF(parameters->k1, 4);
-+		slot->current_cmd[4] = SCALE_COEFF(parameters->k2, 4);
-+		slot->current_cmd[6] = SCALE_VALUE_U16(parameters->clip, 8);
++		// On DD1, the legacy 4-bit coeff (max 0x0f) was too weak to feel; an
++		// 8-bit coeff in byte 2/4 produces clear resistance. Non-zero byte 3/5
++		// caused oscillation instead of damping, so keep them zero. Applied to
++		// highres bases; other models untested.
++		if (enable_highres_dynamic_effects) {
++			slot->current_cmd[2] = SCALE_COEFF(parameters->k1, 8);
++			slot->current_cmd[4] = SCALE_COEFF(parameters->k2, 8);
++			slot->current_cmd[6] = SCALE_VALUE_U16(parameters->clip, 8);
++		} else {
++			slot->current_cmd[2] = SCALE_COEFF(parameters->k1, 4);
++			slot->current_cmd[4] = SCALE_COEFF(parameters->k2, 4);
++			slot->current_cmd[6] = SCALE_VALUE_U16(parameters->clip, 8);
++		}
 +		break;
 +	}
 +
@@ -14458,6 +14918,24 @@ index 0000000..0d778c6
 +{
 +}
 +
++static void ftec_register_wheel_handler(struct work_struct *work)
++{
++	struct ftec_drv_data *drv_data =
++		container_of(work, struct ftec_drv_data, wheel_work);
++	struct hid_device *hdev = drv_data->hid;
++	if (drv_data->wheel.wheel) {
++		if (drv_data->wheel.wheel->id == drv_data->wheel_id)
++			return;
++		ftec_wheel_classdev_unregister(&drv_data->wheel);
++	}
++	if (drv_data->wheel_id)
++		ftec_wheel_classdev_register(&hdev->dev, &drv_data->wheel,
++					     drv_data->wheel_id);
++	// notify userspace about value change
++	if (!(IS_ERR_OR_NULL(drv_data->wheel.dev)))
++		kobject_uevent(&hdev->dev.kobj, KOBJ_CHANGE);
++}
++
 +int ftecff_init(struct hid_device *hdev)
 +{
 +	struct ftec_drv_data *drv_data = hid_get_drvdata(hdev);
@@ -14487,6 +14965,7 @@ index 0000000..0d778c6
 +	/* init sequence */
 +	{
 +		/* tuning menu initialization? */
++		/*
 +		if (drv_data->quirks & FTEC_TUNING_MENU) {
 +			u8 buf[] = {
 +				0xff, 0x08, 0x01, 0xff, 0x0, 0x0, 0x0, 0x0
@@ -14500,6 +14979,7 @@ index 0000000..0d778c6
 +			buf[2] = 0x02;
 +			ret = hid_hw_output_report(hdev, &buf[0], 8);
 +		}
++		*/
 +
 +		/* common initialization? */
 +		spin_lock_irqsave(&drv_data->report_lock, flags);
@@ -14550,12 +15030,14 @@ index 0000000..0d778c6
 +	}
 +
 +#if IS_REACHABLE(CONFIG_LEDS_CLASS)
-+	if (ftec_init_led(hdev))
-+		hid_err(hdev,
-+			"LED init failed\n"); /* Let the driver continue without LEDs */
++	if (drv_data->quirks & FTEC_WHEELBASE_LEDS)
++		if (ftec_init_led(hdev))
++			hid_err(hdev,
++				"LED init failed\n"); /* Let the driver continue without LEDs */
 +#endif
 +
 +	drv_data->effects_used = 0;
++	drv_data->wheel.wheel = NULL;
 +
 +	ftecff_init_slots(drv_data);
 +	spin_lock_init(&drv_data->timer_lock);
@@ -14568,6 +15050,8 @@ index 0000000..0d778c6
 +		      HRTIMER_MODE_REL);
 +#endif
 +	hid_info(hdev, "Hires timer: period = %d ms", timer_msecs);
++
++	INIT_WORK(&drv_data->wheel_work, ftec_register_wheel_handler);
 +
 +	return 0;
 +}
@@ -14591,13 +15075,18 @@ index 0000000..0d778c6
 +		ftec_tuning_classdev_unregister(&drv_data->tuning);
 +	}
 +
++	cancel_work_sync(&drv_data->wheel_work);
++	if (drv_data->wheel.wheel) {
++		ftec_wheel_classdev_unregister(&drv_data->wheel);
++	}
++
 +#if IS_REACHABLE(CONFIG_LEDS_CLASS)
 +	{
 +		int j;
 +		struct led_classdev *led;
 +
 +		/* Deregister LEDs (if any) */
-+		for (j = 0; j < LEDS; j++) {
++		for (j = 0; j < LEDS_WHEELBASE; j++) {
 +			led = drv_data->led[j];
 +			drv_data->led[j] = NULL;
 +			if (!led)
@@ -14681,22 +15170,25 @@ index 0000000..0d778c6
 +					hid_dbg(hdev, "Nothing connected\n");
 +				else {
 +					if ((data[32] & 0xf))
-+						hid_dbg(hdev, "Pedals connected\n");
++						hid_dbg(hdev,
++							"Pedals connected\n");
 +					if ((data[32] >> 4 & 0xf))
-+						hid_dbg(hdev, "Handbrake connected\n");
++						hid_dbg(hdev,
++							"Handbrake connected\n");
 +				}
 +			}
 +		} else {
-+			drv_data->fw_version =
-+				get_unaligned_le16(&data[FTEC_WHEEL_REPORT_SIZE - 2]);
++			drv_data->fw_version = get_unaligned_le16(
++				&data[FTEC_WHEEL_REPORT_SIZE - 2]);
 +			// TODO: detect wheel change and react on it in some way?
-+			u8 wheel_id = data[31];
-+			// notify userspace about value change
++			u16 wheel_id = get_unaligned_le16(
++				&data[FTEC_WHEEL_REPORT_SIZE - 4]);
 +			if (drv_data->wheel_id != wheel_id) {
-+				hid_dbg(hdev, "Wheel changed from 0x%02X to 0x%02X\n",
-+						drv_data->wheel_id, wheel_id);
-+				kobject_uevent(&hdev->dev.kobj, KOBJ_CHANGE);
++				hid_dbg(hdev,
++					"Wheel changed from 0x%04X to 0x%04X\n",
++					drv_data->wheel_id, wheel_id);
 +				drv_data->wheel_id = wheel_id;
++				schedule_work(&drv_data->wheel_work);
 +			}
 +		}
 +	}
@@ -24332,7 +24824,7 @@ index 0000000..8620408
 +
 # ----------------------------------------
 # Module: razer
-# Version: 6820f9da
+# Version: 477f4d6d
 # ----------------------------------------
 diff --git a/drivers/custom/razer/driver/Makefile b/drivers/custom/razer/driver/Makefile
 new file mode 100644
@@ -24469,10 +24961,10 @@ index 00000000..74bd7220
 +#endif
 diff --git a/drivers/custom/razer/driver/razeraccessory_driver.c b/drivers/custom/razer/driver/razeraccessory_driver.c
 new file mode 100644
-index 00000000..f74dff83
+index 00000000..e38d7b92
 --- /dev/null
 +++ b/drivers/custom/razer/driver/razeraccessory_driver.c
-@@ -0,0 +1,3073 @@
+@@ -0,0 +1,3075 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +/*
 + * Copyright (c) 2015 Terri Cain <terri@dolphincorp.co.uk>
@@ -25630,8 +26122,10 @@ index 00000000..f74dff83
 +
 +        case USB_DEVICE_ID_RAZER_CHROMA_ADDRESSABLE_RGB_CONTROLLER:
 +            mutex_lock(&device->lock);
-+            razer_send_argb_msg(device->hdev, row_id, (stop_col - start_col) + 1, (unsigned char*)&buf[offset]);
++            err = razer_send_argb_msg(device->hdev, row_id, (stop_col - start_col) + 1, (unsigned char*)&buf[offset]);
 +            mutex_unlock(&device->lock);
++            if (err)
++                return err;
 +            return count;
 +
 +        default:
@@ -27615,10 +28109,10 @@ index 00000000..20d2a6dd
 +#endif
 diff --git a/drivers/custom/razer/driver/razerchromacommon.c b/drivers/custom/razer/driver/razerchromacommon.c
 new file mode 100644
-index 00000000..b3bf6ec3
+index 00000000..3c2c4c5b
 --- /dev/null
 +++ b/drivers/custom/razer/driver/razerchromacommon.c
-@@ -0,0 +1,1612 @@
+@@ -0,0 +1,1735 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +/*
 + * Copyright (c) 2015 Terri Cain <terri@dolphincorp.co.uk>
@@ -29085,6 +29579,91 @@ index 00000000..b3bf6ec3
 +}
 +
 +/**
++ * Set the Naga Trinity to "Breathing Single" effect
++ */
++struct razer_report razer_naga_trinity_effect_breathing_single(struct razer_rgb *rgb)
++{
++    struct razer_report report = get_razer_report(0x0f, 0x02, 0x09);
++
++    report.arguments[0] = 0x00;
++    report.arguments[1] = 0x00;
++    report.arguments[2] = 0x02;
++    report.arguments[3] = 0x01;
++    report.arguments[4] = 0x00;
++    report.arguments[5] = 0x01;
++    report.arguments[6] = rgb->r;
++    report.arguments[7] = rgb->g;
++    report.arguments[8] = rgb->b;
++
++    return report;
++}
++
++/**
++ * Set the Naga Trinity to "Breathing Dual" effect
++ */
++struct razer_report razer_naga_trinity_effect_breathing_dual(struct razer_rgb *rgb1, struct razer_rgb *rgb2)
++{
++    struct razer_report report = get_razer_report(0x0f, 0x02, 0x0c);
++
++    report.arguments[0] = 0x00;
++    report.arguments[1] = 0x00;
++    report.arguments[2] = 0x02;
++    report.arguments[3] = 0x02;
++    report.arguments[4] = 0x00;
++    report.arguments[5] = 0x02;
++    report.arguments[6] = rgb1->r;
++    report.arguments[7] = rgb1->g;
++    report.arguments[8] = rgb1->b;
++    report.arguments[9] = rgb2->r;
++    report.arguments[10] = rgb2->g;
++    report.arguments[11] = rgb2->b;
++
++    return report;
++}
++
++/**
++ * Set the Naga Trinity to "Breathing Random" effect
++ */
++struct razer_report razer_naga_trinity_effect_breathing_random(void)
++{
++    struct razer_report report = get_razer_report(0x0f, 0x02, 0x06);
++
++    report.arguments[0] = 0x00;
++    report.arguments[1] = 0x00;
++    report.arguments[2] = 0x02;
++
++    return report;
++}
++
++/**
++ * Set the Naga Trinity to "Spectrum Cycle" effect
++ */
++struct razer_report razer_naga_trinity_effect_spectrum(void)
++{
++    struct razer_report report = get_razer_report(0x0f, 0x02, 0x06);
++
++    report.arguments[0] = 0x00;
++    report.arguments[1] = 0x00;
++    report.arguments[2] = 0x03;
++
++    return report;
++}
++
++/**
++ * Set the Naga Trinity to "None" effect
++ */
++struct razer_report razer_naga_trinity_effect_none(void)
++{
++    struct razer_report report = get_razer_report(0x0f, 0x02, 0x06);
++
++    report.arguments[0] = 0x00;
++    report.arguments[1] = 0x00;
++    report.arguments[2] = 0x00;
++
++    return report;
++}
++
++/**
 + * Set scroll wheel mode on the device
 + *
 + * Status Trans Packet Proto DataSize Class CMD Args
@@ -29173,6 +29752,14 @@ index 00000000..b3bf6ec3
 +}
 +
 +/**
++ * Get LED mode for HyperPolling Wireless Dongle
++ */
++struct razer_report razer_chroma_misc_get_hyperpolling_wireless_dongle_indicator_led_mode(void)
++{
++    return get_razer_report(0x07, 0x90, 0x01);
++}
++
++/**
 + * Set LED mode for HyperPolling Wireless Dongle
 + * 1 = Connection Status
 + * 2 = Battery Status
@@ -29231,12 +29818,42 @@ index 00000000..b3bf6ec3
 +
 +    return report;
 +}
++
++/**
++ * Get dongle indicator LED modes
++ * Returns 3 bytes for left, middle, right LEDs
++ */
++struct razer_report razer_chroma_misc_get_hyperpolling_wireless_dongle_multi_indicator_led_modes(void)
++{
++    return get_razer_report(0x07, 0x95, 0x03);
++}
++
++/**
++ * Set dongle indicator LED mode
++ * Off = 0
++ * Battery status = 1
++ * Connection status = 2
++ * Polling rate indicator = 3
++ * DPI indicator = 4
++ *
++ * left, middle, right leds
++ */
++struct razer_report razer_chroma_misc_set_hyperpolling_wireless_dongle_multi_indicator_led_modes(unsigned char mode1, unsigned char mode2, unsigned char mode3)
++{
++    struct razer_report report = get_razer_report(0x07, 0x15, 0x03);
++
++    report.arguments[0] = mode1;
++    report.arguments[1] = mode2;
++    report.arguments[2] = mode3;
++
++    return report;
++}
 diff --git a/drivers/custom/razer/driver/razerchromacommon.h b/drivers/custom/razer/driver/razerchromacommon.h
 new file mode 100644
-index 00000000..cda79dcc
+index 00000000..a593b9bf
 --- /dev/null
 +++ b/drivers/custom/razer/driver/razerchromacommon.h
-@@ -0,0 +1,158 @@
+@@ -0,0 +1,166 @@
 +/* SPDX-License-Identifier: GPL-2.0-or-later */
 +/*
 + * Copyright (c) 2015 Terri Cain <terri@dolphincorp.co.uk>
@@ -29379,6 +29996,11 @@ index 00000000..cda79dcc
 +
 +struct razer_report razer_basilisk_mobile_effect_static(struct razer_rgb* rgb);
 +struct razer_report razer_naga_trinity_effect_static(struct razer_rgb* rgb);
++struct razer_report razer_naga_trinity_effect_breathing_single(struct razer_rgb* rgb);
++struct razer_report razer_naga_trinity_effect_breathing_dual(struct razer_rgb* rgb1, struct razer_rgb* rgb2);
++struct razer_report razer_naga_trinity_effect_breathing_random(void);
++struct razer_report razer_naga_trinity_effect_spectrum(void);
++struct razer_report razer_naga_trinity_effect_none(void);
 +
 +struct razer_report razer_chroma_misc_set_scroll_mode(unsigned int scroll_mode);
 +struct razer_report razer_chroma_misc_get_scroll_mode(void);
@@ -29389,7 +30011,10 @@ index 00000000..cda79dcc
 +struct razer_report razer_chroma_misc_set_scroll_smart_reel(bool smart_reel);
 +struct razer_report razer_chroma_misc_get_scroll_smart_reel(void);
 +
++struct razer_report razer_chroma_misc_get_hyperpolling_wireless_dongle_indicator_led_mode(void);
 +struct razer_report razer_chroma_misc_set_hyperpolling_wireless_dongle_indicator_led_mode(unsigned char mode);
++struct razer_report razer_chroma_misc_get_hyperpolling_wireless_dongle_multi_indicator_led_modes(void);
++struct razer_report razer_chroma_misc_set_hyperpolling_wireless_dongle_multi_indicator_led_modes(unsigned char mode1, unsigned char mode2, unsigned char mode3);
 +struct razer_report razer_chroma_misc_set_hyperpolling_wireless_dongle_pair_step1(unsigned short pid);
 +struct razer_report razer_chroma_misc_set_hyperpolling_wireless_dongle_pair_step2(unsigned short pid);
 +struct razer_report razer_chroma_misc_set_hyperpolling_wireless_dongle_unpair(unsigned short pid);
@@ -29801,10 +30426,10 @@ index 00000000..b469ba1b
 +#endif /* DRIVER_RAZERCOMMON_H_ */
 diff --git a/drivers/custom/razer/driver/razerkbd_driver.c b/drivers/custom/razer/driver/razerkbd_driver.c
 new file mode 100644
-index 00000000..f06d5de6
+index 00000000..ce0184fc
 --- /dev/null
 +++ b/drivers/custom/razer/driver/razerkbd_driver.c
-@@ -0,0 +1,6520 @@
+@@ -0,0 +1,6711 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +/*
 + * Copyright (c) 2015 Terri Cain <terri@dolphincorp.co.uk>
@@ -30051,6 +30676,19 @@ index 00000000..f06d5de6
 +    { 0 }
 +};
 +
++// Razer Joro - Fn row maps directly to the printed media functions
++static const struct razer_key_translation chroma_keys_joro[] = {
++    { KEY_F5,  KEY_MUTE },
++    { KEY_F6,  KEY_VOLUMEDOWN },
++    { KEY_F7,  KEY_VOLUMEUP },
++    { KEY_F8,  KEY_BRIGHTNESSDOWN },
++    { KEY_F9,  KEY_BRIGHTNESSUP },
++    { KEY_F10, KEY_KBDILLUMDOWN },
++    { KEY_F11, KEY_KBDILLUMUP },
++    { KEY_F12, KEY_SYSRQ },
++    { 0 }
++};
++
 +/**
 + * Essentially search through the struct array above.
 + */
@@ -30113,10 +30751,12 @@ index 00000000..f06d5de6
 +    case USB_DEVICE_ID_RAZER_BLADE_14_2025:
 +    case USB_DEVICE_ID_RAZER_BLADE_15_2023:
 +    case USB_DEVICE_ID_RAZER_BLADE_16_2023:
++    case USB_DEVICE_ID_RAZER_BLADE_16_2026:
 +    case USB_DEVICE_ID_RAZER_BLADE_16_2025:
 +    case USB_DEVICE_ID_RAZER_BLADE_18_2023:
 +    case USB_DEVICE_ID_RAZER_BLADE_18_2024:
 +    case USB_DEVICE_ID_RAZER_BLADE_18_2025:
++    case USB_DEVICE_ID_RAZER_BLADE_18_2026:
 +        return true;
 +    }
 +    return false;
@@ -30136,6 +30776,7 @@ index 00000000..f06d5de6
 +    case USB_DEVICE_ID_RAZER_BLACKWIDOW_V3:
 +    case USB_DEVICE_ID_RAZER_BLACKWIDOW_V4_MINI_HYPERSPEED_WIRED:
 +    case USB_DEVICE_ID_RAZER_DEATHSTALKER_V2:
++    case USB_DEVICE_ID_RAZER_JORO:
 +    case USB_DEVICE_ID_RAZER_DEATHSTALKER_V2_PRO_WIRED:
 +    case USB_DEVICE_ID_RAZER_BLACKWIDOW_V4:
 +    case USB_DEVICE_ID_RAZER_BLACKWIDOW_V4_PRO:
@@ -30337,6 +30978,7 @@ index 00000000..f06d5de6
 +    case USB_DEVICE_ID_RAZER_BLACKWIDOW_V3_MINI_HYPERSPEED_WIRED:
 +    case USB_DEVICE_ID_RAZER_BLACKWIDOW_V4_MINI_HYPERSPEED_WIRED:
 +    case USB_DEVICE_ID_RAZER_DEATHSTALKER_V2:
++    case USB_DEVICE_ID_RAZER_JORO:
 +    case USB_DEVICE_ID_RAZER_DEATHSTALKER_V2_PRO_WIRED:
 +    case USB_DEVICE_ID_RAZER_BLACKWIDOW_V4:
 +    case USB_DEVICE_ID_RAZER_BLACKWIDOW_V4_X:
@@ -30448,8 +31090,10 @@ index 00000000..f06d5de6
 +    case USB_DEVICE_ID_RAZER_BLADE_14_2024:
 +    case USB_DEVICE_ID_RAZER_BLADE_14_2025:
 +    case USB_DEVICE_ID_RAZER_BLADE_18_2024:
++    case USB_DEVICE_ID_RAZER_BLADE_16_2026:
 +    case USB_DEVICE_ID_RAZER_BLADE_16_2025:
 +    case USB_DEVICE_ID_RAZER_BLADE_18_2025:
++    case USB_DEVICE_ID_RAZER_BLADE_18_2026:
 +    case USB_DEVICE_ID_RAZER_BLACKWIDOW_V3_TK:
 +        request.transaction_id.id = 0xFF;
 +        break;
@@ -30460,6 +31104,44 @@ index 00000000..f06d5de6
 +    }
 +
 +    return razer_send_payload(device, &request, &response);
++}
++
++/**
++ * Returns the variable storage slot lighting commands should address
++ *
++ * On devices with onboard profiles, the variable storage argument of the
++ * extended matrix effect commands addresses a profile, so VARSTORE (0x01)
++ * targets profile 1 rather than the profile currently in use. Effects
++ * written while another profile is active are stored but never shown.
++ * Query the active profile so effects can be applied to it instead.
++ *
++ * Falls back to VARSTORE (profile 1) if the active profile cannot be
++ * determined.
++ */
++static unsigned char razer_get_active_varstore(struct razer_kbd_device *device)
++{
++    struct razer_report request = {0};
++    struct razer_report response = {0};
++    int err;
++
++    request = get_razer_report(0x05, 0x84, 0x01);
++
++    switch (device->usb_pid) {
++    case USB_DEVICE_ID_RAZER_HUNTSMAN_V3_PRO_8KHZ:
++        request.transaction_id.id = 0x1F;
++        break;
++    default:
++        hid_warn(device->hdev, "razerkbd: reading active profile not supported for this model\n");
++        return VARSTORE;
++    }
++
++    err = razer_send_payload(device, &request, &response);
++    if (err) {
++        hid_warn(device->hdev, "razerkbd: failed to read active profile: %d, falling back to profile 1\n", err);
++        return VARSTORE;
++    }
++
++    return response.arguments[0];
 +}
 +
 +/**
@@ -30479,6 +31161,7 @@ index 00000000..f06d5de6
 +    switch (device->usb_pid) {
 +    case USB_DEVICE_ID_RAZER_BLACKWIDOW_V3_MINI_HYPERSPEED_WIRED:
 +    case USB_DEVICE_ID_RAZER_BLACKWIDOW_V4_MINI_HYPERSPEED_WIRED:
++    case USB_DEVICE_ID_RAZER_JORO:
 +    case USB_DEVICE_ID_RAZER_DEATHSTALKER_V2_PRO_WIRED:
 +    case USB_DEVICE_ID_RAZER_DEATHSTALKER_V2_PRO_TKL_WIRED:
 +    case USB_DEVICE_ID_RAZER_BLACKWIDOW_V4_TENKEYLESS_HYPERSPEED_WIRED:
@@ -30527,6 +31210,7 @@ index 00000000..f06d5de6
 +    switch (device->usb_pid) {
 +    case USB_DEVICE_ID_RAZER_BLACKWIDOW_V3_MINI_HYPERSPEED_WIRED:
 +    case USB_DEVICE_ID_RAZER_BLACKWIDOW_V4_MINI_HYPERSPEED_WIRED:
++    case USB_DEVICE_ID_RAZER_JORO:
 +    case USB_DEVICE_ID_RAZER_DEATHSTALKER_V2_PRO_WIRED:
 +    case USB_DEVICE_ID_RAZER_DEATHSTALKER_V2_PRO_TKL_WIRED:
 +    case USB_DEVICE_ID_RAZER_BLACKWIDOW_V4_TENKEYLESS_HYPERSPEED_WIRED:
@@ -30740,6 +31424,7 @@ index 00000000..f06d5de6
 +    case USB_DEVICE_ID_RAZER_BLACKWIDOW_V4_PRO:
 +    case USB_DEVICE_ID_RAZER_ORNATA_V3_ALT:
 +    case USB_DEVICE_ID_RAZER_DEATHSTALKER_V2_PRO_WIRELESS:
++    case USB_DEVICE_ID_RAZER_JORO:
 +    case USB_DEVICE_ID_RAZER_DEATHSTALKER_V2_PRO_WIRED:
 +    case USB_DEVICE_ID_RAZER_BLACKWIDOW_V4_X:
 +    case USB_DEVICE_ID_RAZER_ORNATA_V3_X:
@@ -30839,6 +31524,7 @@ index 00000000..f06d5de6
 +    case USB_DEVICE_ID_RAZER_BLACKWIDOW_V4_PRO:
 +    case USB_DEVICE_ID_RAZER_ORNATA_V3_ALT:
 +    case USB_DEVICE_ID_RAZER_DEATHSTALKER_V2_PRO_WIRELESS:
++    case USB_DEVICE_ID_RAZER_JORO:
 +    case USB_DEVICE_ID_RAZER_DEATHSTALKER_V2_PRO_WIRED:
 +    case USB_DEVICE_ID_RAZER_BLACKWIDOW_V4_X:
 +    case USB_DEVICE_ID_RAZER_ORNATA_V3_X:
@@ -31373,11 +32059,11 @@ index 00000000..f06d5de6
 +        break;
 +
 +    case USB_DEVICE_ID_RAZER_BLACKWIDOW_V4_MINI_HYPERSPEED_WIRED:
-+        device_type = "Razer BlackWidow V4 Mini Hyperspeed (Wired)";
++        device_type = "Razer BlackWidow V4 Mini HyperSpeed (Wired)";
 +        break;
 +
 +    case USB_DEVICE_ID_RAZER_BLACKWIDOW_V4_MINI_HYPERSPEED_WIRELESS:
-+        device_type = "Razer BlackWidow V4 Mini Hyperspeed (Wireless)";
++        device_type = "Razer BlackWidow V4 Mini HyperSpeed (Wireless)";
 +        break;
 +
 +    case USB_DEVICE_ID_RAZER_BLADE_17_2022:
@@ -31410,6 +32096,10 @@ index 00000000..f06d5de6
 +
 +    case USB_DEVICE_ID_RAZER_DEATHSTALKER_V2:
 +        device_type = "Razer DeathStalker V2";
++        break;
++
++    case USB_DEVICE_ID_RAZER_JORO:
++        device_type = "Razer Joro";
 +        break;
 +
 +    case USB_DEVICE_ID_RAZER_DEATHSTALKER_V2_PRO_WIRED:
@@ -31456,6 +32146,10 @@ index 00000000..f06d5de6
 +        device_type = "Razer Blade 16 (2023)";
 +        break;
 +
++    case USB_DEVICE_ID_RAZER_BLADE_16_2026:
++        device_type = "Razer Blade 16 (2026)";
++        break;
++
 +    case USB_DEVICE_ID_RAZER_BLADE_16_2025:
 +        device_type = "Razer Blade 16 (2025)";
 +        break;
@@ -31486,6 +32180,10 @@ index 00000000..f06d5de6
 +
 +    case USB_DEVICE_ID_RAZER_BLADE_18_2025:
 +        device_type = "Razer Blade 18 (2025)";
++        break;
++
++    case USB_DEVICE_ID_RAZER_BLADE_18_2026:
++        device_type = "Razer Blade 18 (2026)";
 +        break;
 +
 +    default:
@@ -31543,6 +32241,7 @@ index 00000000..f06d5de6
 +    case USB_DEVICE_ID_RAZER_BLACKWIDOW_V4:
 +    case USB_DEVICE_ID_RAZER_BLACKWIDOW_V4_X:
 +    case USB_DEVICE_ID_RAZER_BLACKWIDOW_V4_PRO:
++    case USB_DEVICE_ID_RAZER_JORO:
 +    case USB_DEVICE_ID_RAZER_BLACKWIDOW_V4_75PCT:
 +    case USB_DEVICE_ID_RAZER_ORNATA_V3:
 +    case USB_DEVICE_ID_RAZER_ORNATA_V3_ALT:
@@ -31957,7 +32656,10 @@ index 00000000..f06d5de6
 +
 +    /* For Blade laptops we get the serial number from DMI */
 +    if (is_blade_laptop(device)) {
-+        strscpy(serial_string, dmi_get_system_info(DMI_PRODUCT_SERIAL), sizeof(serial_string));
++        const char *dmi_serial = dmi_get_system_info(DMI_PRODUCT_SERIAL);
++        if (!dmi_serial)
++            return -ENODEV;
++        strscpy(serial_string, dmi_serial, sizeof(serial_string));
 +        goto exit;
 +    }
 +
@@ -32052,13 +32754,18 @@ index 00000000..f06d5de6
 +    case USB_DEVICE_ID_RAZER_BLACKWIDOW_V4:
 +    case USB_DEVICE_ID_RAZER_BLACKWIDOW_V4_X:
 +    case USB_DEVICE_ID_RAZER_BLACKWIDOW_V4_PRO:
++    case USB_DEVICE_ID_RAZER_JORO:
 +    case USB_DEVICE_ID_RAZER_BLACKWIDOW_V4_75PCT:
 +    case USB_DEVICE_ID_RAZER_HUNTSMAN_V3_PRO:
 +    case USB_DEVICE_ID_RAZER_HUNTSMAN_V3_PRO_TKL:
 +    case USB_DEVICE_ID_RAZER_HUNTSMAN_V3_PRO_MINI:
-+    case USB_DEVICE_ID_RAZER_HUNTSMAN_V3_PRO_8KHZ:
 +    case USB_DEVICE_ID_RAZER_BLACKWIDOW_V4_TENKEYLESS_HYPERSPEED_WIRED:
 +        request = razer_chroma_extended_matrix_effect_none(VARSTORE, BACKLIGHT_LED);
++        request.transaction_id.id = 0x1F;
++        break;
++
++    case USB_DEVICE_ID_RAZER_HUNTSMAN_V3_PRO_8KHZ:
++        request = razer_chroma_extended_matrix_effect_none(razer_get_active_varstore(device), BACKLIGHT_LED);
 +        request.transaction_id.id = 0x1F;
 +        break;
 +
@@ -32138,8 +32845,10 @@ index 00000000..f06d5de6
 +    case USB_DEVICE_ID_RAZER_BLADE_14_2024:
 +    case USB_DEVICE_ID_RAZER_BLADE_14_2025:
 +    case USB_DEVICE_ID_RAZER_BLADE_18_2024:
++    case USB_DEVICE_ID_RAZER_BLADE_16_2026:
 +    case USB_DEVICE_ID_RAZER_BLADE_16_2025:
 +    case USB_DEVICE_ID_RAZER_BLADE_18_2025:
++    case USB_DEVICE_ID_RAZER_BLADE_18_2026:
 +        request = razer_chroma_standard_matrix_effect_none();
 +        request.transaction_id.id = 0xFF;
 +        break;
@@ -32226,13 +32935,18 @@ index 00000000..f06d5de6
 +    case USB_DEVICE_ID_RAZER_BLACKWIDOW_V4:
 +    case USB_DEVICE_ID_RAZER_BLACKWIDOW_V4_X:
 +    case USB_DEVICE_ID_RAZER_BLACKWIDOW_V4_PRO:
++    case USB_DEVICE_ID_RAZER_JORO:
 +    case USB_DEVICE_ID_RAZER_BLACKWIDOW_V4_75PCT:
 +    case USB_DEVICE_ID_RAZER_HUNTSMAN_V3_PRO:
 +    case USB_DEVICE_ID_RAZER_HUNTSMAN_V3_PRO_TKL:
 +    case USB_DEVICE_ID_RAZER_HUNTSMAN_V3_PRO_MINI:
-+    case USB_DEVICE_ID_RAZER_HUNTSMAN_V3_PRO_8KHZ:
 +    case USB_DEVICE_ID_RAZER_BLACKWIDOW_V4_TENKEYLESS_HYPERSPEED_WIRED:
 +        request = razer_chroma_extended_matrix_effect_wave(VARSTORE, BACKLIGHT_LED, direction);
++        request.transaction_id.id = 0x1F;
++        break;
++
++    case USB_DEVICE_ID_RAZER_HUNTSMAN_V3_PRO_8KHZ:
++        request = razer_chroma_extended_matrix_effect_wave(razer_get_active_varstore(device), BACKLIGHT_LED, direction);
 +        request.transaction_id.id = 0x1F;
 +        break;
 +
@@ -32289,8 +33003,10 @@ index 00000000..f06d5de6
 +    case USB_DEVICE_ID_RAZER_BLADE_14_2024:
 +    case USB_DEVICE_ID_RAZER_BLADE_14_2025:
 +    case USB_DEVICE_ID_RAZER_BLADE_18_2024:
++    case USB_DEVICE_ID_RAZER_BLADE_16_2026:
 +    case USB_DEVICE_ID_RAZER_BLADE_16_2025:
 +    case USB_DEVICE_ID_RAZER_BLADE_18_2025:
++    case USB_DEVICE_ID_RAZER_BLADE_18_2026:
 +        request = razer_chroma_standard_matrix_effect_wave(direction);
 +        request.transaction_id.id = 0xFF;
 +        break;
@@ -32398,13 +33114,18 @@ index 00000000..f06d5de6
 +    case USB_DEVICE_ID_RAZER_BLACKWIDOW_V4:
 +    case USB_DEVICE_ID_RAZER_BLACKWIDOW_V4_X:
 +    case USB_DEVICE_ID_RAZER_BLACKWIDOW_V4_PRO:
++    case USB_DEVICE_ID_RAZER_JORO:
 +    case USB_DEVICE_ID_RAZER_BLACKWIDOW_V4_75PCT:
 +    case USB_DEVICE_ID_RAZER_HUNTSMAN_V3_PRO:
 +    case USB_DEVICE_ID_RAZER_HUNTSMAN_V3_PRO_TKL:
 +    case USB_DEVICE_ID_RAZER_HUNTSMAN_V3_PRO_MINI:
-+    case USB_DEVICE_ID_RAZER_HUNTSMAN_V3_PRO_8KHZ:
 +    case USB_DEVICE_ID_RAZER_BLACKWIDOW_V4_TENKEYLESS_HYPERSPEED_WIRED:
 +        request = razer_chroma_extended_matrix_effect_spectrum(VARSTORE, BACKLIGHT_LED);
++        request.transaction_id.id = 0x1F;
++        break;
++
++    case USB_DEVICE_ID_RAZER_HUNTSMAN_V3_PRO_8KHZ:
++        request = razer_chroma_extended_matrix_effect_spectrum(razer_get_active_varstore(device), BACKLIGHT_LED);
 +        request.transaction_id.id = 0x1F;
 +        break;
 +
@@ -32492,8 +33213,10 @@ index 00000000..f06d5de6
 +    case USB_DEVICE_ID_RAZER_BLADE_14_2024:
 +    case USB_DEVICE_ID_RAZER_BLADE_14_2025:
 +    case USB_DEVICE_ID_RAZER_BLADE_18_2024:
++    case USB_DEVICE_ID_RAZER_BLADE_16_2026:
 +    case USB_DEVICE_ID_RAZER_BLADE_16_2025:
 +    case USB_DEVICE_ID_RAZER_BLADE_18_2025:
++    case USB_DEVICE_ID_RAZER_BLADE_18_2026:
 +        request = razer_chroma_standard_matrix_effect_spectrum();
 +        request.transaction_id.id = 0xFF;
 +        break;
@@ -32569,13 +33292,18 @@ index 00000000..f06d5de6
 +    case USB_DEVICE_ID_RAZER_BLADE_15_BASE_2022:
 +    case USB_DEVICE_ID_RAZER_BLACKWIDOW_V4:
 +    case USB_DEVICE_ID_RAZER_BLACKWIDOW_V4_PRO:
++    case USB_DEVICE_ID_RAZER_JORO:
 +    case USB_DEVICE_ID_RAZER_BLACKWIDOW_V4_75PCT:
 +    case USB_DEVICE_ID_RAZER_HUNTSMAN_V3_PRO:
 +    case USB_DEVICE_ID_RAZER_HUNTSMAN_V3_PRO_TKL:
 +    case USB_DEVICE_ID_RAZER_HUNTSMAN_V3_PRO_MINI:
-+    case USB_DEVICE_ID_RAZER_HUNTSMAN_V3_PRO_8KHZ:
 +    case USB_DEVICE_ID_RAZER_BLACKWIDOW_V4_TENKEYLESS_HYPERSPEED_WIRED:
 +        request = razer_chroma_extended_matrix_effect_reactive(VARSTORE, BACKLIGHT_LED, speed, (struct razer_rgb*)&buf[1]);
++        request.transaction_id.id = 0x1F;
++        break;
++
++    case USB_DEVICE_ID_RAZER_HUNTSMAN_V3_PRO_8KHZ:
++        request = razer_chroma_extended_matrix_effect_reactive(razer_get_active_varstore(device), BACKLIGHT_LED, speed, (struct razer_rgb*)&buf[1]);
 +        request.transaction_id.id = 0x1F;
 +        break;
 +
@@ -32646,8 +33374,10 @@ index 00000000..f06d5de6
 +    case USB_DEVICE_ID_RAZER_BLADE_14_2024:
 +    case USB_DEVICE_ID_RAZER_BLADE_14_2025:
 +    case USB_DEVICE_ID_RAZER_BLADE_18_2024:
++    case USB_DEVICE_ID_RAZER_BLADE_16_2026:
 +    case USB_DEVICE_ID_RAZER_BLADE_16_2025:
 +    case USB_DEVICE_ID_RAZER_BLADE_18_2025:
++    case USB_DEVICE_ID_RAZER_BLADE_18_2026:
 +        request = razer_chroma_standard_matrix_effect_reactive(speed, (struct razer_rgb*)&buf[1]);
 +        request.transaction_id.id = 0xFF;
 +        break;
@@ -32749,12 +33479,14 @@ index 00000000..f06d5de6
 +    case USB_DEVICE_ID_RAZER_BLADE_14_2023:
 +    case USB_DEVICE_ID_RAZER_BLADE_15_2023:
 +    case USB_DEVICE_ID_RAZER_BLADE_16_2023:
++    case USB_DEVICE_ID_RAZER_BLADE_16_2026:
 +    case USB_DEVICE_ID_RAZER_BLADE_16_2025:
 +    case USB_DEVICE_ID_RAZER_BLADE_18_2023:
 +    case USB_DEVICE_ID_RAZER_BLADE_14_2024:
 +    case USB_DEVICE_ID_RAZER_BLADE_14_2025:
 +    case USB_DEVICE_ID_RAZER_BLADE_18_2024:
 +    case USB_DEVICE_ID_RAZER_BLADE_18_2025:
++    case USB_DEVICE_ID_RAZER_BLADE_18_2026:
 +        if (count != 3) {
 +            dev_warn(dev, "razerkbd: Static mode only accepts RGB (3byte)\n");
 +            return -EINVAL;
@@ -32829,17 +33561,29 @@ index 00000000..f06d5de6
 +    case USB_DEVICE_ID_RAZER_TARTARUS_PRO:
 +    case USB_DEVICE_ID_RAZER_BLACKWIDOW_V4:
 +    case USB_DEVICE_ID_RAZER_BLACKWIDOW_V4_PRO:
++    case USB_DEVICE_ID_RAZER_JORO:
 +    case USB_DEVICE_ID_RAZER_BLACKWIDOW_V4_75PCT:
 +    case USB_DEVICE_ID_RAZER_HUNTSMAN_V3_PRO:
 +    case USB_DEVICE_ID_RAZER_HUNTSMAN_V3_PRO_TKL:
 +    case USB_DEVICE_ID_RAZER_HUNTSMAN_V3_PRO_MINI:
-+    case USB_DEVICE_ID_RAZER_HUNTSMAN_V3_PRO_8KHZ:
 +    case USB_DEVICE_ID_RAZER_BLACKWIDOW_V4_TENKEYLESS_HYPERSPEED_WIRED:
 +        if (count != 3) {
 +            dev_warn(dev, "razerkbd: Static mode only accepts RGB (3byte)\n");
 +            return -EINVAL;
 +        }
 +        request = razer_chroma_extended_matrix_effect_static(VARSTORE, BACKLIGHT_LED, (struct razer_rgb*)&buf[0]);
++        request.transaction_id.id = 0x1F;
++        err = razer_send_payload(device, &request, &response);
++        if (err)
++            return err;
++        break;
++
++    case USB_DEVICE_ID_RAZER_HUNTSMAN_V3_PRO_8KHZ:
++        if (count != 3) {
++            dev_warn(dev, "razerkbd: Static mode only accepts RGB (3byte)\n");
++            return -EINVAL;
++        }
++        request = razer_chroma_extended_matrix_effect_static(razer_get_active_varstore(device), BACKLIGHT_LED, (struct razer_rgb*)&buf[0]);
 +        request.transaction_id.id = 0x1F;
 +        err = razer_send_payload(device, &request, &response);
 +        if (err)
@@ -32973,11 +33717,11 @@ index 00000000..f06d5de6
 +    case USB_DEVICE_ID_RAZER_BLACKWIDOW_V4:
 +    case USB_DEVICE_ID_RAZER_BLACKWIDOW_V4_X:
 +    case USB_DEVICE_ID_RAZER_BLACKWIDOW_V4_PRO:
++    case USB_DEVICE_ID_RAZER_JORO:
 +    case USB_DEVICE_ID_RAZER_BLACKWIDOW_V4_75PCT:
 +    case USB_DEVICE_ID_RAZER_HUNTSMAN_V3_PRO:
 +    case USB_DEVICE_ID_RAZER_HUNTSMAN_V3_PRO_TKL:
 +    case USB_DEVICE_ID_RAZER_HUNTSMAN_V3_PRO_MINI:
-+    case USB_DEVICE_ID_RAZER_HUNTSMAN_V3_PRO_8KHZ:
 +    case USB_DEVICE_ID_RAZER_BLACKWIDOW_V4_TENKEYLESS_HYPERSPEED_WIRED:
 +        if (count == 7) {
 +            request = razer_chroma_extended_matrix_effect_starlight_dual(VARSTORE, BACKLIGHT_LED, buf[0], (struct razer_rgb*)&buf[1], (struct razer_rgb*)&buf[4]);
@@ -32985,6 +33729,23 @@ index 00000000..f06d5de6
 +            request = razer_chroma_extended_matrix_effect_starlight_single(VARSTORE, BACKLIGHT_LED, buf[0], (struct razer_rgb*)&buf[1]);
 +        } else if(count == 1) {
 +            request = razer_chroma_extended_matrix_effect_starlight_random(VARSTORE, BACKLIGHT_LED, buf[0]);
++        } else {
++            dev_warn(dev, "razerkbd: Starlight only accepts Speed (1byte). Speed, RGB (4byte). Speed, RGB, RGB (7byte)\n");
++            return -EINVAL;
++        }
++        request.transaction_id.id = 0x1F;
++        err = razer_send_payload(device, &request, &response);
++        if (err)
++            return err;
++        break;
++
++    case USB_DEVICE_ID_RAZER_HUNTSMAN_V3_PRO_8KHZ:
++        if (count == 7) {
++            request = razer_chroma_extended_matrix_effect_starlight_dual(razer_get_active_varstore(device), BACKLIGHT_LED, buf[0], (struct razer_rgb*)&buf[1], (struct razer_rgb*)&buf[4]);
++        } else if(count == 4) {
++            request = razer_chroma_extended_matrix_effect_starlight_single(razer_get_active_varstore(device), BACKLIGHT_LED, buf[0], (struct razer_rgb*)&buf[1]);
++        } else if(count == 1) {
++            request = razer_chroma_extended_matrix_effect_starlight_random(razer_get_active_varstore(device), BACKLIGHT_LED, buf[0]);
 +        } else {
 +            dev_warn(dev, "razerkbd: Starlight only accepts Speed (1byte). Speed, RGB (4byte). Speed, RGB, RGB (7byte)\n");
 +            return -EINVAL;
@@ -33045,6 +33806,7 @@ index 00000000..f06d5de6
 +
 +    case USB_DEVICE_ID_RAZER_BLADE_STEALTH_LATE_2017:
 +    case USB_DEVICE_ID_RAZER_BLADE_17_PRO_EARLY_2021:
++    case USB_DEVICE_ID_RAZER_BLADE_16_2026:
 +    case USB_DEVICE_ID_RAZER_BLADE_16_2025:
 +    case USB_DEVICE_ID_RAZER_BLADE_14_2021:
 +        if(count == 7) {
@@ -33130,6 +33892,7 @@ index 00000000..f06d5de6
 +    case USB_DEVICE_ID_RAZER_BLADE_14_2025:
 +    case USB_DEVICE_ID_RAZER_BLADE_18_2024:
 +    case USB_DEVICE_ID_RAZER_BLADE_18_2025:
++    case USB_DEVICE_ID_RAZER_BLADE_18_2026:
 +        request = razer_chroma_standard_matrix_effect_starlight_single(0x01, &rgb1);
 +        request.transaction_id.id = 0xFF;
 +        err = razer_send_payload(device, &request, &response);
@@ -33275,11 +34038,11 @@ index 00000000..f06d5de6
 +    case USB_DEVICE_ID_RAZER_BLACKWIDOW_V4:
 +    case USB_DEVICE_ID_RAZER_BLACKWIDOW_V4_X:
 +    case USB_DEVICE_ID_RAZER_BLACKWIDOW_V4_PRO:
++    case USB_DEVICE_ID_RAZER_JORO:
 +    case USB_DEVICE_ID_RAZER_BLACKWIDOW_V4_75PCT:
 +    case USB_DEVICE_ID_RAZER_HUNTSMAN_V3_PRO:
 +    case USB_DEVICE_ID_RAZER_HUNTSMAN_V3_PRO_TKL:
 +    case USB_DEVICE_ID_RAZER_HUNTSMAN_V3_PRO_MINI:
-+    case USB_DEVICE_ID_RAZER_HUNTSMAN_V3_PRO_8KHZ:
 +    case USB_DEVICE_ID_RAZER_BLACKWIDOW_V4_TENKEYLESS_HYPERSPEED_WIRED:
 +        if (count == 3) { // Single colour mode
 +            request = razer_chroma_extended_matrix_effect_breathing_single(VARSTORE, BACKLIGHT_LED, (struct razer_rgb*)&buf[0]);
@@ -33287,6 +34050,23 @@ index 00000000..f06d5de6
 +            request = razer_chroma_extended_matrix_effect_breathing_dual(VARSTORE, BACKLIGHT_LED, (struct razer_rgb*)&buf[0], (struct razer_rgb*)&buf[3]);
 +        } else if (count == 1) { // "Random" colour mode
 +            request = razer_chroma_extended_matrix_effect_breathing_random(VARSTORE, BACKLIGHT_LED);
++        } else {
++            dev_warn(dev, "razerkbd: Breathing only accepts '1' (1byte). RGB (3byte). RGB, RGB (6byte)\n");
++            return -EINVAL;
++        }
++        request.transaction_id.id = 0x1F;
++        err = razer_send_payload(device, &request, &response);
++        if (err)
++            return err;
++        break;
++
++    case USB_DEVICE_ID_RAZER_HUNTSMAN_V3_PRO_8KHZ:
++        if (count == 3) { // Single colour mode
++            request = razer_chroma_extended_matrix_effect_breathing_single(razer_get_active_varstore(device), BACKLIGHT_LED, (struct razer_rgb*)&buf[0]);
++        } else if (count == 6) { // Dual colour mode
++            request = razer_chroma_extended_matrix_effect_breathing_dual(razer_get_active_varstore(device), BACKLIGHT_LED, (struct razer_rgb*)&buf[0], (struct razer_rgb*)&buf[3]);
++        } else if (count == 1) { // "Random" colour mode
++            request = razer_chroma_extended_matrix_effect_breathing_random(razer_get_active_varstore(device), BACKLIGHT_LED);
 +        } else {
 +            dev_warn(dev, "razerkbd: Breathing only accepts '1' (1byte). RGB (3byte). RGB, RGB (6byte)\n");
 +            return -EINVAL;
@@ -33401,8 +34181,10 @@ index 00000000..f06d5de6
 +    case USB_DEVICE_ID_RAZER_BLADE_14_2024:
 +    case USB_DEVICE_ID_RAZER_BLADE_14_2025:
 +    case USB_DEVICE_ID_RAZER_BLADE_18_2024:
++    case USB_DEVICE_ID_RAZER_BLADE_16_2026:
 +    case USB_DEVICE_ID_RAZER_BLADE_16_2025:
 +    case USB_DEVICE_ID_RAZER_BLADE_18_2025:
++    case USB_DEVICE_ID_RAZER_BLADE_18_2026:
 +        switch(count) {
 +        case 3: // Single colour mode
 +            request = razer_chroma_standard_matrix_effect_breathing_single((struct razer_rgb*)&buf[0]);
@@ -33586,6 +34368,7 @@ index 00000000..f06d5de6
 +
 +    case USB_DEVICE_ID_RAZER_BLACKWIDOW_V4:
 +    case USB_DEVICE_ID_RAZER_BLACKWIDOW_V4_PRO:
++    case USB_DEVICE_ID_RAZER_JORO:
 +    case USB_DEVICE_ID_RAZER_BLACKWIDOW_V4_75PCT:
 +        request = razer_chroma_extended_matrix_effect_custom_frame();
 +        request.transaction_id.id = 0x1F;
@@ -33651,8 +34434,10 @@ index 00000000..f06d5de6
 +    case USB_DEVICE_ID_RAZER_BLADE_14_2024:
 +    case USB_DEVICE_ID_RAZER_BLADE_14_2025:
 +    case USB_DEVICE_ID_RAZER_BLADE_18_2024:
++    case USB_DEVICE_ID_RAZER_BLADE_16_2026:
 +    case USB_DEVICE_ID_RAZER_BLADE_16_2025:
 +    case USB_DEVICE_ID_RAZER_BLADE_18_2025:
++    case USB_DEVICE_ID_RAZER_BLADE_18_2026:
 +        request = razer_chroma_standard_matrix_effect_custom_frame(NOSTORE);
 +        request.transaction_id.id = 0xFF;
 +        break;
@@ -33798,13 +34583,18 @@ index 00000000..f06d5de6
 +    case USB_DEVICE_ID_RAZER_BLACKWIDOW_V4:
 +    case USB_DEVICE_ID_RAZER_BLACKWIDOW_V4_X:
 +    case USB_DEVICE_ID_RAZER_BLACKWIDOW_V4_PRO:
++    case USB_DEVICE_ID_RAZER_JORO:
 +    case USB_DEVICE_ID_RAZER_BLACKWIDOW_V4_75PCT:
 +    case USB_DEVICE_ID_RAZER_HUNTSMAN_V3_PRO:
 +    case USB_DEVICE_ID_RAZER_HUNTSMAN_V3_PRO_TKL:
 +    case USB_DEVICE_ID_RAZER_HUNTSMAN_V3_PRO_MINI:
-+    case USB_DEVICE_ID_RAZER_HUNTSMAN_V3_PRO_8KHZ:
 +    case USB_DEVICE_ID_RAZER_BLACKWIDOW_V4_TENKEYLESS_HYPERSPEED_WIRED:
 +        request = razer_chroma_extended_matrix_brightness(VARSTORE, BACKLIGHT_LED, brightness);
++        request.transaction_id.id = 0x1F;
++        break;
++
++    case USB_DEVICE_ID_RAZER_HUNTSMAN_V3_PRO_8KHZ:
++        request = razer_chroma_extended_matrix_brightness(razer_get_active_varstore(device), BACKLIGHT_LED, brightness);
 +        request.transaction_id.id = 0x1F;
 +        break;
 +
@@ -33889,8 +34679,10 @@ index 00000000..f06d5de6
 +    case USB_DEVICE_ID_RAZER_BLADE_14_2024:
 +    case USB_DEVICE_ID_RAZER_BLADE_14_2025:
 +    case USB_DEVICE_ID_RAZER_BLADE_18_2024:
++    case USB_DEVICE_ID_RAZER_BLADE_16_2026:
 +    case USB_DEVICE_ID_RAZER_BLADE_16_2025:
 +    case USB_DEVICE_ID_RAZER_BLADE_18_2025:
++    case USB_DEVICE_ID_RAZER_BLADE_18_2026:
 +        if (is_blade_laptop(device)) {
 +            request = razer_chroma_misc_set_blade_brightness(brightness);
 +        } else {
@@ -33970,6 +34762,7 @@ index 00000000..f06d5de6
 +    case USB_DEVICE_ID_RAZER_BLACKWIDOW_V4:
 +    case USB_DEVICE_ID_RAZER_BLACKWIDOW_V4_X:
 +    case USB_DEVICE_ID_RAZER_BLACKWIDOW_V4_PRO:
++    case USB_DEVICE_ID_RAZER_JORO:
 +    case USB_DEVICE_ID_RAZER_BLACKWIDOW_V4_75PCT:
 +    case USB_DEVICE_ID_RAZER_BLACKWIDOW_V4_TENKEYLESS_HYPERSPEED_WIRED:
 +        request = razer_chroma_extended_matrix_get_brightness(VARSTORE, BACKLIGHT_LED);
@@ -34062,8 +34855,10 @@ index 00000000..f06d5de6
 +    case USB_DEVICE_ID_RAZER_BLADE_14_2024:
 +    case USB_DEVICE_ID_RAZER_BLADE_14_2025:
 +    case USB_DEVICE_ID_RAZER_BLADE_18_2024:
++    case USB_DEVICE_ID_RAZER_BLADE_16_2026:
 +    case USB_DEVICE_ID_RAZER_BLADE_16_2025:
 +    case USB_DEVICE_ID_RAZER_BLADE_18_2025:
++    case USB_DEVICE_ID_RAZER_BLADE_18_2026:
 +        if (is_blade_laptop(device)) {
 +            request = razer_chroma_misc_get_blade_brightness();
 +        } else {
@@ -34240,6 +35035,7 @@ index 00000000..f06d5de6
 +
 +        case USB_DEVICE_ID_RAZER_BLACKWIDOW_V4:
 +        case USB_DEVICE_ID_RAZER_BLACKWIDOW_V4_PRO:
++        case USB_DEVICE_ID_RAZER_JORO:
 +        case USB_DEVICE_ID_RAZER_BLACKWIDOW_V4_75PCT:
 +            request = razer_chroma_extended_matrix_set_custom_frame(row_id, start_col, stop_col, (unsigned char*)&buf[offset]);
 +            request.transaction_id.id = 0x1F;
@@ -34309,8 +35105,10 @@ index 00000000..f06d5de6
 +        case USB_DEVICE_ID_RAZER_BLADE_14_2024:
 +        case USB_DEVICE_ID_RAZER_BLADE_14_2025:
 +        case USB_DEVICE_ID_RAZER_BLADE_18_2024:
++        case USB_DEVICE_ID_RAZER_BLADE_16_2026:
 +        case USB_DEVICE_ID_RAZER_BLADE_16_2025:
 +        case USB_DEVICE_ID_RAZER_BLADE_18_2025:
++        case USB_DEVICE_ID_RAZER_BLADE_18_2026:
 +            request = razer_chroma_standard_matrix_set_custom_frame(row_id, start_col, stop_col, (unsigned char*)&buf[offset]);
 +            request.transaction_id.id = 0xFF;
 +            break;
@@ -34663,6 +35461,10 @@ index 00000000..f06d5de6
 +        translation = find_translation(chroma_keys_5, usage->code);
 +        break;
 +
++    case USB_DEVICE_ID_RAZER_JORO:
++        translation = find_translation(chroma_keys_joro, usage->code);
++        break;
++
 +    case USB_DEVICE_ID_RAZER_DEATHSTALKER_V2_PRO_TKL_WIRED:
 +    case USB_DEVICE_ID_RAZER_DEATHSTALKER_V2_PRO_TKL_WIRELESS:
 +        translation = find_translation(chroma_keys_7, usage->code);
@@ -35009,6 +35811,7 @@ index 00000000..f06d5de6
 +    case USB_DEVICE_ID_RAZER_BLACKWIDOW_V3_PRO_WIRED:
 +    case USB_DEVICE_ID_RAZER_BLACKWIDOW_V3_PRO_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_HUNTSMAN_V2:
++    case USB_DEVICE_ID_RAZER_JORO:
 +    case USB_DEVICE_ID_RAZER_DEATHSTALKER_V2_PRO_WIRED:
 +    case USB_DEVICE_ID_RAZER_DEATHSTALKER_V2_PRO_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_BLACKWIDOW_V4_TENKEYLESS_HYPERSPEED_WIRED:
@@ -35041,6 +35844,7 @@ index 00000000..f06d5de6
 +    case USB_DEVICE_ID_RAZER_ORNATA_V2:
 +    case USB_DEVICE_ID_RAZER_HUNTSMAN_V2:
 +    case USB_DEVICE_ID_RAZER_HUNTSMAN_V2_ANALOG:
++    case USB_DEVICE_ID_RAZER_JORO:
 +    case USB_DEVICE_ID_RAZER_DEATHSTALKER_V2_PRO_WIRED:
 +    case USB_DEVICE_ID_RAZER_DEATHSTALKER_V2_PRO_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_DEATHSTALKER_V2_PRO_TKL_WIRED:
@@ -35081,7 +35885,6 @@ index 00000000..f06d5de6
 + */
 +static int razer_kbd_probe(struct hid_device *hdev, const struct hid_device_id *id)
 +{
-+    int retval = 0;
 +    struct usb_interface *intf = to_usb_interface(hdev->dev.parent);
 +    struct usb_device *usb_dev = hid_to_usb_dev(hdev);
 +    struct razer_kbd_device *dev = NULL;
@@ -35098,8 +35901,10 @@ index 00000000..f06d5de6
 +    usb_dev_data = dev_get_drvdata(&usb_dev->dev);
 +    if (!usb_dev_data) {
 +        usb_dev_data = devm_kzalloc(&usb_dev->dev, sizeof(struct razer_kbd_usb_device_data), GFP_KERNEL);
-+        if (!usb_dev_data)
-+            return -ENOMEM;
++        if (!usb_dev_data) {
++            err = -ENOMEM;
++            goto exit_free;
++        }
 +
 +        dev_set_drvdata(&usb_dev->dev, usb_dev_data);
 +    }
@@ -35246,6 +36051,7 @@ index 00000000..f06d5de6
 +            CREATE_DEVICE_FILE(&hdev->dev, &dev_attr_macro_led_effect);              // Change macro LED effect (static, flashing)
 +            break;
 +
++        case USB_DEVICE_ID_RAZER_JORO:
 +        case USB_DEVICE_ID_RAZER_DEATHSTALKER_V2_PRO_WIRED:
 +        case USB_DEVICE_ID_RAZER_DEATHSTALKER_V2_PRO_WIRELESS:
 +        case USB_DEVICE_ID_RAZER_DEATHSTALKER_V2_PRO_TKL_WIRED:
@@ -35534,12 +36340,14 @@ index 00000000..f06d5de6
 +        case USB_DEVICE_ID_RAZER_BLADE_14_2023:
 +        case USB_DEVICE_ID_RAZER_BLADE_15_2023:
 +        case USB_DEVICE_ID_RAZER_BLADE_16_2023:
++        case USB_DEVICE_ID_RAZER_BLADE_16_2026:
 +        case USB_DEVICE_ID_RAZER_BLADE_16_2025:
 +        case USB_DEVICE_ID_RAZER_BLADE_18_2023:
 +        case USB_DEVICE_ID_RAZER_BLADE_14_2024:
 +        case USB_DEVICE_ID_RAZER_BLADE_14_2025:
 +        case USB_DEVICE_ID_RAZER_BLADE_18_2024:
 +        case USB_DEVICE_ID_RAZER_BLADE_18_2025:
++        case USB_DEVICE_ID_RAZER_BLADE_18_2026:
 +            CREATE_DEVICE_FILE(&hdev->dev, &dev_attr_matrix_effect_wave);            // Wave effect
 +            CREATE_DEVICE_FILE(&hdev->dev, &dev_attr_matrix_effect_starlight);       // Starlight effect
 +            CREATE_DEVICE_FILE(&hdev->dev, &dev_attr_matrix_effect_spectrum);        // Spectrum effect
@@ -35608,7 +36416,7 @@ index 00000000..f06d5de6
 +        if (usb_dev->descriptor.idProduct != USB_DEVICE_ID_RAZER_TARTARUS_PRO) {
 +            err = razer_set_device_mode(dev, 0x00, 0x00);
 +            if (err)
-+                return err;
++                goto exit_free;
 +        }
 +    } else if(intf->cur_altsetting->desc.bInterfaceProtocol == USB_INTERFACE_PROTOCOL_KEYBOARD) {
 +        CREATE_DEVICE_FILE(&hdev->dev, &dev_attr_key_super);
@@ -35619,13 +36427,15 @@ index 00000000..f06d5de6
 +    hid_set_drvdata(hdev, dev);
 +    dev_set_drvdata(&hdev->dev, dev);
 +
-+    if(hid_parse(hdev)) {
-+        hid_err(hdev, "parse failed\n");
++    err = hid_parse(hdev);
++    if (err) {
++        hid_err(hdev, "parse failed: %d\n", err);
 +        goto exit_free;
 +    }
 +
-+    if (hid_hw_start(hdev, HID_CONNECT_DEFAULT)) {
-+        hid_err(hdev, "hw start failed\n");
++    err = hid_hw_start(hdev, HID_CONNECT_DEFAULT);
++    if (err) {
++        hid_err(hdev, "hw start failed: %d\n", err);
 +        goto exit_free;
 +    }
 +
@@ -35640,7 +36450,7 @@ index 00000000..f06d5de6
 +
 +exit_free:
 +    kfree(dev);
-+    return retval;
++    return err;
 +}
 +
 +/**
@@ -35793,6 +36603,7 @@ index 00000000..f06d5de6
 +            device_remove_file(&hdev->dev, &dev_attr_macro_led_effect);              // Change macro LED effect (static, flashing)
 +            break;
 +
++        case USB_DEVICE_ID_RAZER_JORO:
 +        case USB_DEVICE_ID_RAZER_DEATHSTALKER_V2_PRO_WIRED:
 +        case USB_DEVICE_ID_RAZER_DEATHSTALKER_V2_PRO_WIRELESS:
 +        case USB_DEVICE_ID_RAZER_DEATHSTALKER_V2_PRO_TKL_WIRED:
@@ -36081,12 +36892,14 @@ index 00000000..f06d5de6
 +        case USB_DEVICE_ID_RAZER_BLADE_14_2023:
 +        case USB_DEVICE_ID_RAZER_BLADE_15_2023:
 +        case USB_DEVICE_ID_RAZER_BLADE_16_2023:
++        case USB_DEVICE_ID_RAZER_BLADE_16_2026:
 +        case USB_DEVICE_ID_RAZER_BLADE_16_2025:
 +        case USB_DEVICE_ID_RAZER_BLADE_18_2023:
 +        case USB_DEVICE_ID_RAZER_BLADE_14_2024:
 +        case USB_DEVICE_ID_RAZER_BLADE_14_2025:
 +        case USB_DEVICE_ID_RAZER_BLADE_18_2024:
 +        case USB_DEVICE_ID_RAZER_BLADE_18_2025:
++        case USB_DEVICE_ID_RAZER_BLADE_18_2026:
 +            device_remove_file(&hdev->dev, &dev_attr_matrix_effect_wave);            // Wave effect
 +            device_remove_file(&hdev->dev, &dev_attr_matrix_effect_starlight);       // Starlight effect
 +            device_remove_file(&hdev->dev, &dev_attr_matrix_effect_spectrum);        // Spectrum effect
@@ -36288,6 +37101,7 @@ index 00000000..f06d5de6
 +    { HID_USB_DEVICE(USB_VENDOR_ID_RAZER,USB_DEVICE_ID_RAZER_DEATHSTALKER_V2) },
 +    { HID_USB_DEVICE(USB_VENDOR_ID_RAZER,USB_DEVICE_ID_RAZER_DEATHSTALKER_V2_PRO_WIRED) },
 +    { HID_USB_DEVICE(USB_VENDOR_ID_RAZER,USB_DEVICE_ID_RAZER_DEATHSTALKER_V2_PRO_WIRELESS) },
++    { HID_USB_DEVICE(USB_VENDOR_ID_RAZER,USB_DEVICE_ID_RAZER_JORO) },
 +    { HID_USB_DEVICE(USB_VENDOR_ID_RAZER,USB_DEVICE_ID_RAZER_BLACKWIDOW_V4) },
 +    { HID_USB_DEVICE(USB_VENDOR_ID_RAZER,USB_DEVICE_ID_RAZER_BLACKWIDOW_V4_X) },
 +    { HID_USB_DEVICE(USB_VENDOR_ID_RAZER,USB_DEVICE_ID_RAZER_BLACKWIDOW_V4_PRO) },
@@ -36297,6 +37111,7 @@ index 00000000..f06d5de6
 +    { HID_USB_DEVICE(USB_VENDOR_ID_RAZER,USB_DEVICE_ID_RAZER_DEATHSTALKER_V2_PRO_TKL_WIRED) },
 +    { HID_USB_DEVICE(USB_VENDOR_ID_RAZER,USB_DEVICE_ID_RAZER_DEATHSTALKER_V2_PRO_TKL_WIRELESS) },
 +    { HID_USB_DEVICE(USB_VENDOR_ID_RAZER,USB_DEVICE_ID_RAZER_BLADE_16_2023) },
++    { HID_USB_DEVICE(USB_VENDOR_ID_RAZER,USB_DEVICE_ID_RAZER_BLADE_16_2026) },
 +    { HID_USB_DEVICE(USB_VENDOR_ID_RAZER,USB_DEVICE_ID_RAZER_BLADE_16_2025) },
 +    { HID_USB_DEVICE(USB_VENDOR_ID_RAZER,USB_DEVICE_ID_RAZER_BLADE_18_2023) },
 +    { HID_USB_DEVICE(USB_VENDOR_ID_RAZER,USB_DEVICE_ID_RAZER_HUNTSMAN_V3_PRO) },
@@ -36305,6 +37120,7 @@ index 00000000..f06d5de6
 +    { HID_USB_DEVICE(USB_VENDOR_ID_RAZER,USB_DEVICE_ID_RAZER_HUNTSMAN_V3_PRO_8KHZ) },
 +    { HID_USB_DEVICE(USB_VENDOR_ID_RAZER,USB_DEVICE_ID_RAZER_BLADE_18_2024) },
 +    { HID_USB_DEVICE(USB_VENDOR_ID_RAZER,USB_DEVICE_ID_RAZER_BLADE_18_2025) },
++    { HID_USB_DEVICE(USB_VENDOR_ID_RAZER,USB_DEVICE_ID_RAZER_BLADE_18_2026) },
 +    { 0 }
 +};
 +
@@ -36327,10 +37143,10 @@ index 00000000..f06d5de6
 +module_hid_driver(razer_kbd_driver);
 diff --git a/drivers/custom/razer/driver/razerkbd_driver.h b/drivers/custom/razer/driver/razerkbd_driver.h
 new file mode 100644
-index 00000000..9518d50e
+index 00000000..410bcdf9
 --- /dev/null
 +++ b/drivers/custom/razer/driver/razerkbd_driver.h
-@@ -0,0 +1,184 @@
+@@ -0,0 +1,187 @@
 +/* SPDX-License-Identifier: GPL-2.0-or-later */
 +/*
 + * Copyright (c) 2015 Tim Theede <pez2001@voyagerproject.de>
@@ -36456,9 +37272,12 @@ index 00000000..9518d50e
 +#define USB_DEVICE_ID_RAZER_BLADE_14_2025 0x02C5
 +#define USB_DEVICE_ID_RAZER_BLADE_16_2025 0x02C6
 +#define USB_DEVICE_ID_RAZER_BLADE_18_2025 0x02C7
++#define USB_DEVICE_ID_RAZER_JORO 0x02CD
 +#define USB_DEVICE_ID_RAZER_HUNTSMAN_V3_PRO_8KHZ 0x02CF
 +#define USB_DEVICE_ID_RAZER_BLACKWIDOW_V4_TENKEYLESS_HYPERSPEED_WIRELESS 0x02D5
 +#define USB_DEVICE_ID_RAZER_BLACKWIDOW_V4_TENKEYLESS_HYPERSPEED_WIRED 0x02D7
++#define USB_DEVICE_ID_RAZER_BLADE_16_2026 0x02E0
++#define USB_DEVICE_ID_RAZER_BLADE_18_2026 0x02E1
 +#define USB_DEVICE_ID_RAZER_BLACKWIDOW_V3_TK 0x0A24
 +
 +/* Each keyboard report has 90 bytes*/
@@ -37575,10 +38394,10 @@ index 00000000..149da4e2
 +#endif
 diff --git a/drivers/custom/razer/driver/razermouse_driver.c b/drivers/custom/razer/driver/razermouse_driver.c
 new file mode 100644
-index 00000000..8aada2fc
+index 00000000..27614af9
 --- /dev/null
 +++ b/drivers/custom/razer/driver/razermouse_driver.c
-@@ -0,0 +1,8652 @@
+@@ -0,0 +1,8981 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +/*
 + * Copyright (c) 2015 Terri Cain <terri@dolphincorp.co.uk>
@@ -37630,6 +38449,8 @@ index 00000000..8aada2fc
 +    case USB_DEVICE_ID_RAZER_DEATHADDER_V2_X_HYPERSPEED:
 +    case USB_DEVICE_ID_RAZER_VIPER_V2_PRO_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_VIPER_V2_PRO_WIRED:
++    case USB_DEVICE_ID_RAZER_COBRA_HYPERSPEED_WIRELESS:
++    case USB_DEVICE_ID_RAZER_COBRA_HYPERSPEED_WIRED:
 +    case USB_DEVICE_ID_RAZER_COBRA_PRO_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_COBRA_PRO_WIRED:
 +    case USB_DEVICE_ID_RAZER_DEATHADDER_V3_PRO_WIRELESS:
@@ -37654,6 +38475,7 @@ index 00000000..8aada2fc
 +    case USB_DEVICE_ID_RAZER_DEATHADDER_V4_PRO_WIRED:
 +    case USB_DEVICE_ID_RAZER_DEATHADDER_V4_PRO_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_VIPER_V3_PRO_WIRED:
++    case USB_DEVICE_ID_RAZER_VIPER_V3_PRO_SE_WIRED:
 +    case USB_DEVICE_ID_RAZER_PRO_CLICK_V2_VERTICAL_EDITION_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_PRO_CLICK_V2_VERTICAL_EDITION_WIRED:
 +    case USB_DEVICE_ID_RAZER_PRO_CLICK_V2_WIRED:
@@ -37676,6 +38498,7 @@ index 00000000..8aada2fc
 +    case USB_DEVICE_ID_RAZER_HYPERPOLLING_WIRELESS_DONGLE:
 +    case USB_DEVICE_ID_RAZER_VIPER_V3_HYPERSPEED:
 +    case USB_DEVICE_ID_RAZER_VIPER_V3_PRO_WIRELESS:
++    case USB_DEVICE_ID_RAZER_VIPER_V3_PRO_SE_WIRELESS:
 +        return razer_get_usb_response(hdev, index, request, index, response, RAZER_VIPER_MOUSE_RECEIVER_WAIT_US);
 +        break;
 +
@@ -38271,6 +39094,14 @@ index 00000000..8aada2fc
 +        device_type = "Razer Cobra Pro (Wired)";
 +        break;
 +
++    case USB_DEVICE_ID_RAZER_COBRA_HYPERSPEED_WIRED:
++        device_type = "Razer Cobra HyperSpeed (Wired)";
++        break;
++
++    case USB_DEVICE_ID_RAZER_COBRA_HYPERSPEED_WIRELESS:
++        device_type = "Razer Cobra HyperSpeed (Wireless)";
++        break;
++
 +    case USB_DEVICE_ID_RAZER_VIPER_V3_HYPERSPEED:
 +        device_type = "Razer Viper V3 HyperSpeed";
 +        break;
@@ -38305,6 +39136,14 @@ index 00000000..8aada2fc
 +
 +    case USB_DEVICE_ID_RAZER_VIPER_V3_PRO_WIRELESS:
 +        device_type = "Razer Viper V3 Pro (Wireless)";
++        break;
++
++    case USB_DEVICE_ID_RAZER_VIPER_V3_PRO_SE_WIRED:
++        device_type = "Razer Viper V3 Pro SE (Wired)";
++        break;
++
++    case USB_DEVICE_ID_RAZER_VIPER_V3_PRO_SE_WIRELESS:
++        device_type = "Razer Viper V3 Pro SE (Wireless)";
 +        break;
 +
 +    case USB_DEVICE_ID_RAZER_NAGA_V2_PRO_WIRED:
@@ -38379,6 +39218,8 @@ index 00000000..8aada2fc
 +    case USB_DEVICE_ID_RAZER_DEATHADDER_V2_X_HYPERSPEED:
 +    case USB_DEVICE_ID_RAZER_VIPER_V2_PRO_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_VIPER_V2_PRO_WIRED:
++    case USB_DEVICE_ID_RAZER_COBRA_HYPERSPEED_WIRELESS:
++    case USB_DEVICE_ID_RAZER_COBRA_HYPERSPEED_WIRED:
 +    case USB_DEVICE_ID_RAZER_COBRA_PRO_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_COBRA_PRO_WIRED:
 +    case USB_DEVICE_ID_RAZER_DEATHADDER_V3:
@@ -38411,6 +39252,8 @@ index 00000000..8aada2fc
 +    case USB_DEVICE_ID_RAZER_DEATHADDER_V4_PRO_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_VIPER_V3_PRO_WIRED:
 +    case USB_DEVICE_ID_RAZER_VIPER_V3_PRO_WIRELESS:
++    case USB_DEVICE_ID_RAZER_VIPER_V3_PRO_SE_WIRED:
++    case USB_DEVICE_ID_RAZER_VIPER_V3_PRO_SE_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_PRO_CLICK_V2_VERTICAL_EDITION_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_PRO_CLICK_V2_VERTICAL_EDITION_WIRED:
 +    case USB_DEVICE_ID_RAZER_PRO_CLICK_V2_WIRED:
@@ -38533,6 +39376,8 @@ index 00000000..8aada2fc
 +    int err;
 +
 +    switch (device->usb_pid) {
++    case USB_DEVICE_ID_RAZER_COBRA_HYPERSPEED_WIRELESS:
++    case USB_DEVICE_ID_RAZER_COBRA_HYPERSPEED_WIRED:
 +    case USB_DEVICE_ID_RAZER_COBRA_PRO_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_COBRA_PRO_WIRED:
 +    case USB_DEVICE_ID_RAZER_BASILISK_V3_PRO_WIRED:
@@ -38554,10 +39399,14 @@ index 00000000..8aada2fc
 +
 +    case USB_DEVICE_ID_RAZER_NAGA_PRO_WIRELESS: // TODO: this is probably wrong?
 +    case USB_DEVICE_ID_RAZER_NAGA_PRO_WIRED: // TODO: this is probably wrong?
-+    case USB_DEVICE_ID_RAZER_NAGA_V2_PRO_WIRED:
-+    case USB_DEVICE_ID_RAZER_NAGA_V2_PRO_WIRELESS:
 +        request = razer_chroma_standard_matrix_effect_none();
 +        request.transaction_id.id = 0xFF;
++        break;
++
++    case USB_DEVICE_ID_RAZER_NAGA_V2_PRO_WIRED:
++    case USB_DEVICE_ID_RAZER_NAGA_V2_PRO_WIRELESS:
++        request = razer_naga_trinity_effect_none();
++        request.transaction_id.id = 0x1f;
 +        break;
 +
 +    default:
@@ -38721,6 +39570,8 @@ index 00000000..8aada2fc
 +        break;
 +
 +    case USB_DEVICE_ID_RAZER_BASILISK_V3:
++    case USB_DEVICE_ID_RAZER_COBRA_HYPERSPEED_WIRELESS:
++    case USB_DEVICE_ID_RAZER_COBRA_HYPERSPEED_WIRED:
 +    case USB_DEVICE_ID_RAZER_COBRA_PRO_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_COBRA_PRO_WIRED:
 +    case USB_DEVICE_ID_RAZER_BASILISK_V3_PRO_WIRED:
@@ -38770,6 +39621,8 @@ index 00000000..8aada2fc
 +
 +    switch (device->usb_pid) {
 +    case USB_DEVICE_ID_RAZER_BASILISK_V3:
++    case USB_DEVICE_ID_RAZER_COBRA_HYPERSPEED_WIRELESS:
++    case USB_DEVICE_ID_RAZER_COBRA_HYPERSPEED_WIRED:
 +    case USB_DEVICE_ID_RAZER_COBRA_PRO_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_COBRA_PRO_WIRED:
 +    case USB_DEVICE_ID_RAZER_BASILISK_V3_PRO_WIRED:
@@ -38812,15 +39665,21 @@ index 00000000..8aada2fc
 +    int err;
 +
 +    switch (device->usb_pid) {
-+    case USB_DEVICE_ID_RAZER_NAGA_PRO_WIRED:
-+    case USB_DEVICE_ID_RAZER_NAGA_PRO_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_NAGA_V2_PRO_WIRED:
 +    case USB_DEVICE_ID_RAZER_NAGA_V2_PRO_WIRELESS:
++        request = razer_naga_trinity_effect_spectrum();
++        request.transaction_id.id = 0x1f;
++        break;
++
++    case USB_DEVICE_ID_RAZER_NAGA_PRO_WIRED:
++    case USB_DEVICE_ID_RAZER_NAGA_PRO_WIRELESS:
 +        request = razer_chroma_mouse_extended_matrix_effect_spectrum(VARSTORE, BACKLIGHT_LED);
 +        request.transaction_id.id = 0x1f;
 +        break;
 +
 +    case USB_DEVICE_ID_RAZER_BASILISK_V3:
++    case USB_DEVICE_ID_RAZER_COBRA_HYPERSPEED_WIRELESS:
++    case USB_DEVICE_ID_RAZER_COBRA_HYPERSPEED_WIRED:
 +    case USB_DEVICE_ID_RAZER_COBRA_PRO_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_COBRA_PRO_WIRED:
 +    case USB_DEVICE_ID_RAZER_BASILISK_V3_PRO_WIRED:
@@ -38908,10 +39767,28 @@ index 00000000..8aada2fc
 +    int err;
 +
 +    switch (device->usb_pid) {
-+    case USB_DEVICE_ID_RAZER_NAGA_PRO_WIRED:
-+    case USB_DEVICE_ID_RAZER_NAGA_PRO_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_NAGA_V2_PRO_WIRED:
 +    case USB_DEVICE_ID_RAZER_NAGA_V2_PRO_WIRELESS:
++        switch(count) {
++        case 3: // Single colour mode
++            request = razer_naga_trinity_effect_breathing_single((struct razer_rgb*)&buf[0]);
++            request.transaction_id.id = 0x1f;
++            break;
++
++        case 6: // Dual colour mode
++            request = razer_naga_trinity_effect_breathing_dual((struct razer_rgb*)&buf[0], (struct razer_rgb*)&buf[3]);
++            request.transaction_id.id = 0x1f;
++            break;
++
++        default: // "Random" colour mode
++            request = razer_naga_trinity_effect_breathing_random();
++            request.transaction_id.id = 0x1f;
++            break;
++        }
++        break;
++
++    case USB_DEVICE_ID_RAZER_NAGA_PRO_WIRED:
++    case USB_DEVICE_ID_RAZER_NAGA_PRO_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_PRO_CLICK_V2_VERTICAL_EDITION_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_PRO_CLICK_V2_VERTICAL_EDITION_WIRED:
 +    case USB_DEVICE_ID_RAZER_PRO_CLICK_V2_WIRED:
@@ -39003,6 +39880,8 @@ index 00000000..8aada2fc
 +    case USB_DEVICE_ID_RAZER_DEATHADDER_V2_X_HYPERSPEED:
 +    case USB_DEVICE_ID_RAZER_VIPER_V2_PRO_WIRED:
 +    case USB_DEVICE_ID_RAZER_VIPER_V2_PRO_WIRELESS:
++    case USB_DEVICE_ID_RAZER_COBRA_HYPERSPEED_WIRELESS:
++    case USB_DEVICE_ID_RAZER_COBRA_HYPERSPEED_WIRED:
 +    case USB_DEVICE_ID_RAZER_COBRA_PRO_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_COBRA_PRO_WIRED:
 +    case USB_DEVICE_ID_RAZER_DEATHADDER_V3:
@@ -39035,6 +39914,8 @@ index 00000000..8aada2fc
 +    case USB_DEVICE_ID_RAZER_DEATHADDER_V4_PRO_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_VIPER_V3_PRO_WIRED:
 +    case USB_DEVICE_ID_RAZER_VIPER_V3_PRO_WIRELESS:
++    case USB_DEVICE_ID_RAZER_VIPER_V3_PRO_SE_WIRED:
++    case USB_DEVICE_ID_RAZER_VIPER_V3_PRO_SE_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_PRO_CLICK_V2_VERTICAL_EDITION_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_PRO_CLICK_V2_VERTICAL_EDITION_WIRED:
 +    case USB_DEVICE_ID_RAZER_PRO_CLICK_V2_WIRED:
@@ -39145,6 +40026,8 @@ index 00000000..8aada2fc
 +    case USB_DEVICE_ID_RAZER_VIPER_V2_PRO_WIRED:
 +    case USB_DEVICE_ID_RAZER_VIPER_MINI_SE_WIRED:
 +    case USB_DEVICE_ID_RAZER_VIPER_MINI_SE_WIRELESS:
++    case USB_DEVICE_ID_RAZER_COBRA_HYPERSPEED_WIRELESS:
++    case USB_DEVICE_ID_RAZER_COBRA_HYPERSPEED_WIRED:
 +    case USB_DEVICE_ID_RAZER_COBRA_PRO_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_COBRA_PRO_WIRED:
 +    case USB_DEVICE_ID_RAZER_DEATHADDER_V3_PRO_WIRELESS:
@@ -39173,6 +40056,8 @@ index 00000000..8aada2fc
 +    case USB_DEVICE_ID_RAZER_DEATHADDER_V4_PRO_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_VIPER_V3_PRO_WIRED:
 +    case USB_DEVICE_ID_RAZER_VIPER_V3_PRO_WIRELESS:
++    case USB_DEVICE_ID_RAZER_VIPER_V3_PRO_SE_WIRED:
++    case USB_DEVICE_ID_RAZER_VIPER_V3_PRO_SE_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_PRO_CLICK_V2_VERTICAL_EDITION_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_PRO_CLICK_V2_VERTICAL_EDITION_WIRED:
 +    case USB_DEVICE_ID_RAZER_PRO_CLICK_V2_WIRED:
@@ -39257,6 +40142,8 @@ index 00000000..8aada2fc
 +    case USB_DEVICE_ID_RAZER_VIPER_V2_PRO_WIRED:
 +    case USB_DEVICE_ID_RAZER_VIPER_MINI_SE_WIRED:
 +    case USB_DEVICE_ID_RAZER_VIPER_MINI_SE_WIRELESS:
++    case USB_DEVICE_ID_RAZER_COBRA_HYPERSPEED_WIRELESS:
++    case USB_DEVICE_ID_RAZER_COBRA_HYPERSPEED_WIRED:
 +    case USB_DEVICE_ID_RAZER_COBRA_PRO_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_COBRA_PRO_WIRED:
 +    case USB_DEVICE_ID_RAZER_DEATHADDER_V3_PRO_WIRELESS:
@@ -39279,6 +40166,8 @@ index 00000000..8aada2fc
 +    case USB_DEVICE_ID_RAZER_DEATHADDER_V4_PRO_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_VIPER_V3_PRO_WIRED:
 +    case USB_DEVICE_ID_RAZER_VIPER_V3_PRO_WIRELESS:
++    case USB_DEVICE_ID_RAZER_VIPER_V3_PRO_SE_WIRED:
++    case USB_DEVICE_ID_RAZER_VIPER_V3_PRO_SE_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_PRO_CLICK_V2_VERTICAL_EDITION_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_PRO_CLICK_V2_VERTICAL_EDITION_WIRED:
 +    case USB_DEVICE_ID_RAZER_PRO_CLICK_V2_WIRED:
@@ -39474,6 +40363,8 @@ index 00000000..8aada2fc
 +    case USB_DEVICE_ID_RAZER_DEATHADDER_V2_X_HYPERSPEED:
 +    case USB_DEVICE_ID_RAZER_VIPER_V2_PRO_WIRED:
 +    case USB_DEVICE_ID_RAZER_VIPER_V2_PRO_WIRELESS:
++    case USB_DEVICE_ID_RAZER_COBRA_HYPERSPEED_WIRELESS:
++    case USB_DEVICE_ID_RAZER_COBRA_HYPERSPEED_WIRED:
 +    case USB_DEVICE_ID_RAZER_COBRA_PRO_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_COBRA_PRO_WIRED:
 +    case USB_DEVICE_ID_RAZER_DEATHADDER_V3_PRO_WIRED:
@@ -39499,6 +40390,8 @@ index 00000000..8aada2fc
 +    case USB_DEVICE_ID_RAZER_BASILISK_MOBILE_RECEIVER:
 +    case USB_DEVICE_ID_RAZER_BASILISK_MOBILE_WIRED:
 +    case USB_DEVICE_ID_RAZER_VIPER_V3_PRO_WIRED:
++    case USB_DEVICE_ID_RAZER_VIPER_V3_PRO_SE_WIRED:
++    case USB_DEVICE_ID_RAZER_VIPER_V3_PRO_SE_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_PRO_CLICK_V2_VERTICAL_EDITION_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_PRO_CLICK_V2_VERTICAL_EDITION_WIRED:
 +    case USB_DEVICE_ID_RAZER_PRO_CLICK_V2_WIRED:
@@ -39687,6 +40580,8 @@ index 00000000..8aada2fc
 +    case USB_DEVICE_ID_RAZER_DEATHADDER_V2_X_HYPERSPEED:
 +    case USB_DEVICE_ID_RAZER_VIPER_V2_PRO_WIRED:
 +    case USB_DEVICE_ID_RAZER_VIPER_V2_PRO_WIRELESS:
++    case USB_DEVICE_ID_RAZER_COBRA_HYPERSPEED_WIRELESS:
++    case USB_DEVICE_ID_RAZER_COBRA_HYPERSPEED_WIRED:
 +    case USB_DEVICE_ID_RAZER_COBRA_PRO_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_COBRA_PRO_WIRED:
 +    case USB_DEVICE_ID_RAZER_DEATHADDER_V3_PRO_WIRED:
@@ -39712,6 +40607,8 @@ index 00000000..8aada2fc
 +    case USB_DEVICE_ID_RAZER_BASILISK_MOBILE_RECEIVER:
 +    case USB_DEVICE_ID_RAZER_BASILISK_MOBILE_WIRED:
 +    case USB_DEVICE_ID_RAZER_VIPER_V3_PRO_WIRED:
++    case USB_DEVICE_ID_RAZER_VIPER_V3_PRO_SE_WIRED:
++    case USB_DEVICE_ID_RAZER_VIPER_V3_PRO_SE_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_PRO_CLICK_V2_VERTICAL_EDITION_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_PRO_CLICK_V2_VERTICAL_EDITION_WIRED:
 +    case USB_DEVICE_ID_RAZER_PRO_CLICK_V2_WIRED:
@@ -39844,6 +40741,8 @@ index 00000000..8aada2fc
 +    case USB_DEVICE_ID_RAZER_NAGA_PRO_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_MAMBA_ELITE:
 +    case USB_DEVICE_ID_RAZER_BASILISK_V3:
++    case USB_DEVICE_ID_RAZER_COBRA_HYPERSPEED_WIRELESS:
++    case USB_DEVICE_ID_RAZER_COBRA_HYPERSPEED_WIRED:
 +    case USB_DEVICE_ID_RAZER_COBRA_PRO_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_COBRA_PRO_WIRED:
 +    case USB_DEVICE_ID_RAZER_BASILISK_V3_PRO_WIRED:
@@ -39912,6 +40811,8 @@ index 00000000..8aada2fc
 +    case USB_DEVICE_ID_RAZER_NAGA_PRO_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_MAMBA_ELITE:
 +    case USB_DEVICE_ID_RAZER_BASILISK_V3:
++    case USB_DEVICE_ID_RAZER_COBRA_HYPERSPEED_WIRELESS:
++    case USB_DEVICE_ID_RAZER_COBRA_HYPERSPEED_WIRED:
 +    case USB_DEVICE_ID_RAZER_COBRA_PRO_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_COBRA_PRO_WIRED:
 +    case USB_DEVICE_ID_RAZER_BASILISK_V3_PRO_WIRED:
@@ -40109,6 +41010,8 @@ index 00000000..8aada2fc
 +    case USB_DEVICE_ID_RAZER_DEATHADDER_V3:
 +    case USB_DEVICE_ID_RAZER_VIPER_MINI_SE_WIRED:
 +    case USB_DEVICE_ID_RAZER_VIPER_MINI_SE_WIRELESS:
++    case USB_DEVICE_ID_RAZER_COBRA_HYPERSPEED_WIRELESS:
++    case USB_DEVICE_ID_RAZER_COBRA_HYPERSPEED_WIRED:
 +    case USB_DEVICE_ID_RAZER_COBRA_PRO_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_COBRA_PRO_WIRED:
 +    case USB_DEVICE_ID_RAZER_DEATHADDER_V3_PRO_WIRELESS:
@@ -40138,6 +41041,8 @@ index 00000000..8aada2fc
 +    case USB_DEVICE_ID_RAZER_DEATHADDER_V4_PRO_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_VIPER_V3_PRO_WIRED:
 +    case USB_DEVICE_ID_RAZER_VIPER_V3_PRO_WIRELESS:
++    case USB_DEVICE_ID_RAZER_VIPER_V3_PRO_SE_WIRED:
++    case USB_DEVICE_ID_RAZER_VIPER_V3_PRO_SE_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_PRO_CLICK_V2_VERTICAL_EDITION_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_PRO_CLICK_V2_VERTICAL_EDITION_WIRED:
 +    case USB_DEVICE_ID_RAZER_PRO_CLICK_V2_WIRED:
@@ -40265,6 +41170,8 @@ index 00000000..8aada2fc
 +    case USB_DEVICE_ID_RAZER_DEATHADDER_V3:
 +    case USB_DEVICE_ID_RAZER_VIPER_MINI_SE_WIRED:
 +    case USB_DEVICE_ID_RAZER_VIPER_MINI_SE_WIRELESS:
++    case USB_DEVICE_ID_RAZER_COBRA_HYPERSPEED_WIRELESS:
++    case USB_DEVICE_ID_RAZER_COBRA_HYPERSPEED_WIRED:
 +    case USB_DEVICE_ID_RAZER_COBRA_PRO_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_COBRA_PRO_WIRED:
 +    case USB_DEVICE_ID_RAZER_DEATHADDER_V3_PRO_WIRELESS:
@@ -40294,6 +41201,8 @@ index 00000000..8aada2fc
 +    case USB_DEVICE_ID_RAZER_DEATHADDER_V4_PRO_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_VIPER_V3_PRO_WIRED:
 +    case USB_DEVICE_ID_RAZER_VIPER_V3_PRO_WIRELESS:
++    case USB_DEVICE_ID_RAZER_VIPER_V3_PRO_SE_WIRED:
++    case USB_DEVICE_ID_RAZER_VIPER_V3_PRO_SE_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_PRO_CLICK_V2_VERTICAL_EDITION_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_PRO_CLICK_V2_VERTICAL_EDITION_WIRED:
 +    case USB_DEVICE_ID_RAZER_PRO_CLICK_V2_WIRED:
@@ -40625,8 +41534,8 @@ index 00000000..8aada2fc
 +    }
 +
 +    active_stage = buf[0];
-+    remaining++;
 +    buf++;
++    remaining--;
 +
 +    if (active_stage < 1) {
 +        dev_err(dev, "razermouse: Invalid active DPI stage: %u < 1\n", active_stage);
@@ -40665,6 +41574,8 @@ index 00000000..8aada2fc
 +    case USB_DEVICE_ID_RAZER_DEATHADDER_V3:
 +    case USB_DEVICE_ID_RAZER_VIPER_MINI_SE_WIRED:
 +    case USB_DEVICE_ID_RAZER_VIPER_MINI_SE_WIRELESS:
++    case USB_DEVICE_ID_RAZER_COBRA_HYPERSPEED_WIRELESS:
++    case USB_DEVICE_ID_RAZER_COBRA_HYPERSPEED_WIRED:
 +    case USB_DEVICE_ID_RAZER_COBRA_PRO_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_COBRA_PRO_WIRED:
 +    case USB_DEVICE_ID_RAZER_DEATHADDER_V3_PRO_WIRELESS:
@@ -40693,6 +41604,8 @@ index 00000000..8aada2fc
 +    case USB_DEVICE_ID_RAZER_DEATHADDER_V4_PRO_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_VIPER_V3_PRO_WIRED:
 +    case USB_DEVICE_ID_RAZER_VIPER_V3_PRO_WIRELESS:
++    case USB_DEVICE_ID_RAZER_VIPER_V3_PRO_SE_WIRED:
++    case USB_DEVICE_ID_RAZER_VIPER_V3_PRO_SE_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_PRO_CLICK_V2_VERTICAL_EDITION_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_PRO_CLICK_V2_VERTICAL_EDITION_WIRED:
 +    case USB_DEVICE_ID_RAZER_PRO_CLICK_V2_WIRED:
@@ -40780,6 +41693,8 @@ index 00000000..8aada2fc
 +    case USB_DEVICE_ID_RAZER_DEATHADDER_V3:
 +    case USB_DEVICE_ID_RAZER_VIPER_MINI_SE_WIRED:
 +    case USB_DEVICE_ID_RAZER_VIPER_MINI_SE_WIRELESS:
++    case USB_DEVICE_ID_RAZER_COBRA_HYPERSPEED_WIRELESS:
++    case USB_DEVICE_ID_RAZER_COBRA_HYPERSPEED_WIRED:
 +    case USB_DEVICE_ID_RAZER_COBRA_PRO_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_COBRA_PRO_WIRED:
 +    case USB_DEVICE_ID_RAZER_DEATHADDER_V3_PRO_WIRELESS:
@@ -40808,6 +41723,8 @@ index 00000000..8aada2fc
 +    case USB_DEVICE_ID_RAZER_DEATHADDER_V4_PRO_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_VIPER_V3_PRO_WIRED:
 +    case USB_DEVICE_ID_RAZER_VIPER_V3_PRO_WIRELESS:
++    case USB_DEVICE_ID_RAZER_VIPER_V3_PRO_SE_WIRED:
++    case USB_DEVICE_ID_RAZER_VIPER_V3_PRO_SE_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_PRO_CLICK_V2_VERTICAL_EDITION_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_PRO_CLICK_V2_VERTICAL_EDITION_WIRED:
 +    case USB_DEVICE_ID_RAZER_PRO_CLICK_V2_WIRED:
@@ -40908,6 +41825,8 @@ index 00000000..8aada2fc
 +    case USB_DEVICE_ID_RAZER_VIPER_V2_PRO_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_VIPER_MINI_SE_WIRED:
 +    case USB_DEVICE_ID_RAZER_VIPER_MINI_SE_WIRELESS:
++    case USB_DEVICE_ID_RAZER_COBRA_HYPERSPEED_WIRELESS:
++    case USB_DEVICE_ID_RAZER_COBRA_HYPERSPEED_WIRED:
 +    case USB_DEVICE_ID_RAZER_COBRA_PRO_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_COBRA_PRO_WIRED:
 +    case USB_DEVICE_ID_RAZER_DEATHADDER_V3_PRO_WIRED:
@@ -40935,6 +41854,8 @@ index 00000000..8aada2fc
 +    case USB_DEVICE_ID_RAZER_DEATHADDER_V4_PRO_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_VIPER_V3_PRO_WIRED:
 +    case USB_DEVICE_ID_RAZER_VIPER_V3_PRO_WIRELESS:
++    case USB_DEVICE_ID_RAZER_VIPER_V3_PRO_SE_WIRED:
++    case USB_DEVICE_ID_RAZER_VIPER_V3_PRO_SE_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_PRO_CLICK_V2_VERTICAL_EDITION_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_PRO_CLICK_V2_VERTICAL_EDITION_WIRED:
 +    case USB_DEVICE_ID_RAZER_PRO_CLICK_V2_WIRED:
@@ -41012,6 +41933,8 @@ index 00000000..8aada2fc
 +    case USB_DEVICE_ID_RAZER_VIPER_V2_PRO_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_VIPER_MINI_SE_WIRED:
 +    case USB_DEVICE_ID_RAZER_VIPER_MINI_SE_WIRELESS:
++    case USB_DEVICE_ID_RAZER_COBRA_HYPERSPEED_WIRELESS:
++    case USB_DEVICE_ID_RAZER_COBRA_HYPERSPEED_WIRED:
 +    case USB_DEVICE_ID_RAZER_COBRA_PRO_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_COBRA_PRO_WIRED:
 +    case USB_DEVICE_ID_RAZER_DEATHADDER_V3_PRO_WIRED:
@@ -41039,6 +41962,8 @@ index 00000000..8aada2fc
 +    case USB_DEVICE_ID_RAZER_DEATHADDER_V4_PRO_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_VIPER_V3_PRO_WIRED:
 +    case USB_DEVICE_ID_RAZER_VIPER_V3_PRO_WIRELESS:
++    case USB_DEVICE_ID_RAZER_VIPER_V3_PRO_SE_WIRED:
++    case USB_DEVICE_ID_RAZER_VIPER_V3_PRO_SE_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_PRO_CLICK_V2_VERTICAL_EDITION_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_PRO_CLICK_V2_VERTICAL_EDITION_WIRED:
 +    case USB_DEVICE_ID_RAZER_PRO_CLICK_V2_WIRED:
@@ -41113,6 +42038,7 @@ index 00000000..8aada2fc
 +    case USB_DEVICE_ID_RAZER_BASILISK_V3_X_HYPERSPEED:
 +    case USB_DEVICE_ID_RAZER_BASILISK_MOBILE_RECEIVER:
 +    case USB_DEVICE_ID_RAZER_BASILISK_MOBILE_WIRED:
++    case USB_DEVICE_ID_RAZER_COBRA_HYPERSPEED_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_DEATHADDER_V3_PRO_WIRED:
 +    case USB_DEVICE_ID_RAZER_DEATHADDER_V3_PRO_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_DEATHADDER_V3_PRO_WIRED_ALT:
@@ -41123,6 +42049,8 @@ index 00000000..8aada2fc
 +    case USB_DEVICE_ID_RAZER_DEATHADDER_V4_PRO_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_VIPER_V3_PRO_WIRED:
 +    case USB_DEVICE_ID_RAZER_VIPER_V3_PRO_WIRELESS:
++    case USB_DEVICE_ID_RAZER_VIPER_V3_PRO_SE_WIRED:
++    case USB_DEVICE_ID_RAZER_VIPER_V3_PRO_SE_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_PRO_CLICK_V2_VERTICAL_EDITION_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_PRO_CLICK_V2_VERTICAL_EDITION_WIRED:
 +    case USB_DEVICE_ID_RAZER_PRO_CLICK_V2_WIRED:
@@ -41162,6 +42090,7 @@ index 00000000..8aada2fc
 +    case USB_DEVICE_ID_RAZER_VIPER_V2_PRO_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_BASILISK_V3_PRO_WIRED:
 +    case USB_DEVICE_ID_RAZER_BASILISK_V3_PRO_WIRELESS:
++    case USB_DEVICE_ID_RAZER_COBRA_HYPERSPEED_WIRED:
 +    case USB_DEVICE_ID_RAZER_COBRA_PRO_WIRED:
 +    case USB_DEVICE_ID_RAZER_COBRA_PRO_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_HYPERPOLLING_WIRELESS_DONGLE:
@@ -41215,6 +42144,7 @@ index 00000000..8aada2fc
 +    case USB_DEVICE_ID_RAZER_BASILISK_V3_X_HYPERSPEED:
 +    case USB_DEVICE_ID_RAZER_BASILISK_MOBILE_RECEIVER:
 +    case USB_DEVICE_ID_RAZER_BASILISK_MOBILE_WIRED:
++    case USB_DEVICE_ID_RAZER_COBRA_HYPERSPEED_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_DEATHADDER_V3_PRO_WIRED:
 +    case USB_DEVICE_ID_RAZER_DEATHADDER_V3_PRO_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_DEATHADDER_V3_PRO_WIRED_ALT:
@@ -41225,6 +42155,8 @@ index 00000000..8aada2fc
 +    case USB_DEVICE_ID_RAZER_DEATHADDER_V4_PRO_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_VIPER_V3_PRO_WIRED:
 +    case USB_DEVICE_ID_RAZER_VIPER_V3_PRO_WIRELESS:
++    case USB_DEVICE_ID_RAZER_VIPER_V3_PRO_SE_WIRED:
++    case USB_DEVICE_ID_RAZER_VIPER_V3_PRO_SE_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_PRO_CLICK_V2_VERTICAL_EDITION_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_PRO_CLICK_V2_VERTICAL_EDITION_WIRED:
 +    case USB_DEVICE_ID_RAZER_PRO_CLICK_V2_WIRED:
@@ -41264,6 +42196,7 @@ index 00000000..8aada2fc
 +    case USB_DEVICE_ID_RAZER_VIPER_V2_PRO_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_BASILISK_V3_PRO_WIRED:
 +    case USB_DEVICE_ID_RAZER_BASILISK_V3_PRO_WIRELESS:
++    case USB_DEVICE_ID_RAZER_COBRA_HYPERSPEED_WIRED:
 +    case USB_DEVICE_ID_RAZER_COBRA_PRO_WIRED:
 +    case USB_DEVICE_ID_RAZER_COBRA_PRO_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_HYPERPOLLING_WIRELESS_DONGLE:
@@ -41466,6 +42399,8 @@ index 00000000..8aada2fc
 +    case USB_DEVICE_ID_RAZER_DEATHADDER_V2_X_HYPERSPEED:
 +    case USB_DEVICE_ID_RAZER_VIPER_V2_PRO_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_VIPER_V2_PRO_WIRED:
++    case USB_DEVICE_ID_RAZER_COBRA_HYPERSPEED_WIRELESS:
++    case USB_DEVICE_ID_RAZER_COBRA_HYPERSPEED_WIRED:
 +    case USB_DEVICE_ID_RAZER_COBRA_PRO_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_COBRA_PRO_WIRED:
 +    case USB_DEVICE_ID_RAZER_DEATHADDER_V3:
@@ -41497,6 +42432,8 @@ index 00000000..8aada2fc
 +    case USB_DEVICE_ID_RAZER_DEATHADDER_V4_PRO_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_VIPER_V3_PRO_WIRED:
 +    case USB_DEVICE_ID_RAZER_VIPER_V3_PRO_WIRELESS:
++    case USB_DEVICE_ID_RAZER_VIPER_V3_PRO_SE_WIRED:
++    case USB_DEVICE_ID_RAZER_VIPER_V3_PRO_SE_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_PRO_CLICK_V2_VERTICAL_EDITION_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_PRO_CLICK_V2_VERTICAL_EDITION_WIRED:
 +    case USB_DEVICE_ID_RAZER_PRO_CLICK_V2_WIRED:
@@ -41635,6 +42572,8 @@ index 00000000..8aada2fc
 +    case USB_DEVICE_ID_RAZER_PRO_CLICK_WIRED:
 +    case USB_DEVICE_ID_RAZER_VIPER_V2_PRO_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_VIPER_V2_PRO_WIRED:
++    case USB_DEVICE_ID_RAZER_COBRA_HYPERSPEED_WIRELESS:
++    case USB_DEVICE_ID_RAZER_COBRA_HYPERSPEED_WIRED:
 +    case USB_DEVICE_ID_RAZER_COBRA_PRO_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_COBRA_PRO_WIRED:
 +    case USB_DEVICE_ID_RAZER_DEATHADDER_V3:
@@ -41666,6 +42605,8 @@ index 00000000..8aada2fc
 +    case USB_DEVICE_ID_RAZER_DEATHADDER_V4_PRO_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_VIPER_V3_PRO_WIRED:
 +    case USB_DEVICE_ID_RAZER_VIPER_V3_PRO_WIRELESS:
++    case USB_DEVICE_ID_RAZER_VIPER_V3_PRO_SE_WIRED:
++    case USB_DEVICE_ID_RAZER_VIPER_V3_PRO_SE_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_PRO_CLICK_V2_VERTICAL_EDITION_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_PRO_CLICK_V2_VERTICAL_EDITION_WIRED:
 +    case USB_DEVICE_ID_RAZER_PRO_CLICK_V2_WIRED:
@@ -41762,6 +42703,8 @@ index 00000000..8aada2fc
 +    case USB_DEVICE_ID_RAZER_BASILISK_V2:
 +    case USB_DEVICE_ID_RAZER_BASILISK_V3:
 +    case USB_DEVICE_ID_RAZER_COBRA:
++    case USB_DEVICE_ID_RAZER_COBRA_HYPERSPEED_WIRELESS:
++    case USB_DEVICE_ID_RAZER_COBRA_HYPERSPEED_WIRED:
 +    case USB_DEVICE_ID_RAZER_COBRA_PRO_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_COBRA_PRO_WIRED:
 +    case USB_DEVICE_ID_RAZER_BASILISK_V3_PRO_WIRED:
@@ -41872,6 +42815,8 @@ index 00000000..8aada2fc
 +    case USB_DEVICE_ID_RAZER_BASILISK_V2:
 +    case USB_DEVICE_ID_RAZER_BASILISK_V3:
 +    case USB_DEVICE_ID_RAZER_COBRA:
++    case USB_DEVICE_ID_RAZER_COBRA_HYPERSPEED_WIRELESS:
++    case USB_DEVICE_ID_RAZER_COBRA_HYPERSPEED_WIRED:
 +    case USB_DEVICE_ID_RAZER_COBRA_PRO_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_COBRA_PRO_WIRED:
 +    case USB_DEVICE_ID_RAZER_BASILISK_V3_PRO_WIRED:
@@ -42061,6 +43006,8 @@ index 00000000..8aada2fc
 +    case USB_DEVICE_ID_RAZER_NAGA_PRO_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_MAMBA_ELITE:
 +    case USB_DEVICE_ID_RAZER_BASILISK_V3:
++    case USB_DEVICE_ID_RAZER_COBRA_HYPERSPEED_WIRELESS:
++    case USB_DEVICE_ID_RAZER_COBRA_HYPERSPEED_WIRED:
 +    case USB_DEVICE_ID_RAZER_COBRA_PRO_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_COBRA_PRO_WIRED:
 +    case USB_DEVICE_ID_RAZER_BASILISK_V3_PRO_WIRED:
@@ -42182,6 +43129,8 @@ index 00000000..8aada2fc
 +    case USB_DEVICE_ID_RAZER_BASILISK_V2:
 +    case USB_DEVICE_ID_RAZER_BASILISK_V3:
 +    case USB_DEVICE_ID_RAZER_COBRA:
++    case USB_DEVICE_ID_RAZER_COBRA_HYPERSPEED_WIRELESS:
++    case USB_DEVICE_ID_RAZER_COBRA_HYPERSPEED_WIRED:
 +    case USB_DEVICE_ID_RAZER_COBRA_PRO_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_COBRA_PRO_WIRED:
 +    case USB_DEVICE_ID_RAZER_BASILISK_V3_PRO_WIRED:
@@ -42651,6 +43600,8 @@ index 00000000..8aada2fc
 +    case USB_DEVICE_ID_RAZER_BASILISK_ULTIMATE_WIRED:
 +    case USB_DEVICE_ID_RAZER_BASILISK_V2:
 +    case USB_DEVICE_ID_RAZER_BASILISK_V3:
++    case USB_DEVICE_ID_RAZER_COBRA_HYPERSPEED_WIRELESS:
++    case USB_DEVICE_ID_RAZER_COBRA_HYPERSPEED_WIRED:
 +    case USB_DEVICE_ID_RAZER_COBRA_PRO_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_COBRA_PRO_WIRED:
 +    case USB_DEVICE_ID_RAZER_BASILISK_V3_PRO_WIRED:
@@ -42867,6 +43818,8 @@ index 00000000..8aada2fc
 +    case USB_DEVICE_ID_RAZER_BASILISK_ULTIMATE_RECEIVER:
 +    case USB_DEVICE_ID_RAZER_BASILISK_ULTIMATE_WIRED:
 +    case USB_DEVICE_ID_RAZER_BASILISK_V2:
++    case USB_DEVICE_ID_RAZER_COBRA_HYPERSPEED_WIRELESS:
++    case USB_DEVICE_ID_RAZER_COBRA_HYPERSPEED_WIRED:
 +    case USB_DEVICE_ID_RAZER_COBRA_PRO_WIRELESS:
 +    case USB_DEVICE_ID_RAZER_COBRA_PRO_WIRED:
 +    case USB_DEVICE_ID_RAZER_BASILISK_V3_PRO_WIRED:
@@ -43237,6 +44190,40 @@ index 00000000..8aada2fc
 +}
 +
 +/**
++ * Read device file "hyperpolling_wireless_dongle_indicator_led_mode"
++ */
++static ssize_t razer_attr_read_hyperpolling_wireless_dongle_indicator_led_mode(struct device *dev, struct device_attribute *attr, char *buf)
++{
++    struct razer_mouse_device *device = dev_get_drvdata(dev);
++    struct razer_report request = {0};
++    struct razer_report response = {0};
++    int err;
++
++    request = razer_chroma_misc_get_hyperpolling_wireless_dongle_indicator_led_mode();
++
++    switch (device->usb_pid) {
++    case USB_DEVICE_ID_RAZER_VIPER_MINI_SE_WIRELESS:
++        request.transaction_id.id = 0x1F;
++        break;
++
++    case USB_DEVICE_ID_RAZER_VIPER_V3_PRO_WIRELESS:
++    case USB_DEVICE_ID_RAZER_HYPERPOLLING_WIRELESS_DONGLE:
++        request.transaction_id.id = 0xFF;
++        break;
++
++    default:
++        dev_warn(dev, "razermouse: hyperpolling_wireless_dongle_indicator_led_mode read not supported for this model\n");
++        return -EINVAL;
++    }
++
++    err = razer_send_payload(device, &request, &response);
++    if (err)
++        return err;
++
++    return sysfs_emit(buf, "%d\n", response.arguments[0]);
++}
++
++/**
 + * Write device file "hyperpolling_wireless_dongle_indicator_led_mode"
 + */
 +static ssize_t razer_attr_write_hyperpolling_wireless_dongle_indicator_led_mode(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
@@ -43265,6 +44252,87 @@ index 00000000..8aada2fc
 +
 +    default:
 +        dev_warn(dev, "razermouse: hyperpolling_wireless_dongle_indicator_led_mode not supported for this model\n");
++        return -EINVAL;
++    }
++
++    err = razer_send_payload(device, &request, &response);
++    if (err)
++        return err;
++
++    return count;
++}
++
++/**
++ * Read device file "hyperpolling_wireless_dongle_multi_indicator_led_modes"
++ *
++ * Returns the LED modes for the wireless dongle indicator LEDs as 3 bytes
++ */
++static ssize_t razer_attr_read_hyperpolling_wireless_dongle_multi_indicator_led_modes(struct device *dev, struct device_attribute *attr, char *buf)
++{
++    struct razer_mouse_device *device = dev_get_drvdata(dev);
++    struct razer_report request = {0};
++    struct razer_report response = {0};
++    int err;
++
++    request = razer_chroma_misc_get_hyperpolling_wireless_dongle_multi_indicator_led_modes();
++
++    switch (device->usb_pid) {
++    case USB_DEVICE_ID_RAZER_DEATHADDER_V4_PRO_WIRED:
++    case USB_DEVICE_ID_RAZER_DEATHADDER_V4_PRO_WIRELESS:
++        request.transaction_id.id = 0x1F;
++        break;
++
++    default:
++        dev_warn(dev, "razermouse: hyperpolling_wireless_dongle_multi_indicator_led_modes read not supported for this model\n");
++        return -EINVAL;
++    }
++
++    err = razer_send_payload(device, &request, &response);
++    if (err)
++        return err;
++
++    buf[0] = response.arguments[0];
++    buf[1] = response.arguments[1];
++    buf[2] = response.arguments[2];
++
++    return 3;
++}
++
++/**
++ * Write device file "hyperpolling_wireless_dongle_multi_indicator_led_modes"
++ *
++ * Sets the LED modes for the wireless dongle indicator LEDs by writing 3 bytes
++ */
++static ssize_t razer_attr_write_hyperpolling_wireless_dongle_multi_indicator_led_modes(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
++{
++    struct razer_mouse_device *device = dev_get_drvdata(dev);
++    struct razer_report request = {0};
++    struct razer_report response = {0};
++    int err;
++    int i;
++
++    if (count != 3) {
++        dev_warn(dev, "razermouse: hyperpolling_wireless_dongle_multi_indicator_led_modes requires 3 bytes (mode1, mode2, mode3)\n");
++        return -EINVAL;
++    }
++
++    for (i = 0; i < 3; i++) {
++        if (buf[i] > 0x04) {
++            dev_warn(dev, "razermouse: hyperpolling_wireless_dongle_multi_indicator_led_modes mode %d (%d) out of range\n", i + 1, buf[i]);
++            return -EINVAL;
++        }
++    }
++
++    request = razer_chroma_misc_set_hyperpolling_wireless_dongle_multi_indicator_led_modes(buf[0], buf[1], buf[2]);
++
++    switch (device->usb_pid) {
++    case USB_DEVICE_ID_RAZER_DEATHADDER_V4_PRO_WIRED:
++    case USB_DEVICE_ID_RAZER_DEATHADDER_V4_PRO_WIRELESS:
++        request.transaction_id.id = 0x1F;
++        break;
++
++    default:
++        dev_warn(dev, "razermouse: hyperpolling_wireless_dongle_multi_indicator_led_modes not supported for this model\n");
 +        return -EINVAL;
 +    }
 +
@@ -43431,9 +44499,11 @@ index 00000000..8aada2fc
 +static DEVICE_ATTR(backlight_matrix_effect_on,          0220, NULL,                         razer_attr_write_backlight_matrix_effect_on);
 +
 +// For HyperPolling Wireless Dongle
-+static DEVICE_ATTR(hyperpolling_wireless_dongle_indicator_led_mode,             0220, NULL, razer_attr_write_hyperpolling_wireless_dongle_indicator_led_mode);
++static DEVICE_ATTR(hyperpolling_wireless_dongle_indicator_led_mode,             0660, razer_attr_read_hyperpolling_wireless_dongle_indicator_led_mode, razer_attr_write_hyperpolling_wireless_dongle_indicator_led_mode);
 +static DEVICE_ATTR(hyperpolling_wireless_dongle_pair,                           0220, NULL, razer_attr_write_hyperpolling_wireless_dongle_pair);
 +static DEVICE_ATTR(hyperpolling_wireless_dongle_unpair,                         0220, NULL, razer_attr_write_hyperpolling_wireless_dongle_unpair);
++static DEVICE_ATTR(hyperpolling_wireless_dongle_multi_indicator_led_modes,      0660, razer_attr_read_hyperpolling_wireless_dongle_multi_indicator_led_modes, razer_attr_write_hyperpolling_wireless_dongle_multi_indicator_led_modes);
++
 +
 +#define REP4_DPI_UP  0x20
 +#define REP4_DPI_DN  0x21
@@ -44777,6 +45847,30 @@ index 00000000..8aada2fc
 +            CREATE_DEVICE_FILE(&hdev->dev, &dev_attr_device_idle_time);
 +            break;
 +
++        case USB_DEVICE_ID_RAZER_COBRA_HYPERSPEED_WIRELESS:
++        case USB_DEVICE_ID_RAZER_COBRA_HYPERSPEED_WIRED:
++            CREATE_DEVICE_FILE(&hdev->dev, &dev_attr_poll_rate);
++            CREATE_DEVICE_FILE(&hdev->dev, &dev_attr_dpi);
++            CREATE_DEVICE_FILE(&hdev->dev, &dev_attr_dpi_stages);
++
++            CREATE_DEVICE_FILE(&hdev->dev, &dev_attr_logo_led_brightness);
++            CREATE_DEVICE_FILE(&hdev->dev, &dev_attr_logo_matrix_effect_wave);
++            CREATE_DEVICE_FILE(&hdev->dev, &dev_attr_logo_matrix_effect_spectrum);
++            CREATE_DEVICE_FILE(&hdev->dev, &dev_attr_logo_matrix_effect_static);
++            CREATE_DEVICE_FILE(&hdev->dev, &dev_attr_logo_matrix_effect_none);
++
++            CREATE_DEVICE_FILE(&hdev->dev, &dev_attr_matrix_brightness);
++            CREATE_DEVICE_FILE(&hdev->dev, &dev_attr_matrix_effect_wave);
++            CREATE_DEVICE_FILE(&hdev->dev, &dev_attr_matrix_effect_spectrum);
++            CREATE_DEVICE_FILE(&hdev->dev, &dev_attr_matrix_effect_static);
++            CREATE_DEVICE_FILE(&hdev->dev, &dev_attr_matrix_effect_none);
++
++            CREATE_DEVICE_FILE(&hdev->dev, &dev_attr_charge_level);
++            CREATE_DEVICE_FILE(&hdev->dev, &dev_attr_charge_status);
++            CREATE_DEVICE_FILE(&hdev->dev, &dev_attr_charge_low_threshold);
++            CREATE_DEVICE_FILE(&hdev->dev, &dev_attr_device_idle_time);
++            break;
++
 +        case USB_DEVICE_ID_RAZER_VIPER_V3_PRO_WIRELESS:
 +            CREATE_DEVICE_FILE(&hdev->dev, &dev_attr_hyperpolling_wireless_dongle_indicator_led_mode);
 +            fallthrough;
@@ -44796,10 +45890,23 @@ index 00000000..8aada2fc
 +        case USB_DEVICE_ID_RAZER_DEATHADDER_V3_HYPERSPEED_WIRED:
 +        case USB_DEVICE_ID_RAZER_DEATHADDER_V3_HYPERSPEED_WIRELESS:
 +        case USB_DEVICE_ID_RAZER_PRO_CLICK_MINI_RECEIVER:
-+        case USB_DEVICE_ID_RAZER_DEATHADDER_V4_PRO_WIRED:
-+        case USB_DEVICE_ID_RAZER_DEATHADDER_V4_PRO_WIRELESS:
 +        case USB_DEVICE_ID_RAZER_VIPER_V3_HYPERSPEED:
 +        case USB_DEVICE_ID_RAZER_VIPER_V3_PRO_WIRED:
++        case USB_DEVICE_ID_RAZER_VIPER_V3_PRO_SE_WIRED:
++        case USB_DEVICE_ID_RAZER_VIPER_V3_PRO_SE_WIRELESS:
++            CREATE_DEVICE_FILE(&hdev->dev, &dev_attr_poll_rate);
++            CREATE_DEVICE_FILE(&hdev->dev, &dev_attr_dpi);
++            CREATE_DEVICE_FILE(&hdev->dev, &dev_attr_dpi_stages);
++            CREATE_DEVICE_FILE(&hdev->dev, &dev_attr_charge_level);
++            CREATE_DEVICE_FILE(&hdev->dev, &dev_attr_charge_status);
++            CREATE_DEVICE_FILE(&hdev->dev, &dev_attr_charge_low_threshold);
++            CREATE_DEVICE_FILE(&hdev->dev, &dev_attr_device_idle_time);
++            break;
++
++        case USB_DEVICE_ID_RAZER_DEATHADDER_V4_PRO_WIRELESS:
++            CREATE_DEVICE_FILE(&hdev->dev, &dev_attr_hyperpolling_wireless_dongle_multi_indicator_led_modes);
++            fallthrough;
++        case USB_DEVICE_ID_RAZER_DEATHADDER_V4_PRO_WIRED:
 +            CREATE_DEVICE_FILE(&hdev->dev, &dev_attr_poll_rate);
 +            CREATE_DEVICE_FILE(&hdev->dev, &dev_attr_dpi);
 +            CREATE_DEVICE_FILE(&hdev->dev, &dev_attr_dpi_stages);
@@ -45202,6 +46309,30 @@ index 00000000..8aada2fc
 +            device_remove_file(&hdev->dev, &dev_attr_scroll_matrix_effect_spectrum);
 +            device_remove_file(&hdev->dev, &dev_attr_scroll_matrix_effect_static);
 +            device_remove_file(&hdev->dev, &dev_attr_scroll_matrix_effect_none);
++
++            device_remove_file(&hdev->dev, &dev_attr_matrix_brightness);
++            device_remove_file(&hdev->dev, &dev_attr_matrix_effect_wave);
++            device_remove_file(&hdev->dev, &dev_attr_matrix_effect_spectrum);
++            device_remove_file(&hdev->dev, &dev_attr_matrix_effect_static);
++            device_remove_file(&hdev->dev, &dev_attr_matrix_effect_none);
++
++            device_remove_file(&hdev->dev, &dev_attr_charge_level);
++            device_remove_file(&hdev->dev, &dev_attr_charge_status);
++            device_remove_file(&hdev->dev, &dev_attr_charge_low_threshold);
++            device_remove_file(&hdev->dev, &dev_attr_device_idle_time);
++            break;
++
++        case USB_DEVICE_ID_RAZER_COBRA_HYPERSPEED_WIRELESS:
++        case USB_DEVICE_ID_RAZER_COBRA_HYPERSPEED_WIRED:
++            device_remove_file(&hdev->dev, &dev_attr_poll_rate);
++            device_remove_file(&hdev->dev, &dev_attr_dpi);
++            device_remove_file(&hdev->dev, &dev_attr_dpi_stages);
++
++            device_remove_file(&hdev->dev, &dev_attr_logo_led_brightness);
++            device_remove_file(&hdev->dev, &dev_attr_logo_matrix_effect_wave);
++            device_remove_file(&hdev->dev, &dev_attr_logo_matrix_effect_spectrum);
++            device_remove_file(&hdev->dev, &dev_attr_logo_matrix_effect_static);
++            device_remove_file(&hdev->dev, &dev_attr_logo_matrix_effect_none);
 +
 +            device_remove_file(&hdev->dev, &dev_attr_matrix_brightness);
 +            device_remove_file(&hdev->dev, &dev_attr_matrix_effect_wave);
@@ -45907,10 +47038,23 @@ index 00000000..8aada2fc
 +        case USB_DEVICE_ID_RAZER_DEATHADDER_V3_HYPERSPEED_WIRED:
 +        case USB_DEVICE_ID_RAZER_DEATHADDER_V3_HYPERSPEED_WIRELESS:
 +        case USB_DEVICE_ID_RAZER_PRO_CLICK_MINI_RECEIVER:
-+        case USB_DEVICE_ID_RAZER_DEATHADDER_V4_PRO_WIRED:
-+        case USB_DEVICE_ID_RAZER_DEATHADDER_V4_PRO_WIRELESS:
 +        case USB_DEVICE_ID_RAZER_VIPER_V3_HYPERSPEED:
 +        case USB_DEVICE_ID_RAZER_VIPER_V3_PRO_WIRED:
++        case USB_DEVICE_ID_RAZER_VIPER_V3_PRO_SE_WIRED:
++        case USB_DEVICE_ID_RAZER_VIPER_V3_PRO_SE_WIRELESS:
++            device_remove_file(&hdev->dev, &dev_attr_poll_rate);
++            device_remove_file(&hdev->dev, &dev_attr_dpi);
++            device_remove_file(&hdev->dev, &dev_attr_dpi_stages);
++            device_remove_file(&hdev->dev, &dev_attr_charge_level);
++            device_remove_file(&hdev->dev, &dev_attr_charge_status);
++            device_remove_file(&hdev->dev, &dev_attr_charge_low_threshold);
++            device_remove_file(&hdev->dev, &dev_attr_device_idle_time);
++            break;
++
++        case USB_DEVICE_ID_RAZER_DEATHADDER_V4_PRO_WIRELESS:
++            device_remove_file(&hdev->dev, &dev_attr_hyperpolling_wireless_dongle_multi_indicator_led_modes);
++            fallthrough;
++        case USB_DEVICE_ID_RAZER_DEATHADDER_V4_PRO_WIRED:
 +            device_remove_file(&hdev->dev, &dev_attr_poll_rate);
 +            device_remove_file(&hdev->dev, &dev_attr_dpi);
 +            device_remove_file(&hdev->dev, &dev_attr_dpi_stages);
@@ -46177,6 +47321,8 @@ index 00000000..8aada2fc
 +    { HID_USB_DEVICE(USB_VENDOR_ID_RAZER,USB_DEVICE_ID_RAZER_PRO_CLICK_WIRED) },
 +    { HID_USB_DEVICE(USB_VENDOR_ID_RAZER,USB_DEVICE_ID_RAZER_VIPER_V2_PRO_WIRED) },
 +    { HID_USB_DEVICE(USB_VENDOR_ID_RAZER,USB_DEVICE_ID_RAZER_VIPER_V2_PRO_WIRELESS) },
++    { HID_USB_DEVICE(USB_VENDOR_ID_RAZER,USB_DEVICE_ID_RAZER_COBRA_HYPERSPEED_WIRELESS) },
++    { HID_USB_DEVICE(USB_VENDOR_ID_RAZER,USB_DEVICE_ID_RAZER_COBRA_HYPERSPEED_WIRED) },
 +    { HID_USB_DEVICE(USB_VENDOR_ID_RAZER,USB_DEVICE_ID_RAZER_COBRA_PRO_WIRED) },
 +    { HID_USB_DEVICE(USB_VENDOR_ID_RAZER,USB_DEVICE_ID_RAZER_COBRA_PRO_WIRELESS) },
 +    { HID_USB_DEVICE(USB_VENDOR_ID_RAZER,USB_DEVICE_ID_RAZER_DEATHADDER_V3) },
@@ -46206,6 +47352,8 @@ index 00000000..8aada2fc
 +    { HID_USB_DEVICE(USB_VENDOR_ID_RAZER,USB_DEVICE_ID_RAZER_DEATHADDER_V4_PRO_WIRELESS) },
 +    { HID_USB_DEVICE(USB_VENDOR_ID_RAZER,USB_DEVICE_ID_RAZER_VIPER_V3_PRO_WIRED) },
 +    { HID_USB_DEVICE(USB_VENDOR_ID_RAZER,USB_DEVICE_ID_RAZER_VIPER_V3_PRO_WIRELESS) },
++    { HID_USB_DEVICE(USB_VENDOR_ID_RAZER,USB_DEVICE_ID_RAZER_VIPER_V3_PRO_SE_WIRED) },
++    { HID_USB_DEVICE(USB_VENDOR_ID_RAZER,USB_DEVICE_ID_RAZER_VIPER_V3_PRO_SE_WIRELESS) },
 +    { HID_USB_DEVICE(USB_VENDOR_ID_RAZER,USB_DEVICE_ID_RAZER_NAGA_EPIC) },
 +    { HID_USB_DEVICE(USB_VENDOR_ID_RAZER,USB_DEVICE_ID_RAZER_PRO_CLICK_V2_VERTICAL_EDITION_WIRELESS) },
 +    { HID_USB_DEVICE(USB_VENDOR_ID_RAZER,USB_DEVICE_ID_RAZER_PRO_CLICK_V2_VERTICAL_EDITION_WIRED) },
@@ -46233,10 +47381,10 @@ index 00000000..8aada2fc
 +module_hid_driver(razer_mouse_driver);
 diff --git a/drivers/custom/razer/driver/razermouse_driver.h b/drivers/custom/razer/driver/razermouse_driver.h
 new file mode 100644
-index 00000000..53638cb0
+index 00000000..e108a7c0
 --- /dev/null
 +++ b/drivers/custom/razer/driver/razermouse_driver.h
-@@ -0,0 +1,184 @@
+@@ -0,0 +1,188 @@
 +/* SPDX-License-Identifier: GPL-2.0-or-later */
 +/*
 + * Copyright (c) 2015 Terri Cain <terri@dolphincorp.co.uk>
@@ -46358,6 +47506,10 @@ index 00000000..53638cb0
 +#define USB_DEVICE_ID_RAZER_BASILISK_MOBILE_RECEIVER 0x00D4
 +#define USB_DEVICE_ID_RAZER_BASILISK_V3_PRO_35K_PHANTOM_GREEN_EDITION_WIRED 0x00D6
 +#define USB_DEVICE_ID_RAZER_BASILISK_V3_PRO_35K_PHANTOM_GREEN_EDITION_WIRELESS 0x00D7
++#define USB_DEVICE_ID_RAZER_COBRA_HYPERSPEED_WIRED 0x00DA
++#define USB_DEVICE_ID_RAZER_COBRA_HYPERSPEED_WIRELESS 0x00DB
++#define USB_DEVICE_ID_RAZER_VIPER_V3_PRO_SE_WIRED 0x00DE
++#define USB_DEVICE_ID_RAZER_VIPER_V3_PRO_SE_WIRELESS 0x00DF
 +
 +/* Each keyboard report has 90 bytes*/
 +#define RAZER_REPORT_LEN 0x5A
@@ -46468,7 +47620,7 @@ index 00000000..a5fbb68e
 +#endif // __USB_HID_KEYS_H
 diff --git a/drivers/custom/razer/install_files/udev/99-razer.rules b/drivers/custom/razer/install_files/udev/99-razer.rules
 new file mode 100644
-index 00000000..ca66a204
+index 00000000..82140bfe
 --- /dev/null
 +++ b/drivers/custom/razer/install_files/udev/99-razer.rules
 @@ -0,0 +1,39 @@
@@ -46479,12 +47631,12 @@ index 00000000..ca66a204
 +LABEL="razer_vendor"
 +
 +# Mice
-+ATTRS{idProduct}=="0013|0015|0016|001f|0020|0024|0025|0029|002e|002f|0032|0034|0036|0037|0038|0039|003e|003f|0040|0041|0042|0043|0044|0045|0046|0048|004c|004f|0050|0053|0054|0059|005a|005b|005c|005e|0060|0062|0064|0065|0067|006a|006b|006c|006e|006f|0070|0071|0072|0073|0077|0078|007a|007b|007c|007d|0080|0083|0084|0085|0086|0088|008a|008c|008d|008f|0090|0091|0094|0095|0096|0098|0099|009a|009c|009e|009f|00a1|00a3|00a5|00a6|00a7|00a8|00aa|00ab|00af|00b0|00b2|00b3|00b4|00b6|00b7|00b8|00b9|00be|00bf|00c0|00c1|00c2|00c3|00c4|00c5|00c7|00c8|00cb|00cc|00cd|00d0|00d1|00d3|00d4|00d6|00d7", \
++ATTRS{idProduct}=="0013|0015|0016|001f|0020|0024|0025|0029|002e|002f|0032|0034|0036|0037|0038|0039|003e|003f|0040|0041|0042|0043|0044|0045|0046|0048|004c|004f|0050|0053|0054|0059|005a|005b|005c|005e|0060|0062|0064|0065|0067|006a|006b|006c|006e|006f|0070|0071|0072|0073|0077|0078|007a|007b|007c|007d|0080|0083|0084|0085|0086|0088|008a|008c|008d|008f|0090|0091|0094|0095|0096|0098|0099|009a|009c|009e|009f|00a1|00a3|00a5|00a6|00a7|00a8|00aa|00ab|00af|00b0|00b2|00b3|00b4|00b6|00b7|00b8|00b9|00be|00bf|00c0|00c1|00c2|00c3|00c4|00c5|00c7|00c8|00cb|00cc|00cd|00d0|00d1|00d3|00d4|00d6|00d7|00da|00db|00de|00df", \
 +    ATTRS{idVendor}=="1532", \
 +    ENV{ID_RAZER_CHROMA}="1", ENV{RAZER_DRIVER}="razermouse"
 +
 +# Keyboards
-+ATTRS{idProduct}=="010d|010e|010f|0111|0113|0118|011a|011b|011c|0201|0202|0203|0204|0205|0207|0208|0209|020f|0210|0211|0214|0216|0217|021a|021e|021f|0220|0221|0224|0225|0226|0227|0228|022a|022b|022c|022d|022f|0232|0233|0234|0235|0237|0239|023a|023b|023f|0240|0241|0243|0244|0245|0246|024a|024b|024c|024d|024e|0252|0253|0255|0256|0257|0258|0259|025a|025c|025d|025e|0266|0268|0269|026a|026b|026c|026d|026e|026f|0270|0271|0276|0279|027a|0282|0287|028a|028b|028c|028d|028f|0290|0292|0293|0294|0295|0296|0298|029d|029e|029f|02a0|02a1|02a2|02a3|02a5|02a6|02a7|02b0|02b6|02b8|02b9|02ba|02c5|02c6|02c7|02cf|02d5|02d7|0a24", \
++ATTRS{idProduct}=="010d|010e|010f|0111|0113|0118|011a|011b|011c|0201|0202|0203|0204|0205|0207|0208|0209|020f|0210|0211|0214|0216|0217|021a|021e|021f|0220|0221|0224|0225|0226|0227|0228|022a|022b|022c|022d|022f|0232|0233|0234|0235|0237|0239|023a|023b|023f|0240|0241|0243|0244|0245|0246|024a|024b|024c|024d|024e|0252|0253|0255|0256|0257|0258|0259|025a|025c|025d|025e|0266|0268|0269|026a|026b|026c|026d|026e|026f|0270|0271|0276|0279|027a|0282|0287|028a|028b|028c|028d|028f|0290|0292|0293|0294|0295|0296|0298|029d|029e|029f|02a0|02a1|02a2|02a3|02a5|02a6|02a7|02b0|02b6|02b8|02b9|02ba|02c5|02c6|02c7|02cd|02cf|02d5|02d7|02e0|02e1|0a24", \
 +    ATTRS{idVendor}=="1532", \
 +    ENV{ID_RAZER_CHROMA}="1", ENV{RAZER_DRIVER}="razerkbd"
 +

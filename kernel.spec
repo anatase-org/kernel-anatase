@@ -195,13 +195,13 @@ Summary: The Linux kernel
 %define specrpmversion 7.2.7
 %define specversion 7.2.7
 %define patchversion 7.2
-%define pkgrelease an20
+%define pkgrelease an21
 %define kversion 7
 %define tarfile_release 7.2.7
 # This is needed to do merge window version magic
 %define patchlevel 2
 # This allows pkg_release to have configurable %%{?dist} tag
-%define specrelease an20%{?buildid}%{?dist}
+%define specrelease an21%{?buildid}%{?dist}
 # This defines the kabi tarball version
 %define kabiversion 7.2.7
 
@@ -5074,7 +5074,11 @@ fi\
 #
 #
 %changelog
-* Wed Oct 14 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.2.7-an20]
+* Thu Oct 15 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.2.7-an21]
+- platform-x86: msi-wmi-platform: Add Gen 4 device (Derek J. Clark)
+- platform/x86: wmi-msi-platform: Add MSI Claw A8 support (Derek J. Clark)
+- platform/x86: msi-wmi-platform: Clean up devices (Derek J. Clark)
+- bump modules (Antheas Kapenekakis)
 - platform/x86: ayaneo-ec: Add AYANEO NEXT 2 support (Antheas Kapenekakis)
 - platform/x86/amd: dptc: Recognize Ryzen 5 7640U (Antheas Kapenekakis)
 - platform/x86/amd: dptc: Add KONKR FIT support (Antheas Kapenekakis)

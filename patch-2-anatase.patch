@@ -57553,3 +57553,497 @@ index 08e679347e9b4422ff0da3246f58a46228e50855..7c26975c0628ef9a313140c4f2de2ff3
 -- 
 2.55.0
 
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Thu, 15 Oct 2026 11:02:37 +0200
+Subject: bump modules
+
+---
+ drivers/custom/fanatecff | 2 +-
+ drivers/custom/razer     | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/custom/fanatecff b/drivers/custom/fanatecff
+index dd78ef477c0dc90d59291a0197afcea26911fca8..bc2601ba230bae3bcc33f1ca51d722569b588d16 160000
+--- a/drivers/custom/fanatecff
++++ b/drivers/custom/fanatecff
+@@ -1 +1 @@
+-Subproject commit dd78ef477c0dc90d59291a0197afcea26911fca8
++Subproject commit bc2601ba230bae3bcc33f1ca51d722569b588d16
+diff --git a/drivers/custom/razer b/drivers/custom/razer
+index 6820f9da169d354bc7e6e93a0aa8683a6bb75792..477f4d6d3ab7e9deb6310d5bd3742560c5cbe80d 160000
+--- a/drivers/custom/razer
++++ b/drivers/custom/razer
+@@ -1 +1 @@
+-Subproject commit 6820f9da169d354bc7e6e93a0aa8683a6bb75792
++Subproject commit 477f4d6d3ab7e9deb6310d5bd3742560c5cbe80d
+-- 
+2.55.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: "Derek J. Clark" <derekjohn.clark@gmail.com>
+Date: Mon, 3 Aug 2026 15:16:12 -0700
+Subject: platform/x86: msi-wmi-platform: Clean up devices
+
+The current driver has multiple minor mistakes. Fix them all in one
+cleanup patch.
+
+- Device names are inconsistent/incorrect for the quirk table
+- Per the Windows DLL, PL2 must always be at least 1W higher than
+  PL1. Give PL1 and PL2 different minimum values.
+- Copy buffer before write to ensure payload is sent instead of stale
+  data
+
+Signed-off-by: Derek J. Clark <derekjohn.clark@gmail.com>
+Link: https://lore.kernel.org/r/20260803221614.59324-5-derekjohn.clark@gmail.com
+---
+ drivers/platform/x86/msi-wmi-platform.c | 53 +++++++++++++------------
+ 1 file changed, 27 insertions(+), 26 deletions(-)
+
+diff --git a/drivers/platform/x86/msi-wmi-platform.c b/drivers/platform/x86/msi-wmi-platform.c
+index fc6569791ef93b8622ad02502c248baae79e23e2..9da806954a5b946db4339cae0105aa3fa1c04bc2 100644
+--- a/drivers/platform/x86/msi-wmi-platform.c
++++ b/drivers/platform/x86/msi-wmi-platform.c
+@@ -125,9 +125,10 @@ struct msi_wmi_platform_quirk {
+ 	bool charge_threshold;	/* Charge threshold is supported */
+ 	bool dual_fans;		/* For devices with two hwmon fans */
+ 	bool restore_curves;	/* Restore factory curves on unload */
+-	int ppt_min;		/* Minimum PLx value */
+-	int ppt_pl1_spl_max;	/* Maximum PL1/SPL value */
+-	int ppt_pl2_sppt_max;	/* Maximum PL2/SPPT value */
++	int pl1_min;		/* Minimum PL1 value */
++	int pl1_max;		/* Maximum PL1 value */
++	int pl2_min;		/* Minimum PL2 value */
++	int pl2_max;		/* Maximum PL2 value */
+ 	int ppt_pl3_fppt;		/* Maximum FPPT value */
+ };
+ 
+@@ -234,33 +235,36 @@ static struct msi_wmi_platform_quirk quirk_gen1 = {
+ 	.charge_threshold = true,
+ 	.dual_fans = true,
+ 	.restore_curves = true,
+-	.ppt_min = 8,
+-	.ppt_pl1_spl_max = 43,
+-	.ppt_pl2_sppt_max = 45
++	.pl1_min = 8,
++	.pl1_max = 43,
++	.pl2_min = 9,
++	.pl2_max = 45
+ };
+ static struct msi_wmi_platform_quirk quirk_gen2 = {
+ 	.shift_mode = true,
+ 	.charge_threshold = true,
+ 	.dual_fans = true,
+ 	.restore_curves = true,
+-	.ppt_min = 8,
+-	.ppt_pl1_spl_max = 30,
+-	.ppt_pl2_sppt_max = 37,
++	.pl1_min = 8,
++	.pl1_max = 30,
++	.pl2_min = 9,
++	.pl2_max = 37,
+ };
+ static struct msi_wmi_platform_quirk quirk_amd = {
+ 	.shift_mode = true,
+ 	.charge_threshold = true,
+ 	.dual_fans = true,
+ 	.restore_curves = true,
+-	.ppt_min = 4,
+-	.ppt_pl1_spl_max = 37,
+-	.ppt_pl2_sppt_max = 45,
++	.pl1_min = 4,
++	.pl1_max = 37,
++	.pl2_min = 4,
++	.pl2_max = 45,
+ 	.ppt_pl3_fppt = 55
+ };
+ 
+ static const struct dmi_system_id msi_quirks[] = {
+ 	{
+-		.ident = "MSI Claw (gen 1)",
++		.ident = "MSI Claw A1M",
+ 		.matches = {
+ 			DMI_MATCH(DMI_SYS_VENDOR, "Micro-Star International Co., Ltd."),
+ 			DMI_MATCH(DMI_BOARD_NAME, "MS-1T41"),
+@@ -268,7 +272,7 @@ static const struct dmi_system_id msi_quirks[] = {
+ 		.driver_data = &quirk_gen1,
+ 	},
+ 	{
+-		.ident = "MSI Claw AI+ 7",
++		.ident = "MSI Claw 7 AI+ A2VM",
+ 		.matches = {
+ 			DMI_MATCH(DMI_SYS_VENDOR, "Micro-Star International Co., Ltd."),
+ 			DMI_MATCH(DMI_BOARD_NAME, "MS-1T42"),
+@@ -276,7 +280,7 @@ static const struct dmi_system_id msi_quirks[] = {
+ 		.driver_data = &quirk_gen2,
+ 	},
+ 	{
+-		.ident = "MSI Claw AI+ 8",
++		.ident = "MSI Claw 8 AI+ A2VM",
+ 		.matches = {
+ 			DMI_MATCH(DMI_SYS_VENDOR, "Micro-Star International Co., Ltd."),
+ 			DMI_MATCH(DMI_BOARD_NAME, "MS-1T52"),
+@@ -1154,19 +1158,19 @@ static int msi_wmi_fw_attrs_init(struct msi_wmi_platform_data *data)
+ 	if (err)
+ 		return err;
+ 
+-	if (data->quirks->ppt_pl1_spl_max) {
++	if (data->quirks->pl1_max) {
+ 		err = msi_fw_attr_init(data, MSI_ATTR_PPT_PL1_SPL,
+-					&fw_attr_type_int, data->quirks->ppt_min,
+-					data->quirks->ppt_pl1_spl_max,
++					&fw_attr_type_int, data->quirks->pl1_min,
++					data->quirks->pl1_max,
+ 					&data_get_value, &data_set_value);
+ 		if (err)
+ 			return err;
+ 	}
+ 
+-	if (data->quirks->ppt_pl2_sppt_max) {
++	if (data->quirks->pl2_max) {
+ 		err = msi_fw_attr_init(data, MSI_ATTR_PPT_PL2_SPPT,
+-				       &fw_attr_type_int, data->quirks->ppt_min,
+-				       data->quirks->ppt_pl2_sppt_max,
++				       &fw_attr_type_int, data->quirks->pl2_min,
++				       data->quirks->pl2_max,
+ 				       &data_get_value, &data_set_value);
+ 		if (err)
+ 			return err;
+@@ -1174,7 +1178,7 @@ static int msi_wmi_fw_attrs_init(struct msi_wmi_platform_data *data)
+ 
+ 	if (data->quirks->ppt_pl3_fppt) {
+ 		err = msi_fw_attr_init(data, MSI_ATTR_PPT_PL3_FPPT,
+-				       &fw_attr_type_int, data->quirks->ppt_min,
++				       &fw_attr_type_int, data->quirks->pl1_min,
+ 				       data->quirks->ppt_pl3_fppt,
+ 				       &data_get_value, &data_set_value);
+ 		if (err)
+@@ -1293,6 +1297,7 @@ static ssize_t msi_wmi_platform_debugfs_write(struct file *fp, const char __user
+ 		return ret;
+ 
+ 	down_write(&data->buffer_lock);
++	memcpy(data->buffer, payload, data->length);
+ 	ret = msi_wmi_platform_query(data->data, data->method, data->buffer,
+ 				     data->length);
+ 	up_write(&data->buffer_lock);
+@@ -1300,10 +1305,6 @@ static ssize_t msi_wmi_platform_debugfs_write(struct file *fp, const char __user
+ 	if (ret < 0)
+ 		return ret;
+ 
+-	down_write(&data->buffer_lock);
+-	memcpy(data->buffer, payload, data->length);
+-	up_write(&data->buffer_lock);
+-
+ 	return length;
+ }
+ 
+-- 
+2.55.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: "Derek J. Clark" <derekjohn.clark@gmail.com>
+Date: Mon, 3 Aug 2026 15:16:13 -0700
+Subject: platform/x86: wmi-msi-platform: Add MSI Claw A8 support
+
+Adds MSI Claw A8 BZ2EM support.
+
+- Adds FPPT (PL3)
+- Adds disable toggle during startup for AMDSTAPM flag. In the Windows
+  DLL this feature is used when setting the device into an AI shift mode
+  not exposed by this driver.
+- Add limits to gen 3 for SPL, SPPT, FPPT.
+
+Signed-off-by: Derek J. Clark <derekjohn.clark@gmail.com>
+Link: https://lore.kernel.org/r/20260803221614.59324-6-derekjohn.clark@gmail.com
+---
+ drivers/platform/x86/msi-wmi-platform.c | 79 +++++++++++++++++++------
+ 1 file changed, 60 insertions(+), 19 deletions(-)
+
+diff --git a/drivers/platform/x86/msi-wmi-platform.c b/drivers/platform/x86/msi-wmi-platform.c
+index 9da806954a5b946db4339cae0105aa3fa1c04bc2..d7aa879fc1f3a5c23ea415a7c84fde1df8fc6f32 100644
+--- a/drivers/platform/x86/msi-wmi-platform.c
++++ b/drivers/platform/x86/msi-wmi-platform.c
+@@ -77,13 +77,18 @@
+ #define MSI_PLATFORM_SHIFT_GREEN	(MSI_PLATFORM_SHIFT_ENABLE + 1)
+ #define MSI_PLATFORM_SHIFT_ECO		(MSI_PLATFORM_SHIFT_ENABLE + 2)
+ #define MSI_PLATFORM_SHIFT_USER		(MSI_PLATFORM_SHIFT_ENABLE + 3)
++#define MSI_PLATFORM_SHIFT_MANUAL	(MSI_PLATFORM_SHIFT_ENABLE + 6)
+ 
+ /* Get_Data() and Set_Data() Params */
+-#define MSI_PLATFORM_PPT_PL1_SPL_ADDR	0x50
+-#define MSI_PLATFORM_PPT_PL2_SPPT_ADDR	0x51
+-#define MSI_PLATFORM_PPT_PL3_FPPT_ADDR	0x52
++#define MSI_PLATFORM_PL1_ADDR		0x50
++#define MSI_PLATFORM_PL2_ADDR		0x51
++#define MSI_PLATFORM_PL3_ADDR		0x52
++#define MSI_PLATFORM_AMDSTAPM_ADDR	0xc5
+ #define MSI_PLATFORM_BAT_ADDR	0xd7
+ 
++#define MSI_PLATFORM_AMDSTAPM_SUPPORTED		BIT(7)
++#define MSI_PLATFORM_AMDSTAPM_DISABLE		BIT(0)
++
+ static bool force;
+ module_param_unsafe(force, bool, 0);
+ MODULE_PARM_DESC(force, "Force loading without checking for supported WMI interface versions");
+@@ -125,11 +130,14 @@ struct msi_wmi_platform_quirk {
+ 	bool charge_threshold;	/* Charge threshold is supported */
+ 	bool dual_fans;		/* For devices with two hwmon fans */
+ 	bool restore_curves;	/* Restore factory curves on unload */
++	bool disable_stapm;	/* Disable AMD STAPM auto power management on load */
++	u8 custom_shift;	/* EC Shift value for PLATFORM_PROFILE_CUSTOM, 0 if unsupported */
+ 	int pl1_min;		/* Minimum PL1 value */
+ 	int pl1_max;		/* Maximum PL1 value */
+ 	int pl2_min;		/* Minimum PL2 value */
+ 	int pl2_max;		/* Maximum PL2 value */
+-	int ppt_pl3_fppt;		/* Maximum FPPT value */
++	int pl3_min;		/* Minimum PL3 value */
++	int pl3_max;		/* Maximum PL3 value */
+ };
+ 
+ struct msi_wmi_platform_factory_curves {
+@@ -165,7 +173,7 @@ static const char *const msi_fw_attr_name[] = {
+ static const char *const msi_fw_attr_desc[] = {
+ 	[MSI_ATTR_PPT_PL1_SPL] = "CPU Steady package limit (PL1/SPL)",
+ 	[MSI_ATTR_PPT_PL2_SPPT] = "CPU Boost slow package limit (PL2/SPPT)",
+-	[MSI_ATTR_PPT_PL3_FPPT] = "CPU Boost fast package limit (FPPT)",
++	[MSI_ATTR_PPT_PL3_FPPT] = "CPU Boost fast package limit (PL3/FPPT)",
+ };
+ 
+ #define MSI_ATTR_LANGUAGE_CODE "en_US.UTF-8"
+@@ -250,16 +258,18 @@ static struct msi_wmi_platform_quirk quirk_gen2 = {
+ 	.pl2_min = 9,
+ 	.pl2_max = 37,
+ };
+-static struct msi_wmi_platform_quirk quirk_amd = {
++static struct msi_wmi_platform_quirk quirk_gen3 = {
+ 	.shift_mode = true,
+ 	.charge_threshold = true,
+ 	.dual_fans = true,
+ 	.restore_curves = true,
+-	.pl1_min = 4,
+-	.pl1_max = 37,
+-	.pl2_min = 4,
+-	.pl2_max = 45,
+-	.ppt_pl3_fppt = 55
++	.disable_stapm = true,
++	.pl1_min = 7,
++	.pl1_max = 35,
++	.pl2_min = 9,
++	.pl2_max = 40,
++	.pl3_min = 10,
++	.pl3_max = 48,
+ };
+ 
+ static const struct dmi_system_id msi_quirks[] = {
+@@ -288,12 +298,12 @@ static const struct dmi_system_id msi_quirks[] = {
+ 		.driver_data = &quirk_gen2,
+ 	},
+ 	{
+-		.ident = "MSI Claw A8",
++		.ident = "MSI Claw A8 BZ2EM",
+ 		.matches = {
+ 			DMI_MATCH(DMI_SYS_VENDOR, "Micro-Star International Co., Ltd."),
+ 			DMI_MATCH(DMI_BOARD_NAME, "MS-1T8K"),
+ 		},
+-		.driver_data = &quirk_amd,
++		.driver_data = &quirk_gen3,
+ 	},
+ 	{ }
+ };
+@@ -883,11 +893,11 @@ static int data_get_addr(struct msi_wmi_platform_data *data,
+ {
+ 	switch (id) {
+ 	case MSI_ATTR_PPT_PL1_SPL:
+-		return MSI_PLATFORM_PPT_PL1_SPL_ADDR;
++		return MSI_PLATFORM_PL1_ADDR;
+ 	case MSI_ATTR_PPT_PL2_SPPT:
+-		return MSI_PLATFORM_PPT_PL2_SPPT_ADDR;
++		return MSI_PLATFORM_PL2_ADDR;
+ 	case MSI_ATTR_PPT_PL3_FPPT:
+-		return MSI_PLATFORM_PPT_PL3_FPPT_ADDR;
++		return MSI_PLATFORM_PL3_ADDR;
+ 	default:
+ 		pr_warn("Invalid attribute id %d\n", id);
+ 		return -EINVAL;
+@@ -1176,10 +1186,10 @@ static int msi_wmi_fw_attrs_init(struct msi_wmi_platform_data *data)
+ 			return err;
+ 	}
+ 
+-	if (data->quirks->ppt_pl3_fppt) {
++	if (data->quirks->pl3_max) {
+ 		err = msi_fw_attr_init(data, MSI_ATTR_PPT_PL3_FPPT,
+-				       &fw_attr_type_int, data->quirks->pl1_min,
+-				       data->quirks->ppt_pl3_fppt,
++				       &fw_attr_type_int, data->quirks->pl3_min,
++				       data->quirks->pl3_max,
+ 				       &data_get_value, &data_set_value);
+ 		if (err)
+ 			return err;
+@@ -1456,6 +1466,31 @@ static int msi_wmi_platform_init(struct msi_wmi_platform_data *data)
+ 	return 0;
+ }
+ 
++static int msi_wmi_platform_disable_stapm(struct msi_wmi_platform_data *data)
++{
++	u8 buffer[32] = { 0 };
++	int ret;
++
++	buffer[0] = MSI_PLATFORM_AMDSTAPM_ADDR;
++
++	ret = msi_wmi_platform_query(data, MSI_PLATFORM_GET_DATA, buffer, sizeof(buffer));
++	if (ret < 0)
++		return ret;
++
++	/* Only touch it if firmware self-reports STAPM support */
++	if (!(buffer[1] & MSI_PLATFORM_AMDSTAPM_SUPPORTED))
++		return 0;
++
++	buffer[0] = MSI_PLATFORM_AMDSTAPM_ADDR;
++	buffer[1] |= MSI_PLATFORM_AMDSTAPM_DISABLE;
++
++	ret = msi_wmi_platform_query(data, MSI_PLATFORM_SET_DATA, buffer, sizeof(buffer));
++	if (ret < 0)
++		return ret;
++
++	return 0;
++}
++
+ static int msi_wmi_platform_profile_setup(struct msi_wmi_platform_data *data)
+ {
+ 	if (!data->quirks->shift_mode)
+@@ -1495,6 +1530,12 @@ static int msi_wmi_platform_probe(struct wmi_device *wdev, const void *context)
+ 	if (ret < 0)
+ 		return ret;
+ 
++	if (data->quirks->disable_stapm) {
++		ret = msi_wmi_platform_disable_stapm(data);
++		if (ret < 0)
++			return ret;
++	}
++
+ 	ret = msi_wmi_platform_ec_init(data);
+ 	if (ret < 0)
+ 		return ret;
+-- 
+2.55.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: "Derek J. Clark" <derekjohn.clark@gmail.com>
+Date: Mon, 3 Aug 2026 15:16:14 -0700
+Subject: platform-x86: msi-wmi-platform: Add Gen 4 device
+
+Adds support for the MSI Claw 8 EX AI+. This device uses a unique new
+shift mode for custom TDP not previously exposed by this driver. To
+ensure that "MSI_SHIFT_MODE_USER" can still be set in the future to
+CUSTOM platform profile, store the shift mode that applies to custom in
+the quirks and check it outside the switch case in _get() since it is no
+longer a compile time const.
+
+Signed-off-by: Derek J. Clark <derekjohn.clark@gmail.com>
+Link: https://lore.kernel.org/r/20260803221614.59324-7-derekjohn.clark@gmail.com
+---
+ drivers/platform/x86/msi-wmi-platform.c | 38 ++++++++++++++++++++++---
+ 1 file changed, 34 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/platform/x86/msi-wmi-platform.c b/drivers/platform/x86/msi-wmi-platform.c
+index d7aa879fc1f3a5c23ea415a7c84fde1df8fc6f32..442892da9390e12b00e80c586e251fd2c2b361e6 100644
+--- a/drivers/platform/x86/msi-wmi-platform.c
++++ b/drivers/platform/x86/msi-wmi-platform.c
+@@ -271,6 +271,17 @@ static struct msi_wmi_platform_quirk quirk_gen3 = {
+ 	.pl3_min = 10,
+ 	.pl3_max = 48,
+ };
++static struct msi_wmi_platform_quirk quirk_gen4 = {
++	.shift_mode = true,
++	.charge_threshold = true,
++	.dual_fans = true,
++	.restore_curves = true,
++	.custom_shift = MSI_PLATFORM_SHIFT_MANUAL,
++	.pl1_min = 8,
++	.pl1_max = 35,
++	.pl2_min = 9,
++	.pl2_max = 45,
++};
+ 
+ static const struct dmi_system_id msi_quirks[] = {
+ 	{
+@@ -305,6 +316,14 @@ static const struct dmi_system_id msi_quirks[] = {
+ 		},
+ 		.driver_data = &quirk_gen3,
+ 	},
++	{
++		.ident = "MSI Claw 8 EX AI+ CG3EM",
++		.matches = {
++			DMI_MATCH(DMI_SYS_VENDOR, "Micro-Star International Co., Ltd."),
++			DMI_MATCH(DMI_BOARD_NAME, "MS-1T91"),
++		},
++		.driver_data = &quirk_gen4,
++	},
+ 	{ }
+ };
+ 
+@@ -805,10 +824,16 @@ static const struct hwmon_chip_info msi_wmi_platform_chip_info_dual = {
+ 
+ static int msi_wmi_platform_profile_probe(void *drvdata, unsigned long *choices)
+ {
++	struct msi_wmi_platform_data *data = drvdata;
++
+ 	set_bit(PLATFORM_PROFILE_LOW_POWER, choices);
+ 	set_bit(PLATFORM_PROFILE_BALANCED, choices);
+ 	set_bit(PLATFORM_PROFILE_BALANCED_PERFORMANCE, choices);
+ 	set_bit(PLATFORM_PROFILE_PERFORMANCE, choices);
++
++	if (data->quirks->custom_shift)
++		set_bit(PLATFORM_PROFILE_CUSTOM, choices);
++
+ 	return 0;
+ }
+ 
+@@ -816,6 +841,7 @@ static int msi_wmi_platform_profile_get(struct device *dev,
+ 					enum platform_profile_option *profile)
+ {
+ 	struct msi_wmi_platform_data *data = dev_get_drvdata(dev);
++	u8 custom = data->quirks->custom_shift;
+ 	int ret;
+ 
+ 	u8 buffer[32] = { };
+@@ -829,6 +855,11 @@ static int msi_wmi_platform_profile_get(struct device *dev,
+ 	if (buffer[0] != 1)
+ 		return -EINVAL;
+ 
++	if (custom && buffer[1] == custom) {
++		*profile = PLATFORM_PROFILE_CUSTOM;
++		return 0;
++	}
++
+ 	switch (buffer[1]) {
+ 	case MSI_PLATFORM_SHIFT_SPORT:
+ 		*profile = PLATFORM_PROFILE_PERFORMANCE;
+@@ -842,9 +873,6 @@ static int msi_wmi_platform_profile_get(struct device *dev,
+ 	case MSI_PLATFORM_SHIFT_ECO:
+ 		*profile = PLATFORM_PROFILE_LOW_POWER;
+ 		return 0;
+-	case MSI_PLATFORM_SHIFT_USER:
+-		*profile = PLATFORM_PROFILE_CUSTOM;
+-		return 0;
+ 	default:
+ 		return -EINVAL;
+ 	}
+@@ -872,7 +900,9 @@ static int msi_wmi_platform_profile_set(struct device *dev,
+ 		buffer[1] = MSI_PLATFORM_SHIFT_ECO;
+ 		break;
+ 	case PLATFORM_PROFILE_CUSTOM:
+-		buffer[1] = MSI_PLATFORM_SHIFT_USER;
++		if (!data->quirks->custom_shift)
++			return -EINVAL;
++		buffer[1] = data->quirks->custom_shift;
+ 		break;
+ 	default:
+ 		return -EINVAL;
+-- 
+2.55.0
+
