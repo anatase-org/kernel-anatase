@@ -195,13 +195,13 @@ Summary: The Linux kernel
 %define specrpmversion 7.2.7
 %define specversion 7.2.7
 %define patchversion 7.2
-%define pkgrelease an21
+%define pkgrelease an22
 %define kversion 7
 %define tarfile_release 7.2.7
 # This is needed to do merge window version magic
 %define patchlevel 2
 # This allows pkg_release to have configurable %%{?dist} tag
-%define specrelease an21%{?buildid}%{?dist}
+%define specrelease an22%{?buildid}%{?dist}
 # This defines the kabi tarball version
 %define kabiversion 7.2.7
 
@@ -2365,6 +2365,11 @@ do
 done
 %endif
 
+%if %{signkernel}%{signmodules}
+for i in *.config; do
+  sed -i 's@CONFIG_EFI_SBAT_FILE=""@CONFIG_EFI_SBAT_FILE="kernel.sbat"@' $i
+done
+%endif
 
 # Adjust FIPS module name for RHEL
 %if 0%{?rhel}
@@ -5074,7 +5079,24 @@ fi\
 #
 #
 %changelog
-* Thu Oct 15 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.2.7-an21]
+* Sat Oct 17 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.2.7-an22]
+- ASoC: rt721-sdca: wait for PDEs to reach PS0 after powering them up (Matthew Schwartz)
+- ASoC: sdw_utils: honor empty DisCo port lists when creating DAI links (Matthew Schwartz)
+- ASoC: tas2783-sdw: use the BIOS speaker ID in the firmware name (Matthew Schwartz)
+- ASoC: amd: acp: add ACP70 SoundWire machine entry for ASUS RC74XA (Matthew Schwartz)
+- ASoC: amd: acp-config: force SoundWire probe on ASUS RC74XA (Matthew Schwartz)
+- ASoC: amd: ps: fix snd_acp63_remove() teardown ordering (Fan Wu)
+- ASoC: tas2783-sdw: add firmware download status check (Baojun Xu)
+- ASoC: rt721: Reset codec to fix abnormal sound (Oder Chiou)
+- ASoC: rt721: Use the function_status check to avoid duplicate presets (Oder Chiou)
+- ASoC: rt721: fix uninitialized stream_config->type (Shuming Fan)
+- ASoC: rt721-sdca: Adjust latency control to fix no-sound issue (Jack Yu)
+- ASoC: tas2783-sdw: split a stereo stream across the two mono amps (Antoine Monnet)
+- ASoC: tas2783-sdw: do not cache read-only Controls (Andrey Golovko)
+- ASoC: tas2783-sdw: make multi-byte MBQ registers reachable (Andrey Golovko)
+- ASoC: tas2783-sdw: power the Function up before preparing the port (Andrey Golovko)
+- ASoC: sdw_utils: prepare the stream again when resuming (Andrey Golovko)
+- ASoC: tas2783-sdw: do not treat read-only Controls as writable (Andrey Golovko)
 - platform-x86: msi-wmi-platform: Add Gen 4 device (Derek J. Clark)
 - platform/x86: wmi-msi-platform: Add MSI Claw A8 support (Derek J. Clark)
 - platform/x86: msi-wmi-platform: Clean up devices (Derek J. Clark)

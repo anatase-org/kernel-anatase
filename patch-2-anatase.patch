@@ -58047,3 +58047,2140 @@ index d7aa879fc1f3a5c23ea415a7c84fde1df8fc6f32..442892da9390e12b00e80c586e251fd2
 -- 
 2.55.0
 
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Andrey Golovko <andrey.golovko@gmail.com>
+Date: Fri, 14 Aug 2026 09:40:00 +0300
+Subject: ASoC: tas2783-sdw: do not treat read-only Controls as writable
+
+The regmap has no writeable_reg callback, so regmap considers every
+register up to max_register writable.  That includes the read-only SDCA
+Controls the driver itself describes: the Latency of every Entity, the
+Clock Valid of every Clock Source, the actual power state of the Power
+Domain Entity, the protection status, the algorithm ready flag and the
+Extension Unit id and version.  Most of them are also listed in
+tas2783_reg_default[] with a placeholder of zero, even though a default
+for, say, a latency reading is meaningless.
+
+Reading such a Control caches its real value, which no longer matches
+the placeholder, so regcache_sync() then tries to write it back.  The
+peripheral rejects the transaction with -ENODATA and the sync aborts,
+leaving the rest of the cache unrestored.
+
+Add a writeable_reg callback that refuses the read-only Controls and
+otherwise keeps the previous behaviour.  Every selector it lists is the
+read-only Control of its Entity type in sdca_function.h, and none of the
+Controls the driver writes is affected: the requested power state, the
+mutes, the Cluster Index, the protection mode, the algorithm enable and
+the file download Controls all stay writable.
+
+The list is static because the BIOS on the affected machines describes
+no Smart Amp SDCA function, so the driver runs its fallback tables and
+sdca_regmap_writeable() is not available to it.  It would be good to
+have the list confirmed against the hardware documentation, and to know
+whether the read-only Controls belong in tas2783_reg_default[] at all.
+
+Signed-off-by: Andrey Golovko <andrey.golovko@gmail.com>
+Link: https://patch.msgid.link/20260814094000.22118-2-andrey.golovko@gmail.com
+Signed-off-by: Mark Brown <broonie@kernel.org>
+---
+ sound/soc/codecs/tas2783-sdw.c | 51 ++++++++++++++++++++++++++++++++++
+ 1 file changed, 51 insertions(+)
+
+diff --git a/sound/soc/codecs/tas2783-sdw.c b/sound/soc/codecs/tas2783-sdw.c
+index 4fbbf2ca5bf9ae3727e76098963c0b9c9612e6bc..a1804344bbb3632547318be6ac425fc9880afc45 100644
+--- a/sound/soc/codecs/tas2783-sdw.c
++++ b/sound/soc/codecs/tas2783-sdw.c
+@@ -494,6 +494,56 @@ static bool tas2783_readable_register(struct device *dev, unsigned int reg)
+ 	return tas2783_sdca_mbq_size(dev, reg) > 0;
+ }
+ 
++static bool tas2783_writeable_register(struct device *dev, unsigned int reg)
++{
++	/*
++	 * The Latency Control of every Entity, together with the Power Domain
++	 * actual state and the protection status, is read-only. They are
++	 * listed in tas2783_reg_default[] with a placeholder value, so without
++	 * this a regcache_sync() would try to write them back and the
++	 * peripheral would reject the transaction, aborting the sync.
++	 */
++	switch (reg) {
++	case SDW_SDCA_CTL(FUNC_NUM_SMART_AMP, TAS2783_SDCA_ENT_FU21, 0x10, 0):
++	case SDW_SDCA_CTL(FUNC_NUM_SMART_AMP, TAS2783_SDCA_ENT_FU23, 0x10, 0):
++	case SDW_SDCA_CTL(FUNC_NUM_SMART_AMP, TAS2783_SDCA_ENT_FU26, 0x10, 0):
++	case SDW_SDCA_CTL(FUNC_NUM_SMART_AMP, TAS2783_SDCA_ENT_XU22, 0x06, 0):
++	case SDW_SDCA_CTL(FUNC_NUM_SMART_AMP, TAS2783_SDCA_ENT_XU22, 0x07, 0):
++	case SDW_SDCA_CTL(FUNC_NUM_SMART_AMP, TAS2783_SDCA_ENT_XU22, 0x08, 0):
++	case SDW_SDCA_CTL(FUNC_NUM_SMART_AMP, TAS2783_SDCA_ENT_CS24, 0x02, 0):
++	case SDW_SDCA_CTL(FUNC_NUM_SMART_AMP, TAS2783_SDCA_ENT_CS21, 0x02, 0):
++	case SDW_SDCA_CTL(FUNC_NUM_SMART_AMP, TAS2783_SDCA_ENT_CS25, 0x02, 0):
++	case SDW_SDCA_CTL(FUNC_NUM_SMART_AMP, TAS2783_SDCA_ENT_CS26, 0x02, 0):
++	case SDW_SDCA_CTL(FUNC_NUM_SMART_AMP, TAS2783_SDCA_ENT_CS28, 0x02, 0):
++	case SDW_SDCA_CTL(FUNC_NUM_SMART_AMP, TAS2783_SDCA_ENT_PDE23, 0x10, 0):
++	case SDW_SDCA_CTL(FUNC_NUM_SMART_AMP, TAS2783_SDCA_ENT_UDMPU23, 0x06, 0):
++	case SDW_SDCA_CTL(FUNC_NUM_SMART_AMP, TAS2783_SDCA_ENT_SAPU29, 0x05, 0):
++	case SDW_SDCA_CTL(FUNC_NUM_SMART_AMP, TAS2783_SDCA_ENT_SAPU29, 0x11, 0):
++	case SDW_SDCA_CTL(FUNC_NUM_SMART_AMP, TAS2783_SDCA_ENT_PPU21, 0x06, 0):
++	case SDW_SDCA_CTL(FUNC_NUM_SMART_AMP, TAS2783_SDCA_ENT_PPU26, 0x06, 0):
++	case SDW_SDCA_CTL(FUNC_NUM_SMART_AMP, TAS2783_SDCA_ENT_IT21, 0x08, 0):
++	case SDW_SDCA_CTL(FUNC_NUM_SMART_AMP, TAS2783_SDCA_ENT_IT29, 0x08, 0):
++	case SDW_SDCA_CTL(FUNC_NUM_SMART_AMP, TAS2783_SDCA_ENT_IT26, 0x08, 0):
++	case SDW_SDCA_CTL(FUNC_NUM_SMART_AMP, TAS2783_SDCA_ENT_IT28, 0x08, 0):
++	case SDW_SDCA_CTL(FUNC_NUM_SMART_AMP, TAS2783_SDCA_ENT_OT24, 0x08, 0):
++	case SDW_SDCA_CTL(FUNC_NUM_SMART_AMP, TAS2783_SDCA_ENT_OT23, 0x08, 0):
++	case SDW_SDCA_CTL(FUNC_NUM_SMART_AMP, TAS2783_SDCA_ENT_OT25, 0x08, 0):
++	case SDW_SDCA_CTL(FUNC_NUM_SMART_AMP, TAS2783_SDCA_ENT_OT28, 0x08, 0):
++	case SDW_SDCA_CTL(FUNC_NUM_SMART_AMP, TAS2783_SDCA_ENT_MU26, 0x06, 0):
++	case SDW_SDCA_CTL(FUNC_NUM_SMART_AMP, TAS2783_SDCA_ENT_OT127, 0x08, 0):
++	case SDW_SDCA_CTL(FUNC_NUM_SMART_AMP, TAS2783_SDCA_ENT_FU127, 0x10, 0):
++	case SDW_SDCA_CTL(FUNC_NUM_SMART_AMP, TAS2783_SDCA_ENT_CS127, 0x02, 0):
++	case SDW_SDCA_CTL(FUNC_NUM_SMART_AMP, TAS2783_SDCA_ENT_MFPU21, 0x08, 0):
++	case SDW_SDCA_CTL(FUNC_NUM_SMART_AMP, TAS2783_SDCA_ENT_MFPU21, 0x04, 0):
++	case SDW_SDCA_CTL(FUNC_NUM_SMART_AMP, TAS2783_SDCA_ENT_MFPU26, 0x08, 0):
++	case SDW_SDCA_CTL(FUNC_NUM_SMART_AMP, TAS2783_SDCA_ENT_MFPU26, 0x04, 0):
++		return false;
++
++	default:
++		return tas2783_sdca_mbq_size(dev, reg) > 0;
++	}
++}
++
+ static bool tas2783_volatile_register(struct device *dev, u32 reg)
+ {
+ 	switch (reg) {
+@@ -515,6 +565,7 @@ static const struct regmap_config tas_regmap = {
+ 	.reg_bits = 32,
+ 	.val_bits = 8,
+ 	.readable_reg = tas2783_readable_register,
++	.writeable_reg = tas2783_writeable_register,
+ 	.volatile_reg = tas2783_volatile_register,
+ 	.reg_defaults = tas2783_reg_default,
+ 	.num_reg_defaults = ARRAY_SIZE(tas2783_reg_default),
+-- 
+2.55.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Andrey Golovko <andrey.golovko@gmail.com>
+Date: Thu, 13 Aug 2026 19:40:00 +0300
+Subject: ASoC: sdw_utils: prepare the stream again when resuming
+
+A peripheral loses its Data Port configuration when the controller is
+power-gated during system suspend, so the ports have to be prepared
+again before the stream can be enabled.  That happens on its own when
+userspace calls snd_pcm_prepare() after SNDRV_PCM_STATE_SUSPENDED, but
+an application is also allowed to restart the stream with
+SNDRV_PCM_IOCTL_RESUME on a card that advertises SNDRV_PCM_INFO_RESUME,
+as the AMD ACP platforms do.  That path only reaches the trigger
+callback, sdw_enable_stream() writes the channels of ports that were
+never prepared, and playback silently produces nothing: the PCM keeps
+running, no error is reported anywhere, and the speakers stay quiet
+until the stream is torn down and set up again.
+
+Prepare the stream on SNDRV_PCM_TRIGGER_RESUME, before enabling it.
+The SoundWire core expects exactly this: sdw_prepare_stream() accepts a
+disabled stream and then reapplies the bus parameters without
+recomputing them, which it documents as the resume case.
+
+Signed-off-by: Andrey Golovko <andrey.golovko@gmail.com>
+Link: https://patch.msgid.link/20260813194000.10412-2-andrey.golovko@gmail.com
+Signed-off-by: Mark Brown <broonie@kernel.org>
+---
+ sound/soc/sdw_utils/soc_sdw_utils.c | 17 ++++++++++++++++-
+ 1 file changed, 16 insertions(+), 1 deletion(-)
+
+diff --git a/sound/soc/sdw_utils/soc_sdw_utils.c b/sound/soc/sdw_utils/soc_sdw_utils.c
+index d8db8fc5313ee296375921f4e302abdf42d2d2f9..515940695d1c3ce685d89681c6cea253c4ad5f5e 100644
+--- a/sound/soc/sdw_utils/soc_sdw_utils.c
++++ b/sound/soc/sdw_utils/soc_sdw_utils.c
+@@ -1481,9 +1481,24 @@ int asoc_sdw_trigger(struct snd_pcm_substream *substream, int cmd)
+ 	}
+ 
+ 	switch (cmd) {
++	case SNDRV_PCM_TRIGGER_RESUME:
++		/*
++		 * The peripherals lose their port configuration when the
++		 * controller is power-gated during system suspend, and an
++		 * application that restarts the stream with
++		 * SNDRV_PCM_IOCTL_RESUME - which platforms advertising
++		 * SNDRV_PCM_INFO_RESUME allow - never goes through
++		 * .prepare() again.  Prepare the stream here so that the
++		 * ports are reprogrammed before they are enabled;
++		 * sdw_prepare_stream() reapplies the parameters without
++		 * recomputing them when the stream is disabled.
++		 */
++		ret = sdw_prepare_stream(sdw_stream);
++		if (ret)
++			break;
++		fallthrough;
+ 	case SNDRV_PCM_TRIGGER_START:
+ 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
+-	case SNDRV_PCM_TRIGGER_RESUME:
+ 		ret = sdw_enable_stream(sdw_stream);
+ 		break;
+ 
+-- 
+2.55.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Andrey Golovko <andrey.golovko@gmail.com>
+Date: Thu, 13 Aug 2026 19:40:00 +0300
+Subject: ASoC: tas2783-sdw: power the Function up before preparing the port
+
+A Data Port cannot complete channel preparation while the SDCA Function
+is powered down: the peripheral raises the channel's bit in
+DPn_PrepareStatus and never clears it.
+
+tas_sdw_hw_params() takes care of that for a stream that is being set
+up, and the retry loop there says so - "ensure power on so that port
+prepare succeeds".  Port preparation, however, also happens on a stream
+that is merely re-prepared, without hw_params() running again.  That is
+what userspace does after a suspend in which the peripheral lost power:
+snd_pcm_prepare() reaches .prepare and sdw_prepare_stream(), the port is
+prepared afresh, but PDE23 is still at the PS3 reset default because
+nothing wrote it since the device came back.
+
+The result is silence with no error anywhere.  The codec sets
+simple_ch_prep_sm, so sdw_prep_deprep_slave_port() skips the
+NOT_PREPARED poll, and a port that never prepares is indistinguishable
+from a healthy one.
+
+Power the Function up in the PRE_PREP callback, immediately before the
+PrepareCtrl write it already performs, so that preparation has what it
+needs on every path that prepares a port.
+
+Measured on an ASUS ProArt PX13 (AMD ACP7.0, two TAS2783): after s2idle
+with ~100 s of S0i3 residency, DPn_PrepareStatus stays at the channel
+mask and there is no audio; writing PDE23 PS0 and re-issuing the prepare
+clears it within 1 ms and audio returns.
+
+Signed-off-by: Andrey Golovko <andrey.golovko@gmail.com>
+Link: https://patch.msgid.link/20260813194000.10412-3-andrey.golovko@gmail.com
+Signed-off-by: Mark Brown <broonie@kernel.org>
+---
+ sound/soc/codecs/tas2783-sdw.c | 20 ++++++++++++++++++++
+ 1 file changed, 20 insertions(+)
+
+diff --git a/sound/soc/codecs/tas2783-sdw.c b/sound/soc/codecs/tas2783-sdw.c
+index a1804344bbb3632547318be6ac425fc9880afc45..253368d17d7b14f58d6dbd22ec65a2effe8a375c 100644
+--- a/sound/soc/codecs/tas2783-sdw.c
++++ b/sound/soc/codecs/tas2783-sdw.c
+@@ -1312,6 +1312,7 @@ static int tas_port_prep(struct sdw_slave *slave, struct sdw_prepare_ch *prep_ch
+ 			 enum sdw_port_prep_ops pre_ops)
+ {
+ 	struct device *dev = &slave->dev;
++	struct tas2783_prv *tas_dev = dev_get_drvdata(dev);
+ 	struct sdw_dpn_prop *dpn_prop;
+ 	u32 addr;
+ 	int ret;
+@@ -1323,6 +1324,25 @@ static int tas_port_prep(struct sdw_slave *slave, struct sdw_prepare_ch *prep_ch
+ 	addr = SDW_DPN_PREPARECTRL(prep_ch->num);
+ 	switch (pre_ops) {
+ 	case SDW_OPS_PORT_PRE_PREP:
++		/*
++		 * The Function has to be powered before the port can complete
++		 * channel preparation.  hw_params() does that when a stream is
++		 * set up, but a stream that is only re-prepared - as it is
++		 * after the peripheral lost power in S0i3 - does not go
++		 * through hw_params() again, and the peripheral is back at its
++		 * PS3 reset default.  Power it up here, where it is needed.
++		 */
++		scoped_guard(mutex, &tas_dev->pde_lock)
++			ret = regmap_write(tas_dev->regmap,
++					   SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_PDE23,
++							TAS2783_SDCA_CTL_REQ_POW_STATE, 0),
++					   TAS2783_SDCA_POW_STATE_ON);
++		if (ret) {
++			dev_err(dev, "power up failed for port %d, err=%d\n",
++				prep_ch->num, ret);
++			return ret;
++		}
++
+ 		ret = sdw_write_no_pm(slave, addr, prep_ch->ch_mask);
+ 		if (ret)
+ 			dev_err(dev, "prep failed for port %d, err=%d\n",
+-- 
+2.55.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Andrey Golovko <andrey.golovko@gmail.com>
+Date: Sat, 15 Aug 2026 14:40:00 +0300
+Subject: ASoC: tas2783-sdw: make multi-byte MBQ registers reachable
+
+tas2783_sdca_mbq_size() declares registers of one, two and four bytes,
+but the regmap is created with val_bits = 8.  The SoundWire MBQ bus
+rejects any register whose declared size exceeds the configured value
+width:
+
+	ctx->val_size = config->val_bits / BITS_PER_BYTE;
+	...
+	size = ctx->cfg.mbq_size(ctx->dev, reg);
+	if (!size || size > ctx->val_size)
+		return -EINVAL;
+
+Both regmap_sdw_mbq_read() and regmap_sdw_mbq_write() bail out on that,
+so every register the driver itself declares as two or four bytes wide
+is unreachable through the regmap, in both directions, and the failure
+happens before anything reaches the bus.
+
+That is measurable.  On an ASUS ProArt PX13 HN7306EAC with two TAS2783
+aggregated on one link, a regmap read of XU22 Control 0x07, declared two
+bytes, and of XU22 Control 0x12, declared four bytes, returns -EINVAL on
+both amplifiers.  With val_bits widened the same reads reach the
+peripheral, which answers -ENODATA for both, powered or not - this part
+appears not to implement them.  So the change makes the registers
+addressable; whether a given peripheral answers is up to the peripheral.
+
+Widen val_bits to cover the largest size the callback returns.  The
+callback keeps deciding the size of each individual transfer, so
+single-byte registers are unaffected.
+
+The calibration path needs adjusting along with it.
+regmap_bulk_write(..., buf, sizeof(u32)) relied on val_bits = 8 to
+spread one calibration value over four consecutive single-byte
+registers; with a four-byte value width the same call would ask for four
+four-byte values and read past the end of the four-byte buffer.  Write
+the four registers explicitly instead, keeping the most-significant-byte
+-first layout.  Read back over the bus, bypassing the cache, the five
+calibration values of both amplifiers are byte for byte what they were
+before this patch.
+
+What this does not do is repair regcache_sync().  On this machine a sync
+aborts earlier, at a single-byte Control - the FU23 Mute of channel 0,
+which tas2783_reg_default[] gives 0x1 while the driver's init sequence
+writes 0x00, so the sync tries to restore it and the peripheral answers
+-ENODATA - and no multi-byte register is reached at all.
+
+Signed-off-by: Andrey Golovko <andrey.golovko@gmail.com>
+Link: https://patch.msgid.link/20260815112000.4180-2-andrey.golovko@gmail.com
+Signed-off-by: Mark Brown <broonie@kernel.org>
+---
+ sound/soc/codecs/tas2783-sdw.c | 37 +++++++++++++++++++++++++---------
+ 1 file changed, 28 insertions(+), 9 deletions(-)
+
+diff --git a/sound/soc/codecs/tas2783-sdw.c b/sound/soc/codecs/tas2783-sdw.c
+index 253368d17d7b14f58d6dbd22ec65a2effe8a375c..4a6002938176a1f7ed189928b5ae97db038743aa 100644
+--- a/sound/soc/codecs/tas2783-sdw.c
++++ b/sound/soc/codecs/tas2783-sdw.c
+@@ -563,7 +563,13 @@ static bool tas2783_volatile_register(struct device *dev, u32 reg)
+ 
+ static const struct regmap_config tas_regmap = {
+ 	.reg_bits = 32,
+-	.val_bits = 8,
++	/*
++	 * tas2783_sdca_mbq_size() declares registers of one, two and four
++	 * bytes. val_bits has to cover the widest of those: the SoundWire MBQ
++	 * bus rejects any register whose declared size exceeds val_bits, which
++	 * would make every multi-byte register unreachable in both directions.
++	 */
++	.val_bits = 32,
+ 	.readable_reg = tas2783_readable_register,
+ 	.writeable_reg = tas2783_writeable_register,
+ 	.volatile_reg = tas2783_volatile_register,
+@@ -666,9 +672,9 @@ static s32 tas2783_validate_calibdata(struct tas2783_prv *tas_dev,
+ 
+ static void tas2783_set_calib_params_to_device(struct tas2783_prv *tas_dev, u32 *cali_data)
+ {
+-	u32 dev_count, offset, i, device_num;
++	u32 dev_count, offset, i, j, device_num;
+ 	u32 reg_value;
+-	u8 buf[4];
++	s32 ret;
+ 
+ 	dev_count = cali_data[1];
+ 	offset = 3;
+@@ -682,12 +688,25 @@ static void tas2783_set_calib_params_to_device(struct tas2783_prv *tas_dev, u32
+ 
+ 		for (i = 0; i < ARRAY_SIZE(tas2783_cali_reg); i++) {
+ 			reg_value = cali_data[offset + i];
+-			buf[0] = reg_value >> 24;
+-			buf[1] = reg_value >> 16;
+-			buf[2] = reg_value >> 8;
+-			buf[3] = reg_value & 0xff;
+-			regmap_bulk_write(tas_dev->regmap, tas2783_cali_reg[i],
+-					  buf, sizeof(u32));
++
++			/*
++			 * A calibration value occupies four consecutive
++			 * single-byte registers, most significant byte first.
++			 * Write them one by one: these registers are declared
++			 * as one byte wide by tas2783_sdca_mbq_size(), so a
++			 * multi-byte regmap access would not match the layout.
++			 */
++			for (j = 0; j < sizeof(u32); j++) {
++				ret = regmap_write(tas_dev->regmap,
++						   tas2783_cali_reg[i] + j,
++						   (reg_value >> (24 - 8 * j)) & 0xff);
++				if (ret) {
++					dev_err(tas_dev->dev,
++						"calib write to 0x%x failed, err=%d\n",
++						tas2783_cali_reg[i] + j, ret);
++					break;
++				}
++			}
+ 		}
+ 		break;
+ 	}
+-- 
+2.55.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Andrey Golovko <andrey.golovko@gmail.com>
+Date: Sat, 15 Aug 2026 14:40:00 +0300
+Subject: ASoC: tas2783-sdw: do not cache read-only Controls
+
+The read-only SDCA Controls are readings of device state, but the regmap
+caches them and tas2783_reg_default[] gives each one a placeholder, so a
+read is answered from the cache and never reaches the peripheral.  The
+answer is whatever the cache happens to hold: on an ASUS ProArt PX13 a
+read of the PDE23 actual power state returns the 0x3 placeholder, i.e.
+PS3, while the Function is powered and a cache-bypassing read of the
+same Control over the bus answers 0x0.  Once the cache has been given a
+value it keeps it, so the Control reports a state the device left long
+ago.
+
+Mark those Controls volatile and drop their entries from the defaults.
+regcache_read() and regcache_write() skip volatile registers, so a
+read-only Control no longer enters the cache at all: reads reach the
+peripheral, and a sync cannot attempt to write a reading back.  That is
+what regcache_sync() asks for in the first place - "any registers that
+should not be synced should be marked as volatile".
+
+The list is the same one the writeable_reg callback needs, so move it
+into a helper both callbacks use.  The File Download Status is not on
+it, because the host writes that Control, but it is volatile all the
+same: the device raises its own bits on its own schedule, and
+sdca_fdl_process() reads the Control to see them.  A cached answer would
+hide the device half of the handshake.
+
+Nothing in the driver reads any of these Controls - it performs no
+register reads at all - so the change is visible only through the
+regmap.
+
+Signed-off-by: Andrey Golovko <andrey.golovko@gmail.com>
+Link: https://patch.msgid.link/20260815112000.4180-3-andrey.golovko@gmail.com
+Signed-off-by: Mark Brown <broonie@kernel.org>
+---
+ sound/soc/codecs/tas2783-sdw.c | 68 ++++++++++++++--------------------
+ 1 file changed, 27 insertions(+), 41 deletions(-)
+
+diff --git a/sound/soc/codecs/tas2783-sdw.c b/sound/soc/codecs/tas2783-sdw.c
+index 4a6002938176a1f7ed189928b5ae97db038743aa..de648bb67e26c399c43ee6d1ae36480bfc19f87a 100644
+--- a/sound/soc/codecs/tas2783-sdw.c
++++ b/sound/soc/codecs/tas2783-sdw.c
+@@ -184,35 +184,17 @@ static const struct reg_default tas2783_reg_default[] = {
+ 	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_FU26, 0x01, 1), 0x1},
+ 	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_FU26, 0x0b, 1), 0x0},
+ 	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_XU22, 0x01, 0), 0x1},
+-	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_XU22, 0x06, 0), 0x0},
+-	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_XU22, 0x07, 0), 0x0},
+-	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_XU22, 0x08, 0), 0x0},
+ 	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_XU22, 0x09, 0), 0x0},
+ 	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_XU22, 0x0a, 0), 0x0},
+-	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_CS24, 0x02, 0), 0x0},
+-	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_CS21, 0x02, 0), 0x0},
+-	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_CS26, 0x02, 0), 0x0},
+-	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_CS28, 0x02, 0), 0x0},
+ 	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_PDE23, 0x1, 0), 0x3},
+-	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_SAPU29, 0x05, 0), 0x0},
+-	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_PPU21, 0x06, 0), 0x0},
+-	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_PPU26, 0x06, 0), 0x0},
+ 	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_IT21, 0x04, 0), 0x0},
+-	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_IT21, 0x08, 0), 0x0},
+ 	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_IT29, 0x04, 0), 0x0},
+-	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_IT29, 0x08, 0), 0x0},
+ 	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_IT26, 0x04, 0), 0x0},
+-	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_IT26, 0x08, 0), 0x0},
+ 	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_IT28, 0x04, 0), 0x0},
+-	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_IT28, 0x08, 0), 0x0},
+ 	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_OT24, 0x04, 0), 0x0},
+-	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_OT24, 0x08, 0), 0x0},
+ 	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_OT23, 0x04, 0), 0x0},
+-	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_OT23, 0x08, 0), 0x0},
+ 	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_OT25, 0x04, 0), 0x0},
+-	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_OT25, 0x08, 0), 0x0},
+ 	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_OT28, 0x04, 0), 0x0},
+-	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_OT28, 0x08, 0), 0x0},
+ 	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_MU26, 0x01, 0), 0x0},
+ 	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_MU26, 0x01, 1), 0x0},
+ 	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_MU26, 0x01, 2), 0x0},
+@@ -221,40 +203,28 @@ static const struct reg_default tas2783_reg_default[] = {
+ 	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_MU26, 0x01, 5), 0x0},
+ 	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_MU26, 0x01, 6), 0x0},
+ 	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_MU26, 0x01, 7), 0x0},
+-	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_MU26, 0x06, 0), 0x0},
+ 	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_OT127, 0x04, 0), 0x0},
+-	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_OT127, 0x08, 0), 0x0},
+ 	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_FU127, 0x01, 0), 0x1},
+ 	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_FU127, 0x01, 1), 0x1},
+ 	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_FU127, 0x01, 2), 0x1},
+ 	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_FU127, 0x0b, 0), 0x0},
+ 	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_FU127, 0x0b, 1), 0x0},
+ 	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_FU127, 0x0b, 2), 0x0},
+-	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_CS127, 0x02, 0), 0x0},
+ 	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_MFPU21, 0x01, 0), 0x0},
+-	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_MFPU21, 0x04, 0), 0x0},
+ 	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_MFPU21, 0x05, 0), 0x1},
+-	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_MFPU21, 0x08, 0), 0x0},
+ 	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_MFPU26, 0x01, 0), 0x0},
+-	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_MFPU26, 0x04, 0), 0x0},
+ 	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_MFPU26, 0x05, 0), 0x1},
+-	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_MFPU26, 0x08, 0), 0x0},
+-	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_FU23, 0x10, 0), 0x0},
+-	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_FU26, 0x10, 0), 0x0},
+ 	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_XU22, 0x10, 0), 0x1},
+ 	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_XU22, 0x12, 0), 0x0},
+ 	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_XU22, 0x13, 0), 0x0},
+-	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_XU22, 0x14, 0), 0x0},
+ 	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_XU22, 0x15, 0), 0x0},
+ 	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_XU22, 0x16, 0), 0x0},
+ 	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_CS24, 0x10, 0), 0x0},
+ 	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_CS21, 0x10, 0), 0x0},
+ 	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_CS26, 0x10, 0), 0x0},
+ 	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_CS28, 0x10, 0), 0x0},
+-	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_PDE23, 0x10, 0), 0x3},
+ 	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_UDMPU23, 0x10, 0), 0x0},
+ 	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_SAPU29, 0x10, 0), 0x1},
+-	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_SAPU29, 0x11, 0), 0x0},
+ 	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_SAPU29, 0x12, 0), 0x0},
+ 	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_PPU21, 0x10, 0), 0x0},
+ 	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_PPU21, 0x11, 0), 0x0},
+@@ -285,7 +255,6 @@ static const struct reg_default tas2783_reg_default[] = {
+ 	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_OT127, 0x12, 5), 0x0},
+ 	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_OT127, 0x12, 6), 0x0},
+ 	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_OT127, 0x12, 7), 0x0},
+-	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_FU127, 0x10, 0), 0x0},
+ 	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_CS127, 0x10, 0), 0x0},
+ 	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_MFPU21, 0x10, 0), 0x0},
+ 	{SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_MFPU21, 0x11, 0), 0x0},
+@@ -494,15 +463,15 @@ static bool tas2783_readable_register(struct device *dev, unsigned int reg)
+ 	return tas2783_sdca_mbq_size(dev, reg) > 0;
+ }
+ 
+-static bool tas2783_writeable_register(struct device *dev, unsigned int reg)
++/*
++ * The read-only SDCA Controls the driver describes: the Latency of every
++ * Entity, the Clock Valid of every Clock Source, the actual power state of
++ * the Power Domain Entity, the protection status, the algorithm ready flag
++ * and the Extension Unit id, version and firmware download status.  None of
++ * them is a setting; every one is a reading of device state.
++ */
++static bool tas2783_read_only_control(unsigned int reg)
+ {
+-	/*
+-	 * The Latency Control of every Entity, together with the Power Domain
+-	 * actual state and the protection status, is read-only. They are
+-	 * listed in tas2783_reg_default[] with a placeholder value, so without
+-	 * this a regcache_sync() would try to write them back and the
+-	 * peripheral would reject the transaction, aborting the sync.
+-	 */
+ 	switch (reg) {
+ 	case SDW_SDCA_CTL(FUNC_NUM_SMART_AMP, TAS2783_SDCA_ENT_FU21, 0x10, 0):
+ 	case SDW_SDCA_CTL(FUNC_NUM_SMART_AMP, TAS2783_SDCA_ENT_FU23, 0x10, 0):
+@@ -537,16 +506,33 @@ static bool tas2783_writeable_register(struct device *dev, unsigned int reg)
+ 	case SDW_SDCA_CTL(FUNC_NUM_SMART_AMP, TAS2783_SDCA_ENT_MFPU21, 0x04, 0):
+ 	case SDW_SDCA_CTL(FUNC_NUM_SMART_AMP, TAS2783_SDCA_ENT_MFPU26, 0x08, 0):
+ 	case SDW_SDCA_CTL(FUNC_NUM_SMART_AMP, TAS2783_SDCA_ENT_MFPU26, 0x04, 0):
+-		return false;
++		return true;
+ 
+ 	default:
+-		return tas2783_sdca_mbq_size(dev, reg) > 0;
++		return false;
+ 	}
+ }
+ 
++static bool tas2783_writeable_register(struct device *dev, unsigned int reg)
++{
++	if (tas2783_read_only_control(reg))
++		return false;
++
++	return tas2783_sdca_mbq_size(dev, reg) > 0;
++}
++
+ static bool tas2783_volatile_register(struct device *dev, u32 reg)
+ {
++	if (tas2783_read_only_control(reg))
++		return true;
++
+ 	switch (reg) {
++	/*
++	 * The File Download Status is a handshake: the device raises its own
++	 * bits on its own schedule and the host writes back a response, so it
++	 * is writable, but it must never be answered from the cache.
++	 */
++	case SDW_SDCA_CTL(FUNC_NUM_SMART_AMP, TAS2783_SDCA_ENT_XU22, 0x14, 0):
+ 	case 0x000 ... 0x080: /* Data port 0. */
+ 	case 0x100 ... 0x140: /* Data port 1. */
+ 	case 0x200 ... 0x240: /* Data port 2. */
+-- 
+2.55.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antoine Monnet <antoine@montane.tech>
+Date: Sat, 15 Aug 2026 14:50:00 +0300
+Subject: ASoC: tas2783-sdw: split a stereo stream across the two mono amps
+
+A board with two TAS2783 aggregated on one link renders mono: the two
+amplifiers are mono parts that each carry one channel of the stereo
+stream, but snd_sdw_params_to_config() hands every codec the full
+channel mask for playback.  The pair stays in mirror mode, both amps
+render the same channel, and the other channel is never reproduced.
+
+Claim a single channel per amplifier instead.  The index comes from the
+machine-assigned component name prefix rather than the SoundWire
+unique_id, which is board-specific: soc_sdw_ti_amp.c names the
+amplifiers tas2783-1..4.
+
+The bit that is set does not choose the side.  sdw_compute_slave_ports()
+advances the payload offset by hweight32(ch_mask) and never looks at
+which bit it is, so a one-channel mask fixes mono by defeating mirror
+mode, and left and right then follow the amplifier's position in the
+codec order of the DAI link.  That was measured: inverting the two masks
+between the amplifiers does not move the audio.  On the boards this has
+been run on the codec order matches the prefix numbering, so the sides
+come out as the machine driver names them, but the mapping is not an ABI
+promise the bus allocator could honour.
+
+Reported-by: Robin Everaars <robineveraars@pm.me>
+Closes: https://lore.kernel.org/all/20260805183517.8665-1-robineveraars@pm.me/
+Suggested-by: Robin Everaars <robineveraars@pm.me>
+Signed-off-by: Antoine Monnet <antoine@montane.tech>
+Tested-by: Andrey Golovko <andrey@golovko.me>
+Signed-off-by: Andrey Golovko <andrey.golovko@gmail.com>
+Link: https://patch.msgid.link/20260815113000.4488-1-andrey.golovko@gmail.com
+Signed-off-by: Mark Brown <broonie@kernel.org>
+---
+ sound/soc/codecs/tas2783-sdw.c | 25 +++++++++++++++++++++++++
+ 1 file changed, 25 insertions(+)
+
+diff --git a/sound/soc/codecs/tas2783-sdw.c b/sound/soc/codecs/tas2783-sdw.c
+index de648bb67e26c399c43ee6d1ae36480bfc19f87a..de90cebe96f5655e7416bd3f11477c72e8279cd6 100644
+--- a/sound/soc/codecs/tas2783-sdw.c
++++ b/sound/soc/codecs/tas2783-sdw.c
+@@ -1004,6 +1004,31 @@ static s32 tas_sdw_hw_params(struct snd_pcm_substream *substream,
+ 	/* SoundWire specific configuration */
+ 	snd_sdw_params_to_config(substream, params,
+ 				 &stream_config, &port_config);
++
++	/*
++	 * The two mono amps each render one channel of the stereo stream:
++	 * snd_sdw_params_to_config() hands every codec the full mask for
++	 * playback, which leaves the pair in mirror mode and one channel
++	 * unreproduced.  Claim a single channel instead, keyed off the
++	 * machine-assigned component prefix rather than the SoundWire
++	 * address, which is board-specific: soc_sdw_ti_amp.c names the amps
++	 * tas2783-1..4.
++	 *
++	 * Which side an amp then renders does not follow from the bit that
++	 * is set - sdw_compute_slave_ports() advances the payload offset by
++	 * the popcount of ch_mask and never looks at which bit it is - but
++	 * from the amp's position in the codec order of the DAI link, which
++	 * on these boards matches the prefix numbering.
++	 */
++	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK &&
++	    params_channels(params) == 2 && component->name_prefix) {
++		const char *idx_str = strrchr(component->name_prefix, '-');
++		unsigned long idx;
++
++		if (idx_str && !kstrtoul(idx_str + 1, 10, &idx) && idx)
++			port_config.ch_mask = (idx & 1) ? BIT(0) : BIT(1);
++	}
++
+ 	/* port 1 for playback */
+ 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+ 		port_config.num = 1;
+-- 
+2.55.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Jack Yu <jack.yu@realtek.com>
+Date: Tue, 1 Sep 2026 17:37:51 +0800
+Subject: ASoC: rt721-sdca: Adjust latency control to fix no-sound issue
+
+Adjust latency control in speaker preset to fix no-sound issue.
+
+Signed-off-by: Jack Yu <jack.yu@realtek.com>
+Link: https://patch.msgid.link/20260901093751.2962786-1-jack.yu@realtek.com
+Signed-off-by: Mark Brown <broonie@kernel.org>
+---
+ sound/soc/codecs/rt721-sdca.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/sound/soc/codecs/rt721-sdca.c b/sound/soc/codecs/rt721-sdca.c
+index 35960c22522491bac693ecad5c5767ac3f01981b..982c722d0b91eff91f0af4c458d678761de1faea 100644
+--- a/sound/soc/codecs/rt721-sdca.c
++++ b/sound/soc/codecs/rt721-sdca.c
+@@ -206,6 +206,7 @@ static void rt721_sdca_amp_preset(struct rt721_sdca_priv *rt721)
+ 	regmap_write(rt721->regmap,
+ 		SDW_SDCA_CTL(FUNC_NUM_AMP, RT721_SDCA_ENT_FU55,
+ 			RT721_SDCA_CTL_FU_MUTE, CH_02), 0x00);
++	regmap_write(rt721->regmap, 0x2f5d, 0x1);
+ }
+ 
+ static void rt721_sdca_jack_preset(struct rt721_sdca_priv *rt721)
+-- 
+2.55.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Shuming Fan <shumingf@realtek.com>
+Date: Fri, 4 Sep 2026 15:58:26 +0800
+Subject: ASoC: rt721: fix uninitialized stream_config->type
+
+The stream_config variable was not initialized before being passed to
+sdw_stream_add_slave().
+This may cause unexpected behavior when configuring the SoundWire stream.
+
+Signed-off-by: Shuming Fan <shumingf@realtek.com>
+Link: https://patch.msgid.link/20260904075826.130751-1-shumingf@realtek.com
+Signed-off-by: Mark Brown <broonie@kernel.org>
+---
+ sound/soc/codecs/rt721-sdca.c | 16 +++++-----------
+ 1 file changed, 5 insertions(+), 11 deletions(-)
+
+diff --git a/sound/soc/codecs/rt721-sdca.c b/sound/soc/codecs/rt721-sdca.c
+index 982c722d0b91eff91f0af4c458d678761de1faea..a795a9e3b351e711d36373dc677ddf3f3950e5df 100644
+--- a/sound/soc/codecs/rt721-sdca.c
++++ b/sound/soc/codecs/rt721-sdca.c
+@@ -21,6 +21,7 @@
+ #include <linux/soundwire/sdw_registers.h>
+ #include <linux/slab.h>
+ #include <sound/soc-dapm.h>
++#include <sound/sdw.h>
+ #include <sound/tlv.h>
+ 
+ #include "rt721-sdca.h"
+@@ -1270,11 +1271,10 @@ static int rt721_sdca_pcm_hw_params(struct snd_pcm_substream *substream,
+ {
+ 	struct snd_soc_component *component = dai->component;
+ 	struct rt721_sdca_priv *rt721 = snd_soc_component_get_drvdata(component);
+-	struct sdw_stream_config stream_config;
++	struct sdw_stream_config stream_config = {0};
+ 	struct sdw_port_config port_config;
+-	enum sdw_data_direction direction;
+ 	struct sdw_stream_runtime *sdw_stream;
+-	int retval, port, num_channels;
++	int retval, port;
+ 	unsigned int sampling_rate;
+ 
+ 	dev_dbg(dai->dev, "%s %s", __func__, dai->name);
+@@ -1293,7 +1293,6 @@ static int rt721_sdca_pcm_hw_params(struct snd_pcm_substream *substream,
+ 	 * RT721_AIF3 with port = 6 for digital-mic capture
+ 	 */
+ 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+-		direction = SDW_DATA_DIR_RX;
+ 		if (dai->id == RT721_AIF1)
+ 			port = 1;
+ 		else if (dai->id == RT721_AIF2)
+@@ -1301,7 +1300,6 @@ static int rt721_sdca_pcm_hw_params(struct snd_pcm_substream *substream,
+ 		else
+ 			return -EINVAL;
+ 	} else {
+-		direction = SDW_DATA_DIR_TX;
+ 		if (dai->id == RT721_AIF1)
+ 			port = 2;
+ 		else if (dai->id == RT721_AIF3)
+@@ -1309,13 +1307,9 @@ static int rt721_sdca_pcm_hw_params(struct snd_pcm_substream *substream,
+ 		else
+ 			return -EINVAL;
+ 	}
+-	stream_config.frame_rate = params_rate(params);
+-	stream_config.ch_count = params_channels(params);
+-	stream_config.bps = snd_pcm_format_width(params_format(params));
+-	stream_config.direction = direction;
+ 
+-	num_channels = params_channels(params);
+-	port_config.ch_mask = GENMASK(num_channels - 1, 0);
++	/* SoundWire specific configuration */
++	snd_sdw_params_to_config(substream, params, &stream_config, &port_config);
+ 	port_config.num = port;
+ 
+ 	retval = sdw_stream_add_slave(rt721->slave, &stream_config,
+-- 
+2.55.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Oder Chiou <oder_chiou@realtek.com>
+Date: Fri, 11 Sep 2026 16:45:46 +0800
+Subject: ASoC: rt721: Use the function_status check to avoid duplicate presets
+
+This patch adds the function_status check to avoid duplicate presets. The
+codec driver reinitializes when the 'FUNCTION_NEEDS_INITIALIZATION' flag
+is raised.
+
+Signed-off-by: Oder Chiou <oder_chiou@realtek.com>
+Link: https://patch.msgid.link/20260911084546.1342894-1-oder_chiou@realtek.com
+Signed-off-by: Mark Brown <broonie@kernel.org>
+---
+ sound/soc/codecs/rt721-sdca-sdw.c |  12 ++
+ sound/soc/codecs/rt721-sdca.c     | 315 +++++++++++++++++-------------
+ sound/soc/codecs/rt721-sdca.h     |   5 +
+ 3 files changed, 195 insertions(+), 137 deletions(-)
+
+diff --git a/sound/soc/codecs/rt721-sdca-sdw.c b/sound/soc/codecs/rt721-sdca-sdw.c
+index 041b381e582b49bfcf196bdde0906c509ac60977..ec05482ea24891836885ecaa09e903997b3f3e69 100644
+--- a/sound/soc/codecs/rt721-sdca-sdw.c
++++ b/sound/soc/codecs/rt721-sdca-sdw.c
+@@ -24,16 +24,22 @@ static bool rt721_sdca_readable_register(struct device *dev, unsigned int reg)
+ 	case 0x2f50:
+ 	case 0x2f51:
+ 	case 0x2f58 ... 0x2f5d:
++	case SDW_SDCA_CTL(FUNC_NUM_JACK_CODEC, RT721_SDCA_ENT0,
++		RT721_SDCA_CTL_FUNC_STATUS, 0):
+ 	case SDW_SDCA_CTL(FUNC_NUM_JACK_CODEC, RT721_SDCA_ENT_XUV,
+ 		RT721_SDCA_CTL_XUV, 0):
+ 	case SDW_SDCA_CTL(FUNC_NUM_JACK_CODEC, RT721_SDCA_ENT_GE49,
+ 		RT721_SDCA_CTL_SELECTED_MODE, 0):
+ 	case SDW_SDCA_CTL(FUNC_NUM_JACK_CODEC, RT721_SDCA_ENT_GE49,
+ 		RT721_SDCA_CTL_DETECTED_MODE, 0):
++	case SDW_SDCA_CTL(FUNC_NUM_MIC_ARRAY, RT721_SDCA_ENT0,
++		RT721_SDCA_CTL_FUNC_STATUS, 0):
+ 	case SDW_SDCA_CTL(FUNC_NUM_HID, RT721_SDCA_ENT_HID01,
+ 		RT721_SDCA_CTL_HIDTX_CURRENT_OWNER, 0) ... SDW_SDCA_CTL(FUNC_NUM_HID,
+ 		RT721_SDCA_ENT_HID01, RT721_SDCA_CTL_HIDTX_MESSAGE_LENGTH, 0):
+ 	case RT721_BUF_ADDR_HID1 ... RT721_BUF_ADDR_HID2:
++	case SDW_SDCA_CTL(FUNC_NUM_AMP, RT721_SDCA_ENT0,
++		RT721_SDCA_CTL_FUNC_STATUS, 0):
+ 		return true;
+ 	default:
+ 		return false;
+@@ -45,14 +51,20 @@ static bool rt721_sdca_volatile_register(struct device *dev, unsigned int reg)
+ 	switch (reg) {
+ 	case 0x2f01:
+ 	case 0x2f51:
++	case SDW_SDCA_CTL(FUNC_NUM_JACK_CODEC, RT721_SDCA_ENT0,
++		RT721_SDCA_CTL_FUNC_STATUS, 0):
+ 	case SDW_SDCA_CTL(FUNC_NUM_JACK_CODEC, RT721_SDCA_ENT_GE49,
+ 		RT721_SDCA_CTL_DETECTED_MODE, 0):
+ 	case SDW_SDCA_CTL(FUNC_NUM_JACK_CODEC, RT721_SDCA_ENT_XUV,
+ 		RT721_SDCA_CTL_XUV, 0):
++	case SDW_SDCA_CTL(FUNC_NUM_MIC_ARRAY, RT721_SDCA_ENT0,
++		RT721_SDCA_CTL_FUNC_STATUS, 0):
+ 	case SDW_SDCA_CTL(FUNC_NUM_HID, RT721_SDCA_ENT_HID01,
+ 		RT721_SDCA_CTL_HIDTX_CURRENT_OWNER, 0) ... SDW_SDCA_CTL(FUNC_NUM_HID,
+ 		RT721_SDCA_ENT_HID01, RT721_SDCA_CTL_HIDTX_MESSAGE_LENGTH, 0):
+ 	case RT721_BUF_ADDR_HID1 ... RT721_BUF_ADDR_HID2:
++	case SDW_SDCA_CTL(FUNC_NUM_AMP, RT721_SDCA_ENT0,
++		RT721_SDCA_CTL_FUNC_STATUS, 0):
+ 		return true;
+ 	default:
+ 		return false;
+diff --git a/sound/soc/codecs/rt721-sdca.c b/sound/soc/codecs/rt721-sdca.c
+index a795a9e3b351e711d36373dc677ddf3f3950e5df..443642c2b64825669b3b83599b0accae6abc000f 100644
+--- a/sound/soc/codecs/rt721-sdca.c
++++ b/sound/soc/codecs/rt721-sdca.c
+@@ -142,151 +142,192 @@ static void rt721_sdca_btn_check_handler(struct work_struct *work)
+ 
+ static void rt721_sdca_dmic_preset(struct rt721_sdca_priv *rt721)
+ {
+-	rt_sdca_index_write(rt721->mbq_regmap, RT721_VENDOR_ANA_CTL,
+-		RT721_MISC_POWER_CTL31, 0x8000);
+-	rt_sdca_index_write(rt721->mbq_regmap, RT721_ANA_POW_PART,
+-		RT721_VREF1_HV_CTRL1, 0xe000);
+-	rt_sdca_index_write(rt721->mbq_regmap, RT721_VENDOR_ANA_CTL,
+-		RT721_MISC_POWER_CTL31, 0x8007);
+-	rt_sdca_index_write(rt721->mbq_regmap, RT721_HDA_SDCA_FLOAT,
+-		RT721_ENT_FLOAT_CTL9, 0x2a2a);
+-	rt_sdca_index_write(rt721->mbq_regmap, RT721_HDA_SDCA_FLOAT,
+-		RT721_ENT_FLOAT_CTL10, 0x2a00);
+-	rt_sdca_index_write(rt721->mbq_regmap, RT721_HDA_SDCA_FLOAT,
+-		RT721_ENT_FLOAT_CTL6, 0x2a2a);
+-	rt_sdca_index_write(rt721->mbq_regmap, RT721_HDA_SDCA_FLOAT,
+-		RT721_ENT_FLOAT_CTL5, 0x2626);
+-	rt_sdca_index_write(rt721->mbq_regmap, RT721_HDA_SDCA_FLOAT,
+-		RT721_ENT_FLOAT_CTL8, 0x1e00);
+-	rt_sdca_index_write(rt721->mbq_regmap, RT721_HDA_SDCA_FLOAT,
+-		RT721_ENT_FLOAT_CTL7, 0x1515);
+-	rt_sdca_index_write(rt721->mbq_regmap, RT721_HDA_SDCA_FLOAT,
+-		RT721_CH_FLOAT_CTL3, 0x0304);
+-	rt_sdca_index_write(rt721->mbq_regmap, RT721_HDA_SDCA_FLOAT,
+-		RT721_CH_FLOAT_CTL4, 0x0304);
+-	rt_sdca_index_write(rt721->mbq_regmap, RT721_HDA_SDCA_FLOAT,
+-		RT721_HDA_LEGACY_CTL1, 0x0000);
+-	regmap_write(rt721->regmap,
+-		SDW_SDCA_CTL(FUNC_NUM_MIC_ARRAY, RT721_SDCA_ENT_IT26,
+-			RT721_SDCA_CTL_VENDOR_DEF, 0), 0x01);
+-	regmap_write(rt721->mbq_regmap, 0x5910009, 0x2e01);
+-	rt_sdca_index_write(rt721->mbq_regmap, RT721_RC_CALIB_CTRL,
+-		RT721_RC_CALIB_CTRL0, 0x0b00);
+-	rt_sdca_index_write(rt721->mbq_regmap, RT721_RC_CALIB_CTRL,
+-		RT721_RC_CALIB_CTRL0, 0x0b40);
+-	regmap_write(rt721->regmap, 0x2f5c, 0x25);
++	unsigned int mic_func_status;
++	struct device *dev = &rt721->slave->dev;
++
++	regmap_read(rt721->regmap,
++		SDW_SDCA_CTL(FUNC_NUM_MIC_ARRAY, RT721_SDCA_ENT0, RT721_SDCA_CTL_FUNC_STATUS, 0),
++		&mic_func_status);
++	dev_dbg(dev, "%s mic func_status=0x%x\n", __func__, mic_func_status);
++
++	if ((mic_func_status & FUNCTION_NEEDS_INITIALIZATION) || (!rt721->first_hw_init)) {
++		rt_sdca_index_write(rt721->mbq_regmap, RT721_VENDOR_ANA_CTL,
++			RT721_MISC_POWER_CTL31, 0x8000);
++		rt_sdca_index_write(rt721->mbq_regmap, RT721_ANA_POW_PART,
++			RT721_VREF1_HV_CTRL1, 0xe000);
++		rt_sdca_index_write(rt721->mbq_regmap, RT721_VENDOR_ANA_CTL,
++			RT721_MISC_POWER_CTL31, 0x8007);
++		rt_sdca_index_write(rt721->mbq_regmap, RT721_HDA_SDCA_FLOAT,
++			RT721_ENT_FLOAT_CTL9, 0x2a2a);
++		rt_sdca_index_write(rt721->mbq_regmap, RT721_HDA_SDCA_FLOAT,
++			RT721_ENT_FLOAT_CTL10, 0x2a00);
++		rt_sdca_index_write(rt721->mbq_regmap, RT721_HDA_SDCA_FLOAT,
++			RT721_ENT_FLOAT_CTL6, 0x2a2a);
++		rt_sdca_index_write(rt721->mbq_regmap, RT721_HDA_SDCA_FLOAT,
++			RT721_ENT_FLOAT_CTL5, 0x2626);
++		rt_sdca_index_write(rt721->mbq_regmap, RT721_HDA_SDCA_FLOAT,
++			RT721_ENT_FLOAT_CTL8, 0x1e00);
++		rt_sdca_index_write(rt721->mbq_regmap, RT721_HDA_SDCA_FLOAT,
++			RT721_ENT_FLOAT_CTL7, 0x1515);
++		rt_sdca_index_write(rt721->mbq_regmap, RT721_HDA_SDCA_FLOAT,
++			RT721_CH_FLOAT_CTL3, 0x0304);
++		rt_sdca_index_write(rt721->mbq_regmap, RT721_HDA_SDCA_FLOAT,
++			RT721_CH_FLOAT_CTL4, 0x0304);
++		rt_sdca_index_write(rt721->mbq_regmap, RT721_HDA_SDCA_FLOAT,
++			RT721_HDA_LEGACY_CTL1, 0x0000);
++		regmap_write(rt721->regmap,
++			SDW_SDCA_CTL(FUNC_NUM_MIC_ARRAY, RT721_SDCA_ENT_IT26,
++				RT721_SDCA_CTL_VENDOR_DEF, 0), 0x01);
++		regmap_write(rt721->mbq_regmap, 0x5910009, 0x2e01);
++		rt_sdca_index_write(rt721->mbq_regmap, RT721_RC_CALIB_CTRL,
++			RT721_RC_CALIB_CTRL0, 0x0b00);
++		rt_sdca_index_write(rt721->mbq_regmap, RT721_RC_CALIB_CTRL,
++			RT721_RC_CALIB_CTRL0, 0x0b40);
++		regmap_write(rt721->regmap, 0x2f5c, 0x25);
++		/* clear flag */
++		regmap_write(rt721->regmap,
++			SDW_SDCA_CTL(FUNC_NUM_MIC_ARRAY, RT721_SDCA_ENT0,
++			RT721_SDCA_CTL_FUNC_STATUS, 0), FUNCTION_NEEDS_INITIALIZATION);
++	}
+ }
+ 
+ static void rt721_sdca_amp_preset(struct rt721_sdca_priv *rt721)
+ {
+-	rt_sdca_index_write(rt721->mbq_regmap, RT721_VENDOR_ANA_CTL,
+-		RT721_MISC_POWER_CTL31, 0x8000);
+-	rt_sdca_index_write(rt721->mbq_regmap, RT721_ANA_POW_PART,
+-		RT721_VREF1_HV_CTRL1, 0xe000);
+-	rt_sdca_index_write(rt721->mbq_regmap, RT721_VENDOR_ANA_CTL,
+-		RT721_MISC_POWER_CTL31, 0x8007);
+-	regmap_write(rt721->mbq_regmap, 0x5810000, 0x6420);
+-	regmap_write(rt721->mbq_regmap, 0x5810000, 0x6421);
+-	regmap_write(rt721->mbq_regmap, 0x5810000, 0xe421);
+-	rt_sdca_index_write(rt721->mbq_regmap, RT721_HDA_SDCA_FLOAT,
+-		RT721_CH_FLOAT_CTL6, 0x5561);
+-	rt_sdca_index_write(rt721->mbq_regmap, RT721_VENDOR_REG,
+-		RT721_GPIO_PAD_CTRL5, 0x8003);
+-	regmap_write(rt721->regmap,
+-		SDW_SDCA_CTL(FUNC_NUM_AMP, RT721_SDCA_ENT_OT23,
+-			RT721_SDCA_CTL_VENDOR_DEF, 0), 0x04);
+-	regmap_write(rt721->regmap,
+-		SDW_SDCA_CTL(FUNC_NUM_AMP, RT721_SDCA_ENT_PDE23,
+-			RT721_SDCA_CTL_FU_MUTE, CH_01), 0x00);
+-	regmap_write(rt721->regmap,
+-		SDW_SDCA_CTL(FUNC_NUM_AMP, RT721_SDCA_ENT_PDE23,
+-			RT721_SDCA_CTL_FU_MUTE, CH_02), 0x00);
+-	regmap_write(rt721->regmap,
+-		SDW_SDCA_CTL(FUNC_NUM_AMP, RT721_SDCA_ENT_FU55,
+-			RT721_SDCA_CTL_FU_MUTE, CH_01), 0x00);
+-	regmap_write(rt721->regmap,
+-		SDW_SDCA_CTL(FUNC_NUM_AMP, RT721_SDCA_ENT_FU55,
+-			RT721_SDCA_CTL_FU_MUTE, CH_02), 0x00);
+-	regmap_write(rt721->regmap, 0x2f5d, 0x1);
++	unsigned int amp_func_status;
++	struct device *dev = &rt721->slave->dev;
++
++	regmap_read(rt721->regmap,
++		SDW_SDCA_CTL(FUNC_NUM_AMP, RT721_SDCA_ENT0, RT721_SDCA_CTL_FUNC_STATUS, 0),
++		&amp_func_status);
++	dev_dbg(dev, "%s amp func_status=0x%x\n", __func__, amp_func_status);
++
++	if ((amp_func_status & FUNCTION_NEEDS_INITIALIZATION) || (!rt721->first_hw_init)) {
++		rt_sdca_index_write(rt721->mbq_regmap, RT721_VENDOR_ANA_CTL,
++			RT721_MISC_POWER_CTL31, 0x8000);
++		rt_sdca_index_write(rt721->mbq_regmap, RT721_ANA_POW_PART,
++			RT721_VREF1_HV_CTRL1, 0xe000);
++		rt_sdca_index_write(rt721->mbq_regmap, RT721_VENDOR_ANA_CTL,
++			RT721_MISC_POWER_CTL31, 0x8007);
++		regmap_write(rt721->mbq_regmap, 0x5810000, 0x6420);
++		regmap_write(rt721->mbq_regmap, 0x5810000, 0x6421);
++		regmap_write(rt721->mbq_regmap, 0x5810000, 0xe421);
++		rt_sdca_index_write(rt721->mbq_regmap, RT721_HDA_SDCA_FLOAT,
++			RT721_CH_FLOAT_CTL6, 0x5561);
++		rt_sdca_index_write(rt721->mbq_regmap, RT721_VENDOR_REG,
++			RT721_GPIO_PAD_CTRL5, 0x8003);
++		regmap_write(rt721->regmap,
++			SDW_SDCA_CTL(FUNC_NUM_AMP, RT721_SDCA_ENT_OT23,
++				RT721_SDCA_CTL_VENDOR_DEF, 0), 0x04);
++		regmap_write(rt721->regmap,
++			SDW_SDCA_CTL(FUNC_NUM_AMP, RT721_SDCA_ENT_PDE23,
++				RT721_SDCA_CTL_FU_MUTE, CH_01), 0x00);
++		regmap_write(rt721->regmap,
++			SDW_SDCA_CTL(FUNC_NUM_AMP, RT721_SDCA_ENT_PDE23,
++				RT721_SDCA_CTL_FU_MUTE, CH_02), 0x00);
++		regmap_write(rt721->regmap,
++			SDW_SDCA_CTL(FUNC_NUM_AMP, RT721_SDCA_ENT_FU55,
++				RT721_SDCA_CTL_FU_MUTE, CH_01), 0x00);
++		regmap_write(rt721->regmap,
++			SDW_SDCA_CTL(FUNC_NUM_AMP, RT721_SDCA_ENT_FU55,
++				RT721_SDCA_CTL_FU_MUTE, CH_02), 0x00);
++		regmap_write(rt721->regmap, 0x2f5d, 0x1);
++		/* clear flag */
++		regmap_write(rt721->regmap,
++			SDW_SDCA_CTL(FUNC_NUM_AMP, RT721_SDCA_ENT0, RT721_SDCA_CTL_FUNC_STATUS, 0),
++			FUNCTION_NEEDS_INITIALIZATION);
++	}
+ }
+ 
+ static void rt721_sdca_jack_preset(struct rt721_sdca_priv *rt721)
+ {
+-	rt_sdca_index_write(rt721->mbq_regmap, RT721_VENDOR_ANA_CTL,
+-		RT721_MISC_POWER_CTL31, 0x8000);
+-	rt_sdca_index_write(rt721->mbq_regmap, RT721_ANA_POW_PART,
+-		RT721_VREF1_HV_CTRL1, 0xe000);
+-	rt_sdca_index_write(rt721->mbq_regmap, RT721_VENDOR_ANA_CTL,
+-		RT721_MISC_POWER_CTL31, 0x8007);
+-	rt_sdca_index_write(rt721->mbq_regmap, RT721_HDA_SDCA_FLOAT,
+-		RT721_GE_REL_CTRL1, 0x8011);
+-	rt_sdca_index_write(rt721->mbq_regmap, RT721_HDA_SDCA_FLOAT,
+-		RT721_UMP_HID_CTRL3, 0xcf00);
+-	rt_sdca_index_write(rt721->mbq_regmap, RT721_HDA_SDCA_FLOAT,
+-		RT721_UMP_HID_CTRL4, 0x000f);
+-	rt_sdca_index_write(rt721->mbq_regmap, RT721_HDA_SDCA_FLOAT,
+-		RT721_UMP_HID_CTRL1, 0x1100);
+-	rt_sdca_index_write(rt721->mbq_regmap, RT721_HDA_SDCA_FLOAT,
+-		RT721_UMP_HID_CTRL5, 0x0c12);
+-	rt_sdca_index_write(rt721->mbq_regmap, RT721_JD_CTRL,
+-		RT721_JD_1PIN_GAT_CTRL2, 0xc002);
+-	rt_sdca_index_write(rt721->mbq_regmap, RT721_RC_CALIB_CTRL,
+-		RT721_RC_CALIB_CTRL0, 0x0b00);
+-	rt_sdca_index_write(rt721->mbq_regmap, RT721_RC_CALIB_CTRL,
+-		RT721_RC_CALIB_CTRL0, 0x0b40);
+-	rt_sdca_index_write(rt721->mbq_regmap, RT721_VENDOR_ANA_CTL,
+-		RT721_UAJ_TOP_TCON14, 0x3333);
+-	regmap_write(rt721->mbq_regmap, 0x5810035, 0x0036);
+-	regmap_write(rt721->mbq_regmap, 0x5810030, 0xee00);
+-	rt_sdca_index_write(rt721->mbq_regmap, RT721_CAP_PORT_CTRL,
+-		RT721_HP_AMP_2CH_CAL1, 0x0140);
+-	regmap_write(rt721->mbq_regmap, 0x5810000, 0x0021);
+-	regmap_write(rt721->mbq_regmap, 0x5810000, 0x8021);
+-	rt_sdca_index_write(rt721->mbq_regmap, RT721_CAP_PORT_CTRL,
+-		RT721_HP_AMP_2CH_CAL18, 0x5522);
+-	regmap_write(rt721->mbq_regmap, 0x5b10007, 0x2000);
+-	regmap_write(rt721->mbq_regmap, 0x5B10017, 0x1b0f);
+-	rt_sdca_index_write(rt721->mbq_regmap, RT721_CBJ_CTRL,
+-		RT721_CBJ_A0_GAT_CTRL1, 0x2205);
+-	rt_sdca_index_write(rt721->mbq_regmap, RT721_CAP_PORT_CTRL,
+-		RT721_HP_AMP_2CH_CAL4, 0xa105);
+-	rt_sdca_index_write(rt721->mbq_regmap, RT721_VENDOR_ANA_CTL,
+-		RT721_UAJ_TOP_TCON14, 0x3b33);
+-	regmap_write(rt721->mbq_regmap, 0x310400, 0x3043);
+-	rt_sdca_index_write(rt721->mbq_regmap, RT721_VENDOR_ANA_CTL,
+-		RT721_UAJ_TOP_TCON14, 0x3f33);
+-	rt_sdca_index_write(rt721->mbq_regmap, RT721_VENDOR_ANA_CTL,
+-		RT721_UAJ_TOP_TCON13, 0x6048);
+-	regmap_write(rt721->mbq_regmap, 0x310401, 0x3000);
+-	regmap_write(rt721->mbq_regmap, 0x310402, 0x1b00);
+-	regmap_write(rt721->mbq_regmap, 0x310300, 0x000f);
+-	regmap_write(rt721->mbq_regmap, 0x310301, 0x3000);
+-	regmap_write(rt721->mbq_regmap, 0x310302, 0x1b00);
+-	rt_sdca_index_write(rt721->mbq_regmap, RT721_VENDOR_ANA_CTL,
+-		RT721_UAJ_TOP_TCON17, 0x0008);
+-	rt_sdca_index_write(rt721->mbq_regmap, RT721_DAC_CTRL,
+-		RT721_DAC_2CH_CTRL3, 0x55ff);
+-	rt_sdca_index_write(rt721->mbq_regmap, RT721_DAC_CTRL,
+-		RT721_DAC_2CH_CTRL4, 0xcc00);
+-	rt_sdca_index_write(rt721->mbq_regmap, RT721_ANA_POW_PART,
+-		RT721_MBIAS_LV_CTRL2, 0x6677);
+-	rt_sdca_index_write(rt721->mbq_regmap, RT721_ANA_POW_PART,
+-		RT721_VREF2_LV_CTRL1, 0x7600);
+-	rt_sdca_index_write(rt721->mbq_regmap, RT721_HDA_SDCA_FLOAT,
+-		RT721_ENT_FLOAT_CTL2, 0x1234);
+-	rt_sdca_index_write(rt721->mbq_regmap, RT721_HDA_SDCA_FLOAT,
+-		RT721_ENT_FLOAT_CTL3, 0x3512);
+-	rt_sdca_index_write(rt721->mbq_regmap, RT721_HDA_SDCA_FLOAT,
+-		RT721_ENT_FLOAT_CTL1, 0x4040);
+-	rt_sdca_index_write(rt721->mbq_regmap, RT721_HDA_SDCA_FLOAT,
+-		RT721_ENT_FLOAT_CTL4, 0x1201);
+-	rt_sdca_index_write(rt721->mbq_regmap, RT721_BOOST_CTRL,
+-		RT721_BST_4CH_TOP_GATING_CTRL1, 0x002a);
+-	regmap_write(rt721->regmap, 0x2f58, 0x07);
+-
+-	regmap_write(rt721->regmap, 0x2f51, 0x00);
+-	rt_sdca_index_write(rt721->mbq_regmap, RT721_HDA_SDCA_FLOAT,
+-		RT721_MISC_CTL, 0x0004);
++	unsigned int jack_func_status;
++	struct device *dev = &rt721->slave->dev;
++
++	regmap_read(rt721->regmap,
++		SDW_SDCA_CTL(FUNC_NUM_JACK_CODEC, RT721_SDCA_ENT0, RT721_SDCA_CTL_FUNC_STATUS, 0),
++			&jack_func_status);
++	dev_dbg(dev, "%s jack func_status=0x%x\n", __func__, jack_func_status);
++
++	if ((jack_func_status & FUNCTION_NEEDS_INITIALIZATION) || (!rt721->first_hw_init)) {
++		rt_sdca_index_write(rt721->mbq_regmap, RT721_VENDOR_ANA_CTL,
++			RT721_MISC_POWER_CTL31, 0x8000);
++		rt_sdca_index_write(rt721->mbq_regmap, RT721_ANA_POW_PART,
++			RT721_VREF1_HV_CTRL1, 0xe000);
++		rt_sdca_index_write(rt721->mbq_regmap, RT721_VENDOR_ANA_CTL,
++			RT721_MISC_POWER_CTL31, 0x8007);
++		rt_sdca_index_write(rt721->mbq_regmap, RT721_HDA_SDCA_FLOAT,
++			RT721_GE_REL_CTRL1, 0x8011);
++		rt_sdca_index_write(rt721->mbq_regmap, RT721_HDA_SDCA_FLOAT,
++			RT721_UMP_HID_CTRL3, 0xcf00);
++		rt_sdca_index_write(rt721->mbq_regmap, RT721_HDA_SDCA_FLOAT,
++			RT721_UMP_HID_CTRL4, 0x000f);
++		rt_sdca_index_write(rt721->mbq_regmap, RT721_HDA_SDCA_FLOAT,
++			RT721_UMP_HID_CTRL1, 0x1100);
++		rt_sdca_index_write(rt721->mbq_regmap, RT721_HDA_SDCA_FLOAT,
++			RT721_UMP_HID_CTRL5, 0x0c12);
++		rt_sdca_index_write(rt721->mbq_regmap, RT721_JD_CTRL,
++			RT721_JD_1PIN_GAT_CTRL2, 0xc002);
++		rt_sdca_index_write(rt721->mbq_regmap, RT721_RC_CALIB_CTRL,
++			RT721_RC_CALIB_CTRL0, 0x0b00);
++		rt_sdca_index_write(rt721->mbq_regmap, RT721_RC_CALIB_CTRL,
++			RT721_RC_CALIB_CTRL0, 0x0b40);
++		rt_sdca_index_write(rt721->mbq_regmap, RT721_VENDOR_ANA_CTL,
++			RT721_UAJ_TOP_TCON14, 0x3333);
++		regmap_write(rt721->mbq_regmap, 0x5810035, 0x0036);
++		regmap_write(rt721->mbq_regmap, 0x5810030, 0xee00);
++		rt_sdca_index_write(rt721->mbq_regmap, RT721_CAP_PORT_CTRL,
++			RT721_HP_AMP_2CH_CAL1, 0x0140);
++		regmap_write(rt721->mbq_regmap, 0x5810000, 0x0021);
++		regmap_write(rt721->mbq_regmap, 0x5810000, 0x8021);
++		rt_sdca_index_write(rt721->mbq_regmap, RT721_CAP_PORT_CTRL,
++			RT721_HP_AMP_2CH_CAL18, 0x5522);
++		regmap_write(rt721->mbq_regmap, 0x5b10007, 0x2000);
++		regmap_write(rt721->mbq_regmap, 0x5B10017, 0x1b0f);
++		rt_sdca_index_write(rt721->mbq_regmap, RT721_CBJ_CTRL,
++			RT721_CBJ_A0_GAT_CTRL1, 0x2205);
++		rt_sdca_index_write(rt721->mbq_regmap, RT721_CAP_PORT_CTRL,
++			RT721_HP_AMP_2CH_CAL4, 0xa105);
++		rt_sdca_index_write(rt721->mbq_regmap, RT721_VENDOR_ANA_CTL,
++			RT721_UAJ_TOP_TCON14, 0x3b33);
++		regmap_write(rt721->mbq_regmap, 0x310400, 0x3043);
++		rt_sdca_index_write(rt721->mbq_regmap, RT721_VENDOR_ANA_CTL,
++			RT721_UAJ_TOP_TCON14, 0x3f33);
++		rt_sdca_index_write(rt721->mbq_regmap, RT721_VENDOR_ANA_CTL,
++			RT721_UAJ_TOP_TCON13, 0x6048);
++		regmap_write(rt721->mbq_regmap, 0x310401, 0x3000);
++		regmap_write(rt721->mbq_regmap, 0x310402, 0x1b00);
++		regmap_write(rt721->mbq_regmap, 0x310300, 0x000f);
++		regmap_write(rt721->mbq_regmap, 0x310301, 0x3000);
++		regmap_write(rt721->mbq_regmap, 0x310302, 0x1b00);
++		rt_sdca_index_write(rt721->mbq_regmap, RT721_VENDOR_ANA_CTL,
++			RT721_UAJ_TOP_TCON17, 0x0008);
++		rt_sdca_index_write(rt721->mbq_regmap, RT721_DAC_CTRL,
++			RT721_DAC_2CH_CTRL3, 0x55ff);
++		rt_sdca_index_write(rt721->mbq_regmap, RT721_DAC_CTRL,
++			RT721_DAC_2CH_CTRL4, 0xcc00);
++		rt_sdca_index_write(rt721->mbq_regmap, RT721_ANA_POW_PART,
++			RT721_MBIAS_LV_CTRL2, 0x6677);
++		rt_sdca_index_write(rt721->mbq_regmap, RT721_ANA_POW_PART,
++			RT721_VREF2_LV_CTRL1, 0x7600);
++		rt_sdca_index_write(rt721->mbq_regmap, RT721_HDA_SDCA_FLOAT,
++			RT721_ENT_FLOAT_CTL2, 0x1234);
++		rt_sdca_index_write(rt721->mbq_regmap, RT721_HDA_SDCA_FLOAT,
++			RT721_ENT_FLOAT_CTL3, 0x3512);
++		rt_sdca_index_write(rt721->mbq_regmap, RT721_HDA_SDCA_FLOAT,
++			RT721_ENT_FLOAT_CTL1, 0x4040);
++		rt_sdca_index_write(rt721->mbq_regmap, RT721_HDA_SDCA_FLOAT,
++			RT721_ENT_FLOAT_CTL4, 0x1201);
++		rt_sdca_index_write(rt721->mbq_regmap, RT721_BOOST_CTRL,
++			RT721_BST_4CH_TOP_GATING_CTRL1, 0x002a);
++		regmap_write(rt721->regmap, 0x2f58, 0x07);
++		regmap_write(rt721->regmap, 0x2f51, 0x00);
++		rt_sdca_index_write(rt721->mbq_regmap, RT721_HDA_SDCA_FLOAT,
++			RT721_MISC_CTL, 0x0004);
++		/* clear flag */
++		regmap_write(rt721->regmap,
++			SDW_SDCA_CTL(FUNC_NUM_JACK_CODEC, RT721_SDCA_ENT0,
++			RT721_SDCA_CTL_FUNC_STATUS, 0), FUNCTION_NEEDS_INITIALIZATION);
++	}
+ }
+ 
+ static void rt721_sdca_jack_init(struct rt721_sdca_priv *rt721)
+diff --git a/sound/soc/codecs/rt721-sdca.h b/sound/soc/codecs/rt721-sdca.h
+index 24ce188562baf65a60b6da8ed75744b7713898ea..b8873b18a648c7b36fa05cb4d36d7e5db7895175 100644
+--- a/sound/soc/codecs/rt721-sdca.h
++++ b/sound/soc/codecs/rt721-sdca.h
+@@ -214,6 +214,7 @@ struct rt721_sdca_dmic_kctrl_priv {
+ #define RT721_SDCA_ENT_XU03			0x03
+ #define RT721_SDCA_ENT_XU0D			0x0d
+ #define RT721_SDCA_ENT_FU55			0x55
++#define RT721_SDCA_ENT0				0x00
+ 
+ /* RT721 SDCA control */
+ #define RT721_SDCA_CTL_SAMPLE_FREQ_INDEX		0x10
+@@ -229,6 +230,7 @@ struct rt721_sdca_dmic_kctrl_priv {
+ #define RT721_SDCA_CTL_VENDOR_DEF			0x30
+ #define RT721_SDCA_CTL_XUV				0x34
+ #define RT721_SDCA_CTL_FU_CH_GAIN			0x0b
++#define RT721_SDCA_CTL_FUNC_STATUS			0x10
+ 
+ /* RT721 SDCA channel */
+ #define CH_L	0x01
+@@ -261,6 +263,9 @@ struct rt721_sdca_dmic_kctrl_priv {
+ /* RT721 HID ID */
+ #define RT721_SDCA_HID_ID		0x11
+ 
++/* Function_Status */
++#define FUNCTION_NEEDS_INITIALIZATION	BIT(5)
++
+ enum {
+ 	RT721_AIF1, /* For headset mic and headphone */
+ 	RT721_AIF2, /* For speaker */
+-- 
+2.55.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Oder Chiou <oder_chiou@realtek.com>
+Date: Wed, 16 Sep 2026 18:18:03 +0800
+Subject: ASoC: rt721: Reset codec to fix abnormal sound
+
+The audio output may become abnormal after a warm reboot from Windows.
+Reset the codec once during hardware initialization to restore it to a
+known state and prevent the issue.
+
+Signed-off-by: Oder Chiou <oder_chiou@realtek.com>
+Link: https://patch.msgid.link/20260916101803.2301508-1-oder_chiou@realtek.com
+Signed-off-by: Mark Brown <broonie@kernel.org>
+---
+ sound/soc/codecs/rt721-sdca-sdw.c |  3 +++
+ sound/soc/codecs/rt721-sdca.c     | 17 +++++++++++++++++
+ 2 files changed, 20 insertions(+)
+
+diff --git a/sound/soc/codecs/rt721-sdca-sdw.c b/sound/soc/codecs/rt721-sdca-sdw.c
+index ec05482ea24891836885ecaa09e903997b3f3e69..7919fb2de0dc8e03b4087919c2a96def9cec5149 100644
+--- a/sound/soc/codecs/rt721-sdca-sdw.c
++++ b/sound/soc/codecs/rt721-sdca-sdw.c
+@@ -81,6 +81,7 @@ static bool rt721_sdca_mbq_readable_register(struct device *dev, unsigned int re
+ 	case 0x0310100:
+ 	case 0x2000000 ... 0x2000003:
+ 	case 0x2000013:
++	case 0x2000026:
+ 	case 0x200002c:
+ 	case 0x200003c:
+ 	case 0x2000046:
+@@ -153,6 +154,7 @@ static bool rt721_sdca_mbq_volatile_register(struct device *dev, unsigned int re
+ 	case 0x200000d:
+ 	case 0x2000019:
+ 	case 0x2000020:
++	case 0x2000026:
+ 	case 0x200002c:
+ 	case 0x2000030:
+ 	case 0x2000046:
+@@ -166,6 +168,7 @@ static bool rt721_sdca_mbq_volatile_register(struct device *dev, unsigned int re
+ 	case 0x5810039:
+ 	case 0x5b10018:
+ 	case 0x5b10019:
++	case 0x6100006:
+ 		return true;
+ 	default:
+ 		return false;
+diff --git a/sound/soc/codecs/rt721-sdca.c b/sound/soc/codecs/rt721-sdca.c
+index 443642c2b64825669b3b83599b0accae6abc000f..bc0a0d6c6eb27166e806f26dac686785ff910c7a 100644
+--- a/sound/soc/codecs/rt721-sdca.c
++++ b/sound/soc/codecs/rt721-sdca.c
+@@ -1539,6 +1539,15 @@ int rt721_sdca_init(struct device *dev, struct regmap *regmap,
+ 			&soc_sdca_dev_rt721, rt721_sdca_dai, ARRAY_SIZE(rt721_sdca_dai));
+ }
+ 
++static void rt721_sdca_reset(struct rt721_sdca_priv *rt721)
++{
++	rt_sdca_index_update_bits(rt721->mbq_regmap, RT721_VENDOR_REG,
++		RT721_VD_HIDDEN_CTRL, RT721_HIDDEN_REG_SW_RESET,
++		RT721_HIDDEN_REG_SW_RESET);
++	rt_sdca_index_update_bits(rt721->mbq_regmap, RT721_HDA_SDCA_FLOAT,
++		RT721_HDA_LEGACY_RESET_CTL, 0x1, 0x1);
++}
++
+ int rt721_sdca_io_init(struct device *dev, struct sdw_slave *slave)
+ {
+ 	struct rt721_sdca_priv *rt721 = dev_get_drvdata(dev);
+@@ -1572,9 +1581,17 @@ int rt721_sdca_io_init(struct device *dev, struct sdw_slave *slave)
+ 	}
+ 
+ 	pm_runtime_get_noresume(&slave->dev);
++
++	if (!rt721->first_hw_init)
++		rt721_sdca_reset(rt721);
++
+ 	rt721_sdca_dmic_preset(rt721);
+ 	rt721_sdca_amp_preset(rt721);
+ 	rt721_sdca_jack_preset(rt721);
++
++	if (rt721->hs_jack && (!rt721->first_hw_init))
++		rt721_sdca_jack_init(rt721);
++
+ 	if (rt721->first_hw_init) {
+ 		regcache_cache_bypass(rt721->regmap, false);
+ 		regcache_mark_dirty(rt721->regmap);
+-- 
+2.55.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Baojun Xu <baojun.xu@ti.com>
+Date: Mon, 21 Sep 2026 19:19:30 +0800
+Subject: ASoC: tas2783-sdw: add firmware download status check
+
+Currently, firmware download during system resume from suspend introduces
+significant wake-up latency. However, since PRAM content in the AMP
+persists across resets and is not erased, this step can be optimized.
+By verifying that the firmware version read from registers matches the
+expected value, we can confirm that memory content was retained.
+Consequently, the PRAM download can be skipped, significantly reducing
+resume latency.
+
+Signed-off-by: Baojun Xu <baojun.xu@ti.com>
+Link: https://patch.msgid.link/20260921111930.1040-1-baojun.xu@ti.com
+Signed-off-by: Mark Brown <broonie@kernel.org>
+---
+ sound/soc/codecs/tas2783-sdw.c | 70 ++++++++++++++++++++--------------
+ sound/soc/codecs/tas2783.h     |  4 +-
+ 2 files changed, 44 insertions(+), 30 deletions(-)
+
+diff --git a/sound/soc/codecs/tas2783-sdw.c b/sound/soc/codecs/tas2783-sdw.c
+index de90cebe96f5655e7416bd3f11477c72e8279cd6..534b27abad8b901cfa851d4712d5b9e3e300bc4b 100644
+--- a/sound/soc/codecs/tas2783-sdw.c
++++ b/sound/soc/codecs/tas2783-sdw.c
+@@ -96,6 +96,7 @@ struct tas2783_prv {
+ 	u8 rca_binaryname[64];
+ 	u8 dev_name[32];
+ 	bool hw_init;
++	unsigned int fw_version;
+ 	/* wq for firmware download */
+ 	wait_queue_head_t fw_wait;
+ 	bool fw_dl_task_done;
+@@ -314,8 +315,10 @@ static int tas2783_sdca_mbq_size(struct device *dev, u32 reg)
+ 	case 0x300 ... 0x340: /* Data port 3. */
+ 	case 0x400 ... 0x440: /* Data port 4. */
+ 	case 0x500 ... 0x540: /* Data port 5. */
+-	case 0x800000 ... 0x803fff: /* Page 0 ~ 127. */
+-	case 0x807e80 ... 0x807eff: /* Page 253. */
++	case TASDEV_REG_SDW(0, 0, 0) ... TASDEV_REG_SDW(0x00, 0x01, 0x80):
++	case TASDEV_REG_SDW(0, 0xfd, 0) ... TASDEV_REG_SDW(0, 0xfd, 0x80):
++	case PRAM_ADDR_START ... PRAM_ADDR_END:
++	case YRAM_ADDR_START ... YRAM_ADDR_END:
+ 	case SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_UDMPU23,
+ 			  TAS2783_SDCA_CTL_UDMPU_CLUSTER, 0):
+ 	case SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_FU21, TAS2783_SDCA_CTL_FU_MUTE,
+@@ -561,7 +564,7 @@ static const struct regmap_config tas_regmap = {
+ 	.volatile_reg = tas2783_volatile_register,
+ 	.reg_defaults = tas2783_reg_default,
+ 	.num_reg_defaults = ARRAY_SIZE(tas2783_reg_default),
+-	.max_register = 0x41008000 + TASDEV_REG_SDW(0xa1, 0x60, 0x7f),
++	.max_register = 0x41000000 + PRAM_ADDR_END,
+ 	.cache_type = REGCACHE_MAPLE,
+ 	.use_single_read = true,
+ 	.use_single_write = true,
+@@ -789,6 +792,7 @@ static void tas2783_fw_ready(const struct firmware *fmw, void *context)
+ 	const u8 *buf = NULL;
+ 	s32  img_sz, ret = 0, cur_file = 0;
+ 	s32 offset = 0;
++	u32 val[4], fw_version;
+ 
+ 	struct tas_fw_hdr *hdr __free(kfree) = kzalloc_obj(*hdr);
+ 	struct tas_fw_file *file __free(kfree) = kzalloc_obj(*file);
+@@ -830,6 +834,11 @@ static void tas2783_fw_ready(const struct firmware *fmw, void *context)
+ 	}
+ 
+ 	mutex_lock(&tas_dev->pde_lock);
++	ret = regmap_bulk_read(tas_dev->regmap, TAS2783_FW_VERSION, &val, 4);
++	fw_version = (val[0] << 24) | (val[1] << 16) | (val[2] << 8) | val[3];
++	dev_dbg(tas_dev->dev, "Get Firmware version: %08x == %08x?, err=%d",
++		fw_version, tas_dev->fw_version, ret);
++
+ 	while (offset < (img_sz - FW_FL_HDR)) {
+ 		offset += tas_fw_get_next_file(&buf[offset], file);
+ 		dev_dbg(tas_dev->dev,
+@@ -838,6 +847,13 @@ static void tas2783_fw_ready(const struct firmware *fmw, void *context)
+ 			file->version, file->length,
+ 			file->dest_addr, file->fw_data);
+ 
++		if (tas_dev->fw_version == fw_version &&
++		    file->dest_addr >= PRAM_ADDR_START &&
++		    (file->dest_addr + file->length) <= PRAM_ADDR_END) {
++			cur_file++;
++			dev_dbg(tas_dev->dev, "Ignore PRAM block");
++			continue;
++		}
+ 		ret = sdw_nwrite_no_pm(tas_dev->sdw_peripheral,
+ 				       file->dest_addr,
+ 				       file->length,
+@@ -845,17 +861,34 @@ static void tas2783_fw_ready(const struct firmware *fmw, void *context)
+ 		if (ret < 0) {
+ 			dev_err(tas_dev->dev,
+ 				"FW download failed: %d", ret);
+-			break;
++			/*
++			 * We do retry here for some special case of download
++			 * failed after Power-On.
++			 */
++			ret = sdw_nwrite_no_pm(tas_dev->sdw_peripheral,
++					       file->dest_addr,
++					       file->length,
++					       file->fw_data);
++			if (ret < 0) {
++				dev_err(tas_dev->dev,
++					"FW download failed again: %d", ret);
++				break;
++			}
+ 		}
+ 		cur_file++;
+ 	}
+ 	mutex_unlock(&tas_dev->pde_lock);
++	regcache_drop_region(tas_dev->regmap, 0, UINT_MAX);
+ 
+ 	if (cur_file == 0) {
+ 		dev_err(tas_dev->dev, "fw with no files");
+ 		ret = -EINVAL;
+ 	} else {
+ 		tas2783_update_calibdata(tas_dev);
++		ret = regmap_bulk_read(tas_dev->regmap, TAS2783_FW_VERSION,
++					&val, 4);
++		tas_dev->fw_version = (val[0] << 24) | (val[1] << 16) |
++				       (val[2] << 8) | val[3];
+ 	}
+ 
+ out:
+@@ -1005,30 +1038,6 @@ static s32 tas_sdw_hw_params(struct snd_pcm_substream *substream,
+ 	snd_sdw_params_to_config(substream, params,
+ 				 &stream_config, &port_config);
+ 
+-	/*
+-	 * The two mono amps each render one channel of the stereo stream:
+-	 * snd_sdw_params_to_config() hands every codec the full mask for
+-	 * playback, which leaves the pair in mirror mode and one channel
+-	 * unreproduced.  Claim a single channel instead, keyed off the
+-	 * machine-assigned component prefix rather than the SoundWire
+-	 * address, which is board-specific: soc_sdw_ti_amp.c names the amps
+-	 * tas2783-1..4.
+-	 *
+-	 * Which side an amp then renders does not follow from the bit that
+-	 * is set - sdw_compute_slave_ports() advances the payload offset by
+-	 * the popcount of ch_mask and never looks at which bit it is - but
+-	 * from the amp's position in the codec order of the DAI link, which
+-	 * on these boards matches the prefix numbering.
+-	 */
+-	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK &&
+-	    params_channels(params) == 2 && component->name_prefix) {
+-		const char *idx_str = strrchr(component->name_prefix, '-');
+-		unsigned long idx;
+-
+-		if (idx_str && !kstrtoul(idx_str + 1, 10, &idx) && idx)
+-			port_config.ch_mask = (idx & 1) ? BIT(0) : BIT(1);
+-	}
+-
+ 	/* port 1 for playback */
+ 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+ 		port_config.num = 1;
+@@ -1121,7 +1130,7 @@ static const struct snd_soc_component_driver soc_codec_driver_tasdevice = {
+ 	.num_dapm_widgets = ARRAY_SIZE(tas_dapm_widgets),
+ 	.dapm_routes = tas_audio_map,
+ 	.num_dapm_routes = ARRAY_SIZE(tas_audio_map),
+-	.idle_bias_on = 1,
++	.idle_bias_on = 0,
+ 	.endianness = 1,
+ };
+ 
+@@ -1281,6 +1290,8 @@ static s32 tas_io_init(struct device *dev, struct sdw_slave *slave)
+ 			ret = regmap_multi_reg_write(tas_dev->regmap, tas2783_init_seq,
+ 						     ARRAY_SIZE(tas2783_init_seq));
+ 
++		/* Re-active AMP after resume. */
++		regmap_write(tas_dev->regmap, TASDEV_REG_SDW(0, 0, 2), 0);
+ 		if (ret)
+ 			dev_err(tas_dev->dev,
+ 				"init writes failed, err=%d", ret);
+@@ -1460,6 +1471,7 @@ static s32 tas_sdw_probe(struct sdw_slave *peripheral,
+ 	tas_dev->dev = dev;
+ 	tas_dev->sdw_peripheral = peripheral;
+ 	tas_dev->hw_init = false;
++	tas_dev->fw_version = 0;
+ 	mutex_init(&tas_dev->calib_lock);
+ 	mutex_init(&tas_dev->pde_lock);
+ 
+diff --git a/sound/soc/codecs/tas2783.h b/sound/soc/codecs/tas2783.h
+index d5996c73526c5e97b908e1294548fb61f239447f..2f034617e3563fe31b8d608297ddf4e84bdf05e3 100644
+--- a/sound/soc/codecs/tas2783.h
++++ b/sound/soc/codecs/tas2783.h
+@@ -35,10 +35,12 @@
+ #define TAS2783_AMP_LEVEL_MASK	GENMASK(5, 1)
+ 
+ #define PRAM_ADDR_START		TASDEV_REG_SDW(0x8c, 0x01, 0x8)
+-#define PRAM_ADDR_END		TASDEV_REG_SDW(0x8c, 0xff, 0x7f)
++#define PRAM_ADDR_END		TASDEV_REG_SDW(0x8c, 0xff, 0x80)
+ #define YRAM_ADDR_START		TASDEV_REG_SDW(0x00, 0x02, 0x8)
+ #define YRAM_ADDR_END		TASDEV_REG_SDW(0x00, 0x37, 0x7f)
+ 
++#define TAS2783_FW_VERSION	TASDEV_REG_SDW(0x00, 0x20, 0x3c)
++
+ /* Calibration data */
+ #define TAS2783_CAL_R0		TASDEV_REG_SDW(0, 0x16, 0x4C)
+ #define TAS2783_CAL_INVR0	TASDEV_REG_SDW(0, 0x16, 0x5C)
+-- 
+2.55.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Fan Wu <fanwu01@zju.edu.cn>
+Date: Tue, 29 Sep 2026 06:13:49 +0000
+Subject: ASoC: amd: ps: fix snd_acp63_remove() teardown ordering
+
+The ACP IRQ handlers dereference the SoundWire, SoundWire DMA, and PDM
+child platform devices, but snd_acp63_remove() unregisters them while
+the interrupt is still held by devres, which frees it only after remove
+returns. An interrupt in this window is a use-after-free.
+
+Mask the ACP interrupt sources and call devm_free_irq() before the
+first child device is unregistered. The masking goes through the new
+acp_hw_ops->disable_interrupts callback, keeping the remove path
+platform-agnostic. The interrupt line is shared, and acp_hw_deinit()
+clears the sources only after the children are gone, which would
+leave the line raised with no handler left to ack it. The window
+predates the tagged refactor, which only reshaped the dereferences.
+
+devm_free_irq() waits for in-flight handlers, but not for work the
+hardirq has already queued: acp63_irq_handler() schedules
+amd_sdw_irq_thread on the SoundWire manager. Draining that work in
+the manager's remove path is a soundwire-side change and follows
+separately.
+
+This issue was found by an in-house static analysis tool.
+
+Fixes: eaf825037d6d ("ASoC: amd: ps: refactor acp child platform device creation code")
+Cc: stable@vger.kernel.org
+Co-developed-by: Song Li <songl@zju.edu.cn>
+Signed-off-by: Song Li <songl@zju.edu.cn>
+Signed-off-by: Fan Wu <fanwu01@zju.edu.cn>
+Reviewed-by: Vijendar Mukunda <Vijendar.Mukunda@amd.com>
+Link: https://patch.msgid.link/20260929061349.3879-1-fanwu01@zju.edu.cn
+Signed-off-by: Mark Brown <broonie@kernel.org>
+---
+ sound/soc/amd/ps/acp63.h     | 8 ++++++++
+ sound/soc/amd/ps/pci-ps.c    | 2 ++
+ sound/soc/amd/ps/ps-common.c | 2 ++
+ 3 files changed, 12 insertions(+)
+
+diff --git a/sound/soc/amd/ps/acp63.h b/sound/soc/amd/ps/acp63.h
+index 62cb6bef17ab98b2dd512b13f38056d19eb32740..d0cfbd4dafc177703bdfd1dce61360ec755bdb13 100644
+--- a/sound/soc/amd/ps/acp63.h
++++ b/sound/soc/amd/ps/acp63.h
+@@ -294,6 +294,7 @@ struct acp63_dev_data;
+  * struct acp_hw_ops - ACP PCI driver platform specific ops
+  * @acp_init: ACP initialization
+  * @acp_deinit: ACP de-initialization
++ * @disable_interrupts: disable ACP interrupt sources
+  * @acp_get_config: function to read the acp pin configuration
+  * @acp_sdw_dma_irq_thread: ACP SoundWire DMA interrupt thread
+  * acp_suspend: ACP system level suspend callback
+@@ -304,6 +305,7 @@ struct acp63_dev_data;
+ struct acp_hw_ops {
+ 	int (*acp_init)(void __iomem *acp_base, struct device *dev);
+ 	int (*acp_deinit)(void __iomem *acp_base, struct device *dev);
++	void (*disable_interrupts)(void __iomem *acp_base);
+ 	void (*acp_get_config)(struct pci_dev *pci, struct acp63_dev_data *acp_data);
+ 	void (*acp_sdw_dma_irq_thread)(struct acp63_dev_data *acp_data);
+ 	int (*acp_suspend)(struct device *dev);
+@@ -397,6 +399,12 @@ static inline int acp_hw_deinit(struct acp63_dev_data *adata, struct device *dev
+ 	return -EOPNOTSUPP;
+ }
+ 
++static inline void acp_hw_disable_interrupts(struct acp63_dev_data *adata)
++{
++	if (adata && adata->hw_ops && adata->hw_ops->disable_interrupts)
++		ACP_HW_OPS(adata, disable_interrupts)(adata->acp63_base);
++}
++
+ static inline void acp_hw_get_config(struct pci_dev *pci, struct acp63_dev_data *adata)
+ {
+ 	if (adata && adata->hw_ops && adata->hw_ops->acp_get_config)
+diff --git a/sound/soc/amd/ps/pci-ps.c b/sound/soc/amd/ps/pci-ps.c
+index 729f9aaba69e76a87a4426e01ccaa4ee5cd62af9..b604db4942dd68978877a1edcb443ccee76d829e 100644
+--- a/sound/soc/amd/ps/pci-ps.c
++++ b/sound/soc/amd/ps/pci-ps.c
+@@ -738,6 +738,8 @@ static void snd_acp63_remove(struct pci_dev *pci)
+ 	int ret;
+ 
+ 	adata = pci_get_drvdata(pci);
++	acp_hw_disable_interrupts(adata);
++	devm_free_irq(&pci->dev, pci->irq, adata);
+ 	if (adata->sdw) {
+ 		amd_sdw_exit(adata);
+ 		platform_device_unregister(adata->sdw_dma_dev);
+diff --git a/sound/soc/amd/ps/ps-common.c b/sound/soc/amd/ps/ps-common.c
+index 7b4966b75dc6759daf2800ba961289f0e8eeaf87..ea71cdf19c1ea17d5b97c7770458beddc8b784be 100644
+--- a/sound/soc/amd/ps/ps-common.c
++++ b/sound/soc/amd/ps/ps-common.c
+@@ -248,6 +248,7 @@ void acp63_hw_init_ops(struct acp_hw_ops *hw_ops)
+ {
+ 	hw_ops->acp_init = acp63_init;
+ 	hw_ops->acp_deinit = acp63_deinit;
++	hw_ops->disable_interrupts = acp63_disable_interrupts;
+ 	hw_ops->acp_get_config = acp63_get_config;
+ 	hw_ops->acp_sdw_dma_irq_thread = acp63_sdw_dma_irq_thread;
+ 	hw_ops->acp_suspend = snd_acp63_suspend;
+@@ -484,6 +485,7 @@ void acp70_hw_init_ops(struct acp_hw_ops *hw_ops)
+ {
+ 	hw_ops->acp_init = acp70_init;
+ 	hw_ops->acp_deinit = acp70_deinit;
++	hw_ops->disable_interrupts = acp70_disable_interrupts;
+ 	hw_ops->acp_get_config = acp70_get_config;
+ 	hw_ops->acp_sdw_dma_irq_thread = acp70_sdw_dma_irq_thread;
+ 	hw_ops->acp_suspend = snd_acp70_suspend;
+-- 
+2.55.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Matthew Schwartz <matthew.schwartz@linux.dev>
+Date: Thu, 15 Oct 2026 17:44:37 -0700
+Subject: ASoC: amd: acp-config: force SoundWire probe on ASUS RC74XA
+
+The ROG Xbox Ally X20 (RC74XA) BIOS reports acp-audio-config-flag 0x10
+(FLAG_AMD_LEGACY_ONLY_DMIC) in the ACP _DSD. snd_pci_ps then rejects
+the device, so the SoundWire links carrying the two TAS2783 amps and
+the RT721 are never scanned.
+
+Add the board to the ACP70 flag override table so snd_pci_ps probes.
+
+Signed-off-by: Matthew Schwartz <matthew.schwartz@linux.dev>
+---
+ sound/soc/amd/acp-config.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/sound/soc/amd/acp-config.c b/sound/soc/amd/acp-config.c
+index 8e1563824a97bed1dd3d8b0ef45e1e5ad8f5fd7e..45c7501851841a4d6a3eb88e4efcb4eb06e01ee4 100644
+--- a/sound/soc/amd/acp-config.c
++++ b/sound/soc/amd/acp-config.c
+@@ -63,6 +63,13 @@ static const struct dmi_system_id acp70_acpi_flag_override_table[] = {
+ 			DMI_MATCH(DMI_PRODUCT_NAME, "Vivobook 18 M1807GA"),
+ 		},
+ 	},
++	{
++		/* ASUS ROG Xbox Ally X20 (Strix Point, ACP 7.0) */
++		.matches = {
++			DMI_MATCH(DMI_BOARD_VENDOR, "ASUSTeK COMPUTER INC."),
++			DMI_MATCH(DMI_BOARD_NAME, "RC74XA"),
++		},
++	},
+ 	{}
+ };
+ 
+-- 
+2.55.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Matthew Schwartz <matthew.schwartz@linux.dev>
+Date: Thu, 15 Oct 2026 17:10:59 -0700
+Subject: ASoC: amd: acp: add ACP70 SoundWire machine entry for ASUS RC74XA
+
+The ROG Xbox Ally X20 (RC74XA) has two TAS2783 amps on link 0 with
+unique IDs 0x8 and 0xB and an RT721 on link 1. No table entry describes
+that layout, so machine selection falls through to acp70_rt721_only and
+routes speaker playback to the unused RT721 amp endpoint.
+
+Add a two-link entry ahead of acp70_rt721_only with the RT721 limited
+to its jack and DMIC endpoints.
+
+Signed-off-by: Matthew Schwartz <matthew.schwartz@linux.dev>
+---
+ sound/soc/amd/acp/amd-acp70-acpi-match.c | 44 ++++++++++++++++++++++++
+ 1 file changed, 44 insertions(+)
+
+diff --git a/sound/soc/amd/acp/amd-acp70-acpi-match.c b/sound/soc/amd/acp/amd-acp70-acpi-match.c
+index ccd01152c87d0f2372a64fe4e427e842875d1b26..ee51de5f1fb3737e41267e527d9b48159d2fb19f 100644
+--- a/sound/soc/amd/acp/amd-acp70-acpi-match.c
++++ b/sound/soc/amd/acp/amd-acp70-acpi-match.c
+@@ -659,6 +659,45 @@ static const struct snd_soc_acpi_link_adr acp70_rt721_l1u0_tas2783x2_l1u8b[] = {
+ 	{}
+ };
+ 
++static const struct snd_soc_acpi_adr_device tas2783x2_l0u8b_adr[] = {
++	{
++		.adr = 0x0000380102000001ull,
++		.num_endpoints = 1,
++		.endpoints = &spk_l_endpoint,
++		.name_prefix = "tas2783-1",
++	},
++	{
++		.adr = 0x00003B0102000001ull,
++		.num_endpoints = 1,
++		.endpoints = &spk_r_endpoint,
++		.name_prefix = "tas2783-2",
++	},
++};
++
++static const struct snd_soc_acpi_adr_device rt721_l1u0_jack_dmic_adr[] = {
++	{
++		.adr = 0x000130025D072101ull,
++		.num_endpoints = ARRAY_SIZE(jack_dmic_endpoints),
++		.endpoints = jack_dmic_endpoints,
++		.name_prefix = "rt721",
++	}
++};
++
++/* ASUS ROG Xbox Ally X20 (RC74XA) */
++static const struct snd_soc_acpi_link_adr acp70_tas2783x2_l0u8b_rt721_l1u0[] = {
++	{
++		.mask = BIT(0),
++		.num_adr = ARRAY_SIZE(tas2783x2_l0u8b_adr),
++		.adr_d = tas2783x2_l0u8b_adr,
++	},
++	{
++		.mask = BIT(1),
++		.num_adr = ARRAY_SIZE(rt721_l1u0_jack_dmic_adr),
++		.adr_d = rt721_l1u0_jack_dmic_adr,
++	},
++	{}
++};
++
+ static const struct snd_soc_acpi_endpoint rt721_endpoints[] = {
+ 	{ /* Jack Playback/Capture Endpoint (AIF1) */
+ 		.num = 0,
+@@ -795,6 +834,11 @@ struct snd_soc_acpi_mach snd_soc_acpi_amd_acp70_sdw_machines[] = {
+ 		.links = acp70_rt721_l1u0_tas2783x2_l1u8b,
+ 		.drv_name = "amd_sdw",
+ 	},
++	{
++		.link_mask = BIT(0) | BIT(1),
++		.links = acp70_tas2783x2_l0u8b_rt721_l1u0,
++		.drv_name = "amd_sdw",
++	},
+ 	{
+ 		.link_mask = BIT(1),
+ 		.links = acp70_rt721_only,
+-- 
+2.55.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Matthew Schwartz <matthew.schwartz@linux.dev>
+Date: Thu, 15 Oct 2026 17:11:00 -0700
+Subject: ASoC: tas2783-sdw: use the BIOS speaker ID in the firmware name
+
+Some boards have TAS2783 firmware in linux-firmware named
+SSID-SPKID-LINK-0xUID.bin, with a speaker ID ahead of the link ID (the
+HP 8EA1 has its amps on link 0 and ships 8EA1-{0,1}-0-0x*.bin). The
+driver only builds the three-field SSID-LINK-0xUID name, so these boards
+never load firmware. On the ASUS ROG Xbox Ally X20 (SSID 1954) the BIOS
+provides the speaker ID in a 4-byte SPEAKER_ID EFI variable, and only
+the four-field 1954-*-*-0x*.bin files exist.
+
+Read SPEAKER_ID once and request the four-field name first when it is
+present. Boards without the variable keep the current names, and the
+unprefixed three-field name is still tried if the four-field file is
+missing.
+
+Signed-off-by: Matthew Schwartz <matthew.schwartz@linux.dev>
+---
+ sound/soc/codecs/tas2783-sdw.c | 40 +++++++++++++++++++++++++++++++---
+ 1 file changed, 37 insertions(+), 3 deletions(-)
+
+diff --git a/sound/soc/codecs/tas2783-sdw.c b/sound/soc/codecs/tas2783-sdw.c
+index 534b27abad8b901cfa851d4712d5b9e3e300bc4b..246cc096aa36a4f89734c1e431437185aca81f39 100644
+--- a/sound/soc/codecs/tas2783-sdw.c
++++ b/sound/soc/codecs/tas2783-sdw.c
+@@ -45,6 +45,8 @@
+ #define TAS2783_PROBE_TIMEOUT 5000
+ #define TAS2783_CALI_GUID EFI_GUID(0x1f52d2a1, 0xbb3a, 0x457d, 0xbc, \
+ 				   0x09, 0x43, 0xa3, 0xf4, 0x31, 0x0a, 0x92)
++#define TAS2783_SPKID_GUID EFI_GUID(0xaa61eaaf, 0x6e83, 0x7523, 0xb0, \
++				    0xd0, 0x7d, 0xf7, 0x4b, 0xb2, 0x4a, 0x81)
+ 
+ static const u32 tas2783_cali_reg[] = {
+ 	TAS2783_CAL_R0,
+@@ -103,6 +105,9 @@ struct tas2783_prv {
+ 	bool fw_dl_success;
+ 	/* use fallback fw name */
+ 	bool fw_use_fallback;
++	/* UEFI speaker ID, read once */
++	int spk_id;
++	bool spk_id_read;
+ };
+ 
+ static const struct reg_default tas2783_reg_default[] = {
+@@ -1203,6 +1208,26 @@ static const struct dev_pm_ops tas2783_sdca_pm = {
+ 	RUNTIME_PM_OPS(tas2783_sdca_dev_suspend, tas2783_sdca_dev_resume, NULL)
+ };
+ 
++#if IS_ENABLED(CONFIG_PCI)
++/* BIOS speaker ID that selects the SSID-SPKID-LINK-UID firmware name */
++static int tas2783_get_spk_id(void)
++{
++	efi_guid_t guid = TAS2783_SPKID_GUID;
++	unsigned long size = sizeof(u32);
++	efi_status_t status;
++	u32 spk_id = 0;
++
++	if (!efi_rt_services_supported(EFI_RT_SUPPORTED_GET_VARIABLE))
++		return -ENOENT;
++
++	status = efi.get_variable(L"SPEAKER_ID", &guid, NULL, &size, &spk_id);
++	if (status != EFI_SUCCESS)
++		return -ENOENT;
++
++	return spk_id;
++}
++#endif
++
+ static void tas_generate_fw_name(struct sdw_slave *slave, char *name, size_t size)
+ {
+ 	struct sdw_bus *bus = slave->bus;
+@@ -1217,9 +1242,18 @@ static void tas_generate_fw_name(struct sdw_slave *slave, char *name, size_t siz
+ 	for (; dev; dev = dev->parent) {
+ 		if (dev->bus == &pci_bus_type) {
+ 			pci = to_pci_dev(dev);
+-			scnprintf(name, size, "%04X-%1X-%s%1X.bin",
+-				  pci->subsystem_device, bus->link_id,
+-				  fw_uid_prefix, unique_id);
++			if (!tas_dev->spk_id_read) {
++				tas_dev->spk_id = tas2783_get_spk_id();
++				tas_dev->spk_id_read = true;
++			}
++			if (tas_dev->spk_id >= 0 && !tas_dev->fw_use_fallback)
++				scnprintf(name, size, "%04X-%X-%1X-0x%1X.bin",
++					  pci->subsystem_device, tas_dev->spk_id,
++					  bus->link_id, unique_id);
++			else
++				scnprintf(name, size, "%04X-%1X-%s%1X.bin",
++					  pci->subsystem_device, bus->link_id,
++					  fw_uid_prefix, unique_id);
+ 			pci_found = true;
+ 			break;
+ 		}
+-- 
+2.55.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Matthew Schwartz <matthew.schwartz@linux.dev>
+Date: Thu, 15 Oct 2026 19:39:15 -0700
+Subject: ASoC: sdw_utils: honor empty DisCo port lists when creating DAI links
+
+The codec_info tables give each DAI a fixed direction, so a TAS2783
+always gets an amp feedback capture link. The ASUS ROG Xbox Ally X20
+BIOS declares mipi-sdw-source-port-list as 0 for both of its TAS2783s,
+so the capture port has no DisCo properties and every open of the
+SmartAmp capture PCM fails in sdw_program_slave_port_params() with
+-EINVAL. The PCM is probed at session start, which logs a burst of
+transport errors on every boot, and the same failure is reported on the
+ASUS ProArt PX13.
+
+Store the effective direction in each endpoint and drop a direction
+when the peripheral declares an empty port list for it. A missing port
+list keeps the table direction, so platforms that do not describe their
+ports are unaffected.
+
+Signed-off-by: Matthew Schwartz <matthew.schwartz@linux.dev>
+---
+ include/sound/soc_sdw_utils.h           |  1 +
+ sound/soc/amd/acp/acp-sdw-legacy-mach.c |  2 +-
+ sound/soc/amd/acp/acp-sdw-sof-mach.c    |  2 +-
+ sound/soc/intel/boards/sof_sdw.c        |  2 +-
+ sound/soc/sdw_utils/soc_sdw_utils.c     | 36 ++++++++++++++++++++++---
+ 5 files changed, 37 insertions(+), 6 deletions(-)
+
+diff --git a/include/sound/soc_sdw_utils.h b/include/sound/soc_sdw_utils.h
+index 79c21966220b2403d889af684269d000f72c3668..a3108ceb844fa6829b120d1edd36fc20440cc6d3 100644
+--- a/include/sound/soc_sdw_utils.h
++++ b/include/sound/soc_sdw_utils.h
+@@ -114,6 +114,7 @@ struct asoc_sdw_endpoint {
+ 	const char *codec_name;
+ 	const char *name_prefix;
+ 	bool include_sidecar;
++	bool direction[2]; /* dai_info direction limited by the DisCo port lists */
+ 
+ 	struct asoc_sdw_codec_info *codec_info;
+ 	const struct asoc_sdw_dai_info *dai_info;
+diff --git a/sound/soc/amd/acp/acp-sdw-legacy-mach.c b/sound/soc/amd/acp/acp-sdw-legacy-mach.c
+index e8b6819cc4b4590034d8222f4985c725405ab6eb..75fb594e85f13a6b8eb33f2fd60b9ec1522382bf 100644
+--- a/sound/soc/amd/acp/acp-sdw-legacy-mach.c
++++ b/sound/soc/amd/acp/acp-sdw-legacy-mach.c
+@@ -252,7 +252,7 @@ static int create_sdw_dailink(struct snd_soc_card *card,
+ 			return -ENOMEM;
+ 
+ 		list_for_each_entry(soc_end, &soc_dai->endpoints, list) {
+-			if (!soc_end->dai_info->direction[stream])
++			if (!soc_end->direction[stream])
+ 				continue;
+ 
+ 			int link_num = ffs(soc_end->link_mask) - 1;
+diff --git a/sound/soc/amd/acp/acp-sdw-sof-mach.c b/sound/soc/amd/acp/acp-sdw-sof-mach.c
+index a423853f3a97d8eeb41c61992c8e66a534bfce99..f1bc307fca67e3fb154efa640e87a488a6268312 100644
+--- a/sound/soc/amd/acp/acp-sdw-sof-mach.c
++++ b/sound/soc/amd/acp/acp-sdw-sof-mach.c
+@@ -168,7 +168,7 @@ static int create_sdw_dailink(struct snd_soc_card *card,
+ 			return -ENOMEM;
+ 
+ 		list_for_each_entry(sof_end, &sof_dai->endpoints, list) {
+-			if (!sof_end->dai_info->direction[stream])
++			if (!sof_end->direction[stream])
+ 				continue;
+ 
+ 			int link_num = ffs(sof_end->link_mask) - 1;
+diff --git a/sound/soc/intel/boards/sof_sdw.c b/sound/soc/intel/boards/sof_sdw.c
+index c527d575d1ed696a64566f8de109eea1bdc400cf..e1bab00abfecd625d8771f812d7685762efaf626 100644
+--- a/sound/soc/intel/boards/sof_sdw.c
++++ b/sound/soc/intel/boards/sof_sdw.c
+@@ -973,7 +973,7 @@ static int create_sdw_dailink(struct snd_soc_card *card,
+ 			return -ENOMEM;
+ 
+ 		list_for_each_entry(sof_end, &sof_dai->endpoints, list) {
+-			if (!sof_end->dai_info->direction[stream])
++			if (!sof_end->direction[stream])
+ 				continue;
+ 
+ 			if (cur_link != sof_end->link_mask) {
+diff --git a/sound/soc/sdw_utils/soc_sdw_utils.c b/sound/soc/sdw_utils/soc_sdw_utils.c
+index 515940695d1c3ce685d89681c6cea253c4ad5f5e..9772529aab07ea2ab7f74ffd29f3ae0852b570d5 100644
+--- a/sound/soc/sdw_utils/soc_sdw_utils.c
++++ b/sound/soc/sdw_utils/soc_sdw_utils.c
+@@ -1991,6 +1991,32 @@ static int is_sdca_endpoint_present(struct device *dev,
+ 	return ret;
+ }
+ 
++/* A DisCo port list that is present but empty means the stream cannot run */
++static bool asoc_sdw_has_ports(struct device *dev,
++			       const struct snd_soc_acpi_link_adr *adr_link,
++			       int adr_index, int stream)
++{
++	const char *prop = stream == SNDRV_PCM_STREAM_PLAYBACK ?
++			   "mipi-sdw-sink-port-list" : "mipi-sdw-source-port-list";
++	const char *sdw_codec_name;
++	struct device *sdw_dev;
++	u32 ports;
++	int ret;
++
++	sdw_codec_name = _asoc_sdw_get_codec_name(dev, adr_link, adr_index);
++	if (!sdw_codec_name)
++		return true;
++
++	sdw_dev = bus_find_device_by_name(&sdw_bus_type, NULL, sdw_codec_name);
++	if (!sdw_dev)
++		return true;
++
++	ret = device_property_read_u32(sdw_dev, prop, &ports);
++	put_device(sdw_dev);
++
++	return ret || ports;
++}
++
+ int asoc_sdw_parse_sdw_endpoints(struct snd_soc_card *card,
+ 				 struct snd_soc_aux_dev *soc_aux,
+ 				 struct asoc_sdw_dailink *soc_dais,
+@@ -2114,12 +2140,16 @@ int asoc_sdw_parse_sdw_endpoints(struct snd_soc_card *card,
+ 					}
+ 				}
+ 
++				for_each_pcm_streams(stream)
++					soc_end->direction[stream] = dai_info->direction[stream] &&
++						asoc_sdw_has_ports(dev, adr_link, i, stream);
++
+ 				dev_dbg(dev,
+ 					"Add dev: %d, 0x%llx end: %d, dai: %d, %c/%c to %s: %d\n",
+ 					ffs(adr_link->mask) - 1, adr_dev->adr,
+ 					adr_end->num, dai_info->dai_type,
+-					dai_info->direction[SNDRV_PCM_STREAM_PLAYBACK] ? 'P' : '-',
+-					dai_info->direction[SNDRV_PCM_STREAM_CAPTURE] ? 'C' : '-',
++					soc_end->direction[SNDRV_PCM_STREAM_PLAYBACK] ? 'P' : '-',
++					soc_end->direction[SNDRV_PCM_STREAM_CAPTURE] ? 'C' : '-',
+ 					adr_end->aggregated ? "group" : "solo",
+ 					adr_end->group_id);
+ 
+@@ -2140,7 +2170,7 @@ int asoc_sdw_parse_sdw_endpoints(struct snd_soc_card *card,
+ 						return -EINVAL;
+ 					}
+ 
+-					if (dai_info->direction[stream]) {
++					if (soc_end->direction[stream]) {
+ 						num_dais += !soc_dai->num_devs[stream];
+ 						soc_dai->num_devs[stream]++;
+ 						soc_dai->link_mask[stream] |= adr_link->mask;
+-- 
+2.55.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Matthew Schwartz <matthew.schwartz@linux.dev>
+Date: Thu, 15 Oct 2026 23:25:33 -0700
+Subject: ASoC: rt721-sdca: wait for PDEs to reach PS0 after powering them up
+
+The PDE event handlers write REQUESTED_PS and return, so DAPM unmutes
+the feature unit and the stream starts while the power domain is still
+transitioning. On the ASUS ROG Xbox Ally X20 the first headset mic
+capture after the capture path powers down starts with about 0.45 s
+pinned at full scale, and the DisCo tables give the jack function PDEs
+up to 500 ms to reach PS0.
+
+Poll ACTUAL_PS with sdca_asoc_pde_poll_actual_ps() after each power up,
+like rt722 does since its DMIC pop noise fix, and use the 500 ms maximum
+for the jack function PDEs. Power down is left alone because ACTUAL_PS
+can stay at PS0 while the data port is still running.
+
+Holo: sdca_asoc_pde_poll_actual_ps() still takes a device argument on
+7.2, so pass the peripheral device.
+
+Signed-off-by: Matthew Schwartz <matthew.schwartz@linux.dev>
+---
+ sound/soc/codecs/Kconfig          |  1 +
+ sound/soc/codecs/rt721-sdca-sdw.c | 17 ++++++++++++++++
+ sound/soc/codecs/rt721-sdca.c     | 33 +++++++++++++++++++++++++++++++
+ sound/soc/codecs/rt721-sdca.h     |  1 +
+ 4 files changed, 52 insertions(+)
+
+diff --git a/sound/soc/codecs/Kconfig b/sound/soc/codecs/Kconfig
+index 19bcaed004600c201c5a33ee8800be8440bf55b7..9f6afdf8b0948e85a4e301e5b7e2fc92053dbc6f 100644
+--- a/sound/soc/codecs/Kconfig
++++ b/sound/soc/codecs/Kconfig
+@@ -1954,6 +1954,7 @@ config SND_SOC_RT712_SDCA_DMIC_SDW
+ config SND_SOC_RT721_SDCA_SDW
+ 	tristate "Realtek RT721 SDCA Codec - SDW"
+ 	depends on SOUNDWIRE
++	depends on SND_SOC_SDCA
+ 	select REGMAP_SOUNDWIRE
+ 	select REGMAP_SOUNDWIRE_MBQ
+ 
+diff --git a/sound/soc/codecs/rt721-sdca-sdw.c b/sound/soc/codecs/rt721-sdca-sdw.c
+index 7919fb2de0dc8e03b4087919c2a96def9cec5149..72ab9a0a2ddf34413cfc08aea54e757ee7fa9ee5 100644
+--- a/sound/soc/codecs/rt721-sdca-sdw.c
++++ b/sound/soc/codecs/rt721-sdca-sdw.c
+@@ -38,6 +38,14 @@ static bool rt721_sdca_readable_register(struct device *dev, unsigned int reg)
+ 		RT721_SDCA_CTL_HIDTX_CURRENT_OWNER, 0) ... SDW_SDCA_CTL(FUNC_NUM_HID,
+ 		RT721_SDCA_ENT_HID01, RT721_SDCA_CTL_HIDTX_MESSAGE_LENGTH, 0):
+ 	case RT721_BUF_ADDR_HID1 ... RT721_BUF_ADDR_HID2:
++	case SDW_SDCA_CTL(FUNC_NUM_JACK_CODEC, RT721_SDCA_ENT_PDE12,
++		RT721_SDCA_CTL_ACTUAL_POWER_STATE, 0):
++	case SDW_SDCA_CTL(FUNC_NUM_JACK_CODEC, RT721_SDCA_ENT_PDE40,
++		RT721_SDCA_CTL_ACTUAL_POWER_STATE, 0):
++	case SDW_SDCA_CTL(FUNC_NUM_MIC_ARRAY, RT721_SDCA_ENT_PDE2A,
++		RT721_SDCA_CTL_ACTUAL_POWER_STATE, 0):
++	case SDW_SDCA_CTL(FUNC_NUM_AMP, RT721_SDCA_ENT_PDE41,
++		RT721_SDCA_CTL_ACTUAL_POWER_STATE, 0):
+ 	case SDW_SDCA_CTL(FUNC_NUM_AMP, RT721_SDCA_ENT0,
+ 		RT721_SDCA_CTL_FUNC_STATUS, 0):
+ 		return true;
+@@ -63,6 +71,14 @@ static bool rt721_sdca_volatile_register(struct device *dev, unsigned int reg)
+ 		RT721_SDCA_CTL_HIDTX_CURRENT_OWNER, 0) ... SDW_SDCA_CTL(FUNC_NUM_HID,
+ 		RT721_SDCA_ENT_HID01, RT721_SDCA_CTL_HIDTX_MESSAGE_LENGTH, 0):
+ 	case RT721_BUF_ADDR_HID1 ... RT721_BUF_ADDR_HID2:
++	case SDW_SDCA_CTL(FUNC_NUM_JACK_CODEC, RT721_SDCA_ENT_PDE12,
++		RT721_SDCA_CTL_ACTUAL_POWER_STATE, 0):
++	case SDW_SDCA_CTL(FUNC_NUM_JACK_CODEC, RT721_SDCA_ENT_PDE40,
++		RT721_SDCA_CTL_ACTUAL_POWER_STATE, 0):
++	case SDW_SDCA_CTL(FUNC_NUM_MIC_ARRAY, RT721_SDCA_ENT_PDE2A,
++		RT721_SDCA_CTL_ACTUAL_POWER_STATE, 0):
++	case SDW_SDCA_CTL(FUNC_NUM_AMP, RT721_SDCA_ENT_PDE41,
++		RT721_SDCA_CTL_ACTUAL_POWER_STATE, 0):
+ 	case SDW_SDCA_CTL(FUNC_NUM_AMP, RT721_SDCA_ENT0,
+ 		RT721_SDCA_CTL_FUNC_STATUS, 0):
+ 		return true;
+@@ -552,3 +568,4 @@ module_sdw_driver(rt721_sdca_sdw_driver);
+ MODULE_DESCRIPTION("ASoC RT721 SDCA SDW driver");
+ MODULE_AUTHOR("Jack Yu <jack.yu@realtek.com>");
+ MODULE_LICENSE("GPL");
++MODULE_IMPORT_NS("SND_SOC_SDCA");
+diff --git a/sound/soc/codecs/rt721-sdca.c b/sound/soc/codecs/rt721-sdca.c
+index bc0a0d6c6eb27166e806f26dac686785ff910c7a..2645c665712a8835ae65d1536eb543176ff00ee2 100644
+--- a/sound/soc/codecs/rt721-sdca.c
++++ b/sound/soc/codecs/rt721-sdca.c
+@@ -21,6 +21,9 @@
+ #include <linux/soundwire/sdw_registers.h>
+ #include <linux/slab.h>
+ #include <sound/soc-dapm.h>
++#include <sound/sdca.h>
++#include <sound/sdca_asoc.h>
++#include <sound/sdca_function.h>
+ #include <sound/sdw.h>
+ #include <sound/tlv.h>
+ 
+@@ -1059,6 +1062,32 @@ static int rt721_sdca_fu36_event(struct snd_soc_dapm_widget *w,
+ 	return 0;
+ }
+ 
++/* The DisCo tables give the jack function PDEs up to 500 ms for PS3 to PS0 */
++static const struct sdca_pde_delay rt721_jack_pde_delays[] = {
++	{ .from_ps = SDCA_PDE_PS3, .to_ps = SDCA_PDE_PS0, .us = 500000 },
++};
++
++/* REQUESTED_PS only starts the transition, so wait for ACTUAL_PS to reach PS0 */
++static void rt721_sdca_pde_wait_ps0(struct rt721_sdca_priv *rt721,
++				    unsigned char func, unsigned char entity)
++{
++	const struct sdca_pde_delay *delays = NULL;
++	int num_delays = 0;
++	int ret;
++
++	if (func == FUNC_NUM_JACK_CODEC) {
++		delays = rt721_jack_pde_delays;
++		num_delays = ARRAY_SIZE(rt721_jack_pde_delays);
++	}
++
++	ret = sdca_asoc_pde_poll_actual_ps(&rt721->slave->dev, rt721->regmap,
++					   func, entity, SDCA_PDE_PS3,
++					   SDCA_PDE_PS0, delays, num_delays);
++	if (ret)
++		dev_warn(&rt721->slave->dev, "PDE 0x%x did not reach PS0: %d\n",
++			 entity, ret);
++}
++
+ static int rt721_sdca_pde47_event(struct snd_soc_dapm_widget *w,
+ 	struct snd_kcontrol *kcontrol, int event)
+ {
+@@ -1072,6 +1101,7 @@ static int rt721_sdca_pde47_event(struct snd_soc_dapm_widget *w,
+ 		regmap_write(rt721->regmap,
+ 			SDW_SDCA_CTL(FUNC_NUM_JACK_CODEC, RT721_SDCA_ENT_PDE40,
+ 				RT721_SDCA_CTL_REQ_POWER_STATE, 0), ps0);
++		rt721_sdca_pde_wait_ps0(rt721, FUNC_NUM_JACK_CODEC, RT721_SDCA_ENT_PDE40);
+ 		break;
+ 	case SND_SOC_DAPM_PRE_PMD:
+ 		regmap_write(rt721->regmap,
+@@ -1095,6 +1125,7 @@ static int rt721_sdca_pde41_event(struct snd_soc_dapm_widget *w,
+ 		regmap_write(rt721->regmap,
+ 			SDW_SDCA_CTL(FUNC_NUM_AMP, RT721_SDCA_ENT_PDE41,
+ 				RT721_SDCA_CTL_REQ_POWER_STATE, 0), ps0);
++		rt721_sdca_pde_wait_ps0(rt721, FUNC_NUM_AMP, RT721_SDCA_ENT_PDE41);
+ 		break;
+ 	case SND_SOC_DAPM_PRE_PMD:
+ 		regmap_write(rt721->regmap,
+@@ -1118,6 +1149,7 @@ static int rt721_sdca_pde11_event(struct snd_soc_dapm_widget *w,
+ 		regmap_write(rt721->regmap,
+ 			SDW_SDCA_CTL(FUNC_NUM_MIC_ARRAY, RT721_SDCA_ENT_PDE2A,
+ 				RT721_SDCA_CTL_REQ_POWER_STATE, 0), ps0);
++		rt721_sdca_pde_wait_ps0(rt721, FUNC_NUM_MIC_ARRAY, RT721_SDCA_ENT_PDE2A);
+ 		break;
+ 	case SND_SOC_DAPM_PRE_PMD:
+ 		regmap_write(rt721->regmap,
+@@ -1141,6 +1173,7 @@ static int rt721_sdca_pde34_event(struct snd_soc_dapm_widget *w,
+ 		regmap_write(rt721->regmap,
+ 			SDW_SDCA_CTL(FUNC_NUM_JACK_CODEC, RT721_SDCA_ENT_PDE12,
+ 				RT721_SDCA_CTL_REQ_POWER_STATE, 0), ps0);
++		rt721_sdca_pde_wait_ps0(rt721, FUNC_NUM_JACK_CODEC, RT721_SDCA_ENT_PDE12);
+ 		break;
+ 	case SND_SOC_DAPM_PRE_PMD:
+ 		regmap_write(rt721->regmap,
+diff --git a/sound/soc/codecs/rt721-sdca.h b/sound/soc/codecs/rt721-sdca.h
+index b8873b18a648c7b36fa05cb4d36d7e5db7895175..61a737d20deb3b0d2274536ecc5266f730df6287 100644
+--- a/sound/soc/codecs/rt721-sdca.h
++++ b/sound/soc/codecs/rt721-sdca.h
+@@ -231,6 +231,7 @@ struct rt721_sdca_dmic_kctrl_priv {
+ #define RT721_SDCA_CTL_XUV				0x34
+ #define RT721_SDCA_CTL_FU_CH_GAIN			0x0b
+ #define RT721_SDCA_CTL_FUNC_STATUS			0x10
++#define RT721_SDCA_CTL_ACTUAL_POWER_STATE		0x10
+ 
+ /* RT721 SDCA channel */
+ #define CH_L	0x01
+-- 
+2.55.0
+
