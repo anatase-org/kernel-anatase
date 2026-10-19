@@ -60238,3 +60238,97 @@ index bc2601ba230bae3bcc33f1ca51d722569b588d16..d83c2a216e565ac519767e4efee3b610
 -- 
 2.55.0
 
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Tue, 20 Oct 2026 00:03:24 +0200
+Subject: make kun go up to 54W
+
+---
+ drivers/platform/x86/amd/dptc.c | 49 +++++++++++++++++++++------------
+ 1 file changed, 32 insertions(+), 17 deletions(-)
+
+diff --git a/drivers/platform/x86/amd/dptc.c b/drivers/platform/x86/amd/dptc.c
+index 5ba5d9959de412463381db13d9526b08ca589b02..455c443067ba3b05572336f1fdde913f924cfae0 100644
+--- a/drivers/platform/x86/amd/dptc.c
++++ b/drivers/platform/x86/amd/dptc.c
+@@ -161,6 +161,21 @@ static const struct dptc_device_limits limits_30w = {
+ 	},
+ };
+ 
++/* 54W class: Ayaneo Kun (max TDP supported by the platform) */
++static const struct dptc_device_limits limits_54w = {
++	.params = {
++		[DPTC_PPT_PL1_SPL]  = {  1,  4, 15, 54,  54 },
++		[DPTC_PPT_PL2_SPPT] = {  1,  4, 20, 54,  54 },
++		[DPTC_PPT_PL3_FPPT] = {  1,  4, 25, 54,  54 },
++		[DPTC_CPU_TEMP]     = { 60, 70, 85, 90, 100 },
++	},
++	.profiles = {
++		[PLATFORM_PROFILE_LOW_POWER]   = { .vals = {  8,  8, 12, 0 } },
++		[PLATFORM_PROFILE_BALANCED]    = { .vals = { 15, 17, 25, 0 } },
++		[PLATFORM_PROFILE_PERFORMANCE] = { .vals = { 25, 28, 41, 0 } },
++	},
++};
++
+ /* AI MAX Handheld class: GPD Win 5 */
+ static const struct dptc_device_limits limits_maxhh = {
+ 	.params = {
+@@ -503,22 +518,6 @@ static const struct dmi_system_id dptc_dmi_table[] = {
+ 		},
+ 		.driver_data = (void *)&limits_25w,
+ 	},
+-	{
+-		.ident = "AYANEO KUN",
+-		.matches = {
+-			DMI_MATCH(DMI_BOARD_VENDOR, "AYANEO"),
+-			DMI_EXACT_MATCH(DMI_BOARD_NAME, "KUN"),
+-		},
+-		.driver_data = (void *)&limits_25w,
+-	},
+-	{
+-		.ident = "AYANEO KUN",
+-		.matches = {
+-			DMI_MATCH(DMI_BOARD_VENDOR, "AYANEO"),
+-			DMI_EXACT_MATCH(DMI_BOARD_NAME, "AYANEO KUN"),
+-		},
+-		.driver_data = (void *)&limits_25w,
+-	},
+ 	/* AYANEO - 28W */
+ 	{
+ 		.ident = "AYANEO 2",
+@@ -571,7 +570,6 @@ static const struct dmi_system_id dptc_dmi_table[] = {
+ 		},
+ 		.driver_data = (void *)&limits_30w,
+ 	},
+-	/* KONKR - 30W */
+ 	{
+ 		.ident = "KONKR FIT",
+ 		.matches = {
+@@ -580,6 +578,23 @@ static const struct dmi_system_id dptc_dmi_table[] = {
+ 		},
+ 		.driver_data = (void *)&limits_30w,
+ 	},
++	/* AYANEO 54W APU */
++	{
++		.ident = "AYANEO KUN",
++		.matches = {
++			DMI_MATCH(DMI_BOARD_VENDOR, "AYANEO"),
++			DMI_EXACT_MATCH(DMI_BOARD_NAME, "KUN"),
++		},
++		.driver_data = (void *)&limits_54w,
++	},
++	{
++		.ident = "AYANEO KUN",
++		.matches = {
++			DMI_MATCH(DMI_BOARD_VENDOR, "AYANEO"),
++			DMI_EXACT_MATCH(DMI_BOARD_NAME, "AYANEO KUN"),
++		},
++		.driver_data = (void *)&limits_54w,
++	},
+ 	/* AYANEO AI MAX handhelds */
+ 	{
+ 		.ident = "AYANEO NEXT 2",
+-- 
+2.55.0
+
