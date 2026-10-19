@@ -11135,7 +11135,7 @@ index 0000000..675325d
 +kunit_test_suite(evdi_test_suite);
 # ----------------------------------------
 # Module: fanatecff
-# Version: bc2601b
+# Version: d83c2a2
 # ----------------------------------------
 diff --git a/drivers/custom/fanatecff/Kbuild b/drivers/custom/fanatecff/Kbuild
 new file mode 100644
@@ -11147,10 +11147,10 @@ index 0000000..dae85d0
 +hid-fanatec-y := hid-ftec.o hid-ftecff.o hid-ftecff-tuning.o hid-ftecff-wheel.o
 diff --git a/drivers/custom/fanatecff/Makefile b/drivers/custom/fanatecff/Makefile
 new file mode 100644
-index 0000000..686e32a
+index 0000000..eceb395
 --- /dev/null
 +++ b/drivers/custom/fanatecff/Makefile
-@@ -0,0 +1,27 @@
+@@ -0,0 +1,28 @@
 +KVERSION ?= `uname -r`
 +KERNEL_SRC ?= /lib/modules/${KVERSION}/build
 +MODULEDIR ?= /lib/modules/${KVERSION}/kernel/drivers/hid
@@ -11168,6 +11168,7 @@ index 0000000..686e32a
 +install:
 +	@echo -e "\n::\033[34m Installing Fanatec kernel module/udev rule\033[0m"
 +	@echo "====================================================="
++	@mkdir -p ${MODULEDIR}
 +	@cp -v hid-fanatec.ko ${MODULEDIR}
 +	@cp -v fanatec.rules /etc/udev/rules.d/99-fanatec.rules
 +	depmod
@@ -12769,10 +12770,10 @@ index 0000000..45281c0
 +MODULE_DESCRIPTION("A driver for the Fanatec CSL Elite");
 diff --git a/drivers/custom/fanatecff/hid-ftec.h b/drivers/custom/fanatecff/hid-ftec.h
 new file mode 100644
-index 0000000..d07334e
+index 0000000..7096720
 --- /dev/null
 +++ b/drivers/custom/fanatecff/hid-ftec.h
-@@ -0,0 +1,217 @@
+@@ -0,0 +1,262 @@
 +#ifndef __HID_FTEC_H
 +#define __HID_FTEC_H
 +
@@ -12799,14 +12800,57 @@ index 0000000..d07334e
 +#define CSR_ELITE_WHEELBASE_DEVICE_ID 0x0011
 +#define PORSCHE_911_WHEELBASE_DEVICE_ID 0x0197
 +
-+// wheels
-+#define CSL_STEERING_WHEEL_P1_V2_ID 0x0008
-+#define CSL_ELITE_STEERING_WHEEL_WRC_ID 0x0412
-+#define CSL_ELITE_STEERING_WHEEL_MCLAREN_GT3_V2_ID 0x310b
-+#define CLUBSPORT_STEERING_WHEEL_F1_IS_ID 0x2102
-+#define CLUBSPORT_STEERING_WHEEL_FORMULA_V2_ID 0x000a
-+// #define PODIUM_STEERING_WHEEL_PORSCHE_911_GT3_R_ID 0x0c12
-+#define PODIUM_BUTTON_MODULE_ENDURANCE_ID 0x060c
++// wheels (rim index byte as sent by the wheel-base: byte 30 of the 34-byte
++// wheel input report)
++#define CLUBSPORT_STEERING_WHEEL_BMW_M3_GT2_ID 0x01
++#define CLUBSPORT_STEERING_WHEEL_F1_IS_ID 0x02
++#define CLUBSPORT_STEERING_WHEEL_PORSCHE_918_RSR_ID 0x03
++#define CLUBSPORT_STEERING_WHEEL_UNIVERSAL_HUB_ID 0x04
++#define CLUBSPORT_STEERING_WHEEL_UNIVERSAL_HUB_XBOX_ONE_ID 0x06
++#define CSL_STEERING_WHEEL_P1_XBOX_ONE_ID 0x07
++#define CSL_STEERING_WHEEL_P1_V2_ID 0x08
++#define CSL_ELITE_STEERING_WHEEL_MCLAREN_GT3_V1_ID 0x09
++#define CLUBSPORT_STEERING_WHEEL_FORMULA_V2_ID 0x0a
++#define CSL_ELITE_STEERING_WHEEL_MCLAREN_GT3_V2_ID 0x0b
++/* Podium Hub, may carry a Button Module (BME/BMR) */
++#define PODIUM_BUTTON_MODULE_ENDURANCE_ID 0x0c
++/* duplicates the CSL Elite Steering Wheel WRC mapping (raw id 0x12) */
++#define CSL_ELITE_STEERING_WHEEL_WRC_ALT_ID 0x0d
++#define PODIUM_STEERING_WHEEL_BENTLEY_GT3_ID 0x0e
++#define PODIUM_STEERING_WHEEL_BMW_M4_GT3_ID 0x0f
++/* unnamed in the SDK (driver enum: FW_FILTER_USB_RIMTYPE_DDRGT) */
++#define PODIUM_STEERING_WHEEL_DD_GT_ID 0x10
++#define CSL_STEERING_WHEEL_UNIVERSAL_HUB_ID 0x11
++#define CSL_ELITE_STEERING_WHEEL_WRC_ID 0x12
++#define CLUBSPORT_STEERING_WHEEL_BMW_V2_ID 0x13
++#define CLUBSPORT_STEERING_WHEEL_RS_ID 0x14
++#define CLUBSPORT_STEERING_WHEEL_UNIVERSAL_HUB_V2_ID 0x15
++#define CLUBSPORT_STEERING_WHEEL_F1_ESPORTS_V2_ID 0x16
++/* unnamed in the SDK (driver enum: FW_FILTER_USB_RIMTYPE_DDRGTX) */
++#define PODIUM_STEERING_WHEEL_DD_GT_X_ID 0x18
++
++// Wheel type as reported by the Fanatec SDK/Windows driver (FWFilterUsb.sys).
++// Modern wheelbases report a fixed base-family id; legacy wheelbases report a
++// three-character model code decoded from the input report.
++enum ftec_wheel_type {
++	FTEC_WHEELTYPE_PWC = 1,
++	FTEC_WHEELTYPE_PWGT3RS = 2,
++	FTEC_WHEELTYPE_PWC4 = 3,
++	FTEC_WHEELTYPE_PWTS = 4,
++	FTEC_WHEELTYPE_PWGT2 = 5,
++	FTEC_WHEELTYPE_PWGT3RSV2 = 6,
++	FTEC_WHEELTYPE_CSRE = 7,
++	FTEC_WHEELTYPE_CSR = 8,
++	// base-family ids used by modern wheelbases
++	FTEC_WHEELTYPE_CLUBSPORT_V2 = 10,
++	FTEC_WHEELTYPE_CSL_ELITE = 12,
++	FTEC_WHEELTYPE_CSL_ELITE_PS4 = 13,
++	FTEC_WHEELTYPE_CLUBSPORT_V25 = 14,
++	FTEC_WHEELTYPE_PODIUM_DD1 = 15,
++	FTEC_WHEELTYPE_PODIUM_DD2 = 16,
++	FTEC_WHEELTYPE_CSL_DD = 17,
++	FTEC_WHEELTYPE_UNKNOWN = 0x12,
++};
 +
 +// quirks
 +#define FTEC_FF 0x001
@@ -12862,7 +12906,7 @@ index 0000000..d07334e
 +};
 +
 +struct ftec_wheel {
-+	u16 id;
++	u8 id;
 +	char *name;
 +	u8 flags;
 +	u8 n_leds;
@@ -12914,8 +12958,10 @@ index 0000000..d07334e
 +	u16 led_state;
 +	struct led_classdev *led[LEDS_WHEELBASE];
 +#endif
-+	u16 wheel_id;
++	u8 rim_id;
++	u8 wheel_type;
 +	u16 fw_version;
++	u8 fw_version_rim;
 +	struct work_struct wheel_work;
 +	struct ftec_tuning_classdev tuning;
 +	struct ftec_wheel_classdev wheel;
@@ -12982,7 +13028,7 @@ index 0000000..d07334e
 +ssize_t _ftec_tuning_store(struct device *, enum ftec_tuning_attrs_enum,
 +			   const char *, size_t);
 +int ftec_wheel_classdev_register(struct device *, struct ftec_wheel_classdev *,
-+				 u16);
++				 u8);
 +void ftec_wheel_classdev_unregister(struct ftec_wheel_classdev *);
 +#if IS_REACHABLE(CONFIG_LEDS_CLASS)
 +int _ftec_led_update_state(struct led_classdev *, enum led_brightness,
@@ -13391,10 +13437,10 @@ index 0000000..33563d0
 +}
 diff --git a/drivers/custom/fanatecff/hid-ftecff-wheel.c b/drivers/custom/fanatecff/hid-ftecff-wheel.c
 new file mode 100644
-index 0000000..c92ecd2
+index 0000000..a6b886d
 --- /dev/null
 +++ b/drivers/custom/fanatecff/hid-ftecff-wheel.c
-@@ -0,0 +1,408 @@
+@@ -0,0 +1,451 @@
 +#include <linux/module.h>
 +#include <linux/hid.h>
 +#include <linux/leds.h>
@@ -13518,7 +13564,7 @@ index 0000000..c92ecd2
 +	/* FIXME: hardcoded switch bitween RPM LEDs strip above the display,
 +	 * and FLAG LEDs left/right of the display, found eg on F1 steering wheels */
 +	led_cdev->name = devm_kasprintf(
-+		ftec_wheel_cdev->dev, GFP_KERNEL, "%s:%04x:RGB:%s%i",
++		ftec_wheel_cdev->dev, GFP_KERNEL, "%s:%02x:RGB:%s%i",
 +		dev_name(&hid->dev), ftec_wheel_cdev->wheel->id,
 +		i < 9 ? "RPM" : (i < 12 ? "RFLAG" : "LFLAG"),
 +		i < 9 ? i + 1 : (i % 3) + 1);
@@ -13646,7 +13692,7 @@ index 0000000..c92ecd2
 +		return -ENOMEM;
 +
 +	led->name = devm_kasprintf(ftec_wheel_cdev->dev, GFP_KERNEL,
-+				   "%s:%04x:RPM%d", dev_name(&hid->dev),
++				   "%s:%02x:RPM%d", dev_name(&hid->dev),
 +				   ftec_wheel_cdev->wheel->id, i + 1);
 +	if (!led->name)
 +		return -ENOMEM;
@@ -13728,27 +13774,70 @@ index 0000000..c92ecd2
 +
 +struct class *ftec_wheel_class;
 +
++/* LED layout per rim, derived from the capabilities the Fanatec SDK reports
++ * for each rim type (FSUtilHasWheelRimRevLeds / ...RevStripe / ...LedFlag):
++ *   - "rev stripe" rims    -> single RGB stripe (SINGLE_MC, 1 LED)
++ *   - rev bar + flag LEDs  -> 9 rev + 6 flag RGB LEDs (FLAG_MC, 15)
++ *   - rev bar only         -> 9 single-color rev LEDs (0, 9)
++ *   - no own LEDs          -> (0, 0); the Universal Hub / McLaren rims only
++ *     drive LEDs through an attached Button Module. The Podium Hub entry
++ *     keeps the 9+6 layout its button module provides.
++ */
 +static const struct ftec_wheel wheels[] = {
-+	{ CSL_STEERING_WHEEL_P1_V2_ID, "CSL Steering Wheel P1 V2 / BMW",
-+	  FTEC_WHEEL_SINGLE_MC, 1 },
-+	{ CSL_ELITE_STEERING_WHEEL_WRC_ID, "CSL Elite Steering Wheel WRC",
-+	  FTEC_WHEEL_SINGLE_MC, 1 },
-+	{ CSL_ELITE_STEERING_WHEEL_MCLAREN_GT3_V2_ID,
-+		  "CSL Elite Steering Wheel McLaren GT3", 0, 0 },
++	{ CLUBSPORT_STEERING_WHEEL_BMW_M3_GT2_ID,
++	  "ClubSport Steering Wheel BMW M3 GT2", 0, 9 },
 +	{ CLUBSPORT_STEERING_WHEEL_F1_IS_ID, "ClubSport Steering Wheel F1 IS",
 +	  0, 9 },
++	{ CLUBSPORT_STEERING_WHEEL_PORSCHE_918_RSR_ID,
++	  "ClubSport Steering Wheel Porsche 918 RSR", 0, 9 },
++	/* LEDs provided by an attached Button Module */
++	{ CLUBSPORT_STEERING_WHEEL_UNIVERSAL_HUB_ID,
++	  "ClubSport Steering Wheel Universal Hub", 0, 0 },
++	{ CLUBSPORT_STEERING_WHEEL_UNIVERSAL_HUB_XBOX_ONE_ID,
++	  "ClubSport Steering Wheel Universal Hub for Xbox One", 0, 0 },
++	{ CSL_STEERING_WHEEL_P1_XBOX_ONE_ID,
++	  "CSL Steering Wheel P1 for Xbox One", FTEC_WHEEL_SINGLE_MC, 1 },
++	{ CSL_STEERING_WHEEL_P1_V2_ID, "CSL Steering Wheel P1 V2 / BMW",
++	  FTEC_WHEEL_SINGLE_MC, 1 },
++	/* LEDs provided by an attached Button Module */
++	{ CSL_ELITE_STEERING_WHEEL_MCLAREN_GT3_V1_ID,
++	  "CSL Elite Steering Wheel McLaren GT3 V1.0", 0, 0 },
 +	{ CLUBSPORT_STEERING_WHEEL_FORMULA_V2_ID,
 +	  "ClubSport Steering Wheel Formula V2", FTEC_WHEEL_FLAG_MC, 15 },
-+	//	{ PODIUM_STEERING_WHEEL_PORSCHE_911_GT3_R_ID,
-+	//	  "Podium Steering Wheel Porsche 911 GT3 R", 0, 9 },
++	/* LEDs provided by an attached Button Module */
++	{ CSL_ELITE_STEERING_WHEEL_MCLAREN_GT3_V2_ID,
++	  "CSL Elite Steering Wheel McLaren GT3", 0, 0 },
 +	{ PODIUM_BUTTON_MODULE_ENDURANCE_ID, "Podium Button Module Endurance",
 +	  FTEC_WHEEL_FLAG_MC, 15 },
++	{ CSL_ELITE_STEERING_WHEEL_WRC_ALT_ID, "CSL Elite Steering Wheel WRC",
++	  FTEC_WHEEL_SINGLE_MC, 1 },
++	{ PODIUM_STEERING_WHEEL_BENTLEY_GT3_ID,
++	  "Podium Steering Wheel Bentley GT3", FTEC_WHEEL_FLAG_MC, 15 },
++	{ PODIUM_STEERING_WHEEL_BMW_M4_GT3_ID,
++	  "Podium Steering Wheel BMW M4 GT3", FTEC_WHEEL_FLAG_MC, 15 },
++	{ PODIUM_STEERING_WHEEL_DD_GT_ID,
++	  "Podium Steering Wheel DD GT", 0, 9 },
++	/* LEDs provided by an attached Button Module */
++	{ CSL_STEERING_WHEEL_UNIVERSAL_HUB_ID,
++	  "CSL Steering Wheel Universal Hub", 0, 0 },
++	{ CSL_ELITE_STEERING_WHEEL_WRC_ID, "CSL Elite Steering Wheel WRC",
++	  FTEC_WHEEL_SINGLE_MC, 1 },
++	{ CLUBSPORT_STEERING_WHEEL_BMW_V2_ID,
++	  "ClubSport Steering Wheel BMW V2", 0, 9 },
++	{ CLUBSPORT_STEERING_WHEEL_RS_ID, "ClubSport Steering Wheel RS", 0, 9 },
++	/* LEDs provided by an attached Button Module */
++	{ CLUBSPORT_STEERING_WHEEL_UNIVERSAL_HUB_V2_ID,
++	  "ClubSport Universal Hub V2", 0, 0 },
++	{ CLUBSPORT_STEERING_WHEEL_F1_ESPORTS_V2_ID,
++	  "ClubSport Steering Wheel F1 Esports V2", FTEC_WHEEL_FLAG_MC, 15 },
++	{ PODIUM_STEERING_WHEEL_DD_GT_X_ID,
++	  "Podium Steering Wheel DD GT X", FTEC_WHEEL_FLAG_MC, 15 },
 +	{}
 +};
 +
 +int ftec_wheel_classdev_register(struct device *parent,
 +				 struct ftec_wheel_classdev *ftec_wheel_cdev,
-+				 u16 wheel_id)
++				 u8 rim_id)
 +{
 +	struct hid_device *hdev = to_hid_device(parent);
 +	int j;
@@ -13763,14 +13852,14 @@ index 0000000..c92ecd2
 +
 +	ftec_wheel_cdev->wheel = NULL;
 +	for (j = 0; wheels[j].id != 0; j++) {
-+		if (wheels[j].id == wheel_id) {
++		if (wheels[j].id == rim_id) {
 +			ftec_wheel_cdev->wheel = &wheels[j];
 +			break;
 +		}
 +	}
 +
 +	if (!ftec_wheel_cdev->wheel) {
-+		hid_err(hdev, "unknown wheel_id 0x%04x\n", wheel_id);
++		hid_err(hdev, "unknown rim_id 0x%02x\n", rim_id);
 +		goto err_unregister;
 +	}
 +
@@ -13805,10 +13894,10 @@ index 0000000..c92ecd2
 +}
 diff --git a/drivers/custom/fanatecff/hid-ftecff.c b/drivers/custom/fanatecff/hid-ftecff.c
 new file mode 100644
-index 0000000..f4fb6cc
+index 0000000..d4afa9a
 --- /dev/null
 +++ b/drivers/custom/fanatecff/hid-ftecff.c
-@@ -0,0 +1,1385 @@
+@@ -0,0 +1,1471 @@
 +#include <linux/module.h>
 +#include <linux/device.h>
 +#include <linux/hid.h>
@@ -14112,15 +14201,36 @@ index 0000000..f4fb6cc
 +static DEVICE_ATTR(range, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH,
 +		   ftec_range_show, ftec_range_store);
 +
-+/* Export the current wheel id */
-+static ssize_t ftec_wheel_show(struct device *dev,
-+			       struct device_attribute *attr, char *buf)
++/* Export the rim type (rim index byte as sent by the wheel-base) */
++static ssize_t ftec_rim_id_show(struct device *dev,
++				  struct device_attribute *attr, char *buf)
 +{
 +	struct ftec_drv_data *drv_data = hid_get_drvdata(to_hid_device(dev));
-+	return scnprintf(buf, PAGE_SIZE, "0x%04x\n", drv_data->wheel_id);
++	return scnprintf(buf, PAGE_SIZE, "%u\n", drv_data->rim_id);
 +}
-+static DEVICE_ATTR(wheel_id, S_IRUSR | S_IRGRP | S_IROTH, ftec_wheel_show,
++static DEVICE_ATTR(rim_id, S_IRUSR | S_IRGRP | S_IROTH, ftec_rim_id_show,
 +		   NULL);
++
++/* Export the wheel type (Fanatec SDK/Windows driver wheel-base-family id) */
++static ssize_t ftec_wheel_type_show(struct device *dev,
++				    struct device_attribute *attr, char *buf)
++{
++	struct ftec_drv_data *drv_data = hid_get_drvdata(to_hid_device(dev));
++	return scnprintf(buf, PAGE_SIZE, "%u\n", drv_data->wheel_type);
++}
++static DEVICE_ATTR(wheel_type, S_IRUSR | S_IRGRP | S_IROTH,
++		   ftec_wheel_type_show, NULL);
++
++/* Export the rim firmware version */
++static ssize_t ftec_fw_version_rim_show(struct device *dev,
++					struct device_attribute *attr,
++					char *buf)
++{
++	struct ftec_drv_data *drv_data = hid_get_drvdata(to_hid_device(dev));
++	return scnprintf(buf, PAGE_SIZE, "%u\n", drv_data->fw_version_rim);
++}
++static DEVICE_ATTR(fw_version_rim, S_IRUSR | S_IRGRP | S_IROTH,
++		   ftec_fw_version_rim_show, NULL);
 +
 +/* Export the wheel-base firmware version */
 +static ssize_t ftec_fw_version_show(struct device *dev,
@@ -14923,17 +15033,64 @@ index 0000000..f4fb6cc
 +	struct ftec_drv_data *drv_data =
 +		container_of(work, struct ftec_drv_data, wheel_work);
 +	struct hid_device *hdev = drv_data->hid;
-+	if (drv_data->wheel.wheel) {
-+		if (drv_data->wheel.wheel->id == drv_data->wheel_id)
-+			return;
++	if (drv_data->wheel.wheel)
 +		ftec_wheel_classdev_unregister(&drv_data->wheel);
-+	}
-+	if (drv_data->wheel_id)
++	if (drv_data->rim_id)
 +		ftec_wheel_classdev_register(&hdev->dev, &drv_data->wheel,
-+					     drv_data->wheel_id);
++					     drv_data->rim_id);
 +	// notify userspace about value change
 +	if (!(IS_ERR_OR_NULL(drv_data->wheel.dev)))
 +		kobject_uevent(&hdev->dev.kobj, KOBJ_CHANGE);
++}
++
++static u8 ftec_wheel_type_from_pid(u16 product)
++{
++	switch (product) {
++	case CLUBSPORT_V2_WHEELBASE_DEVICE_ID:
++		return FTEC_WHEELTYPE_CLUBSPORT_V2;
++	case CLUBSPORT_V25_WHEELBASE_DEVICE_ID:
++		return FTEC_WHEELTYPE_CLUBSPORT_V25;
++	case CSL_ELITE_WHEELBASE_DEVICE_ID:
++		return FTEC_WHEELTYPE_CSL_ELITE;
++	case CSL_ELITE_PS4_WHEELBASE_DEVICE_ID:
++		return FTEC_WHEELTYPE_CSL_ELITE_PS4;
++	case PODIUM_WHEELBASE_DD1_DEVICE_ID:
++		return FTEC_WHEELTYPE_PODIUM_DD1;
++	case PODIUM_WHEELBASE_DD2_DEVICE_ID:
++		return FTEC_WHEELTYPE_PODIUM_DD2;
++	case CSL_DD_WHEELBASE_DEVICE_ID:
++		return FTEC_WHEELTYPE_CSL_DD;
++	case CSR_ELITE_WHEELBASE_DEVICE_ID:
++	case PORSCHE_911_WHEELBASE_DEVICE_ID:
++		return FTEC_WHEELTYPE_UNKNOWN;
++	default:
++		return 0;
++	}
++}
++
++/*
++ * Decode the three-character wheel model code that legacy wheelbases send in
++ * the input report (bytes 4..6).
++ */
++static u8 ftec_wheel_type_from_legacy_report(const u8 *data)
++{
++	if (data[4] == 'P' && data[5] == 'W' && data[6] == 'C')
++		return FTEC_WHEELTYPE_PWC;
++	if (data[4] == 'P' && data[5] == 'R' && data[6] == 'S')
++		return FTEC_WHEELTYPE_PWGT3RS;
++	if (data[4] == 'P' && data[5] == 'W' && data[6] == '4')
++		return FTEC_WHEELTYPE_PWC4;
++	if (data[4] == 'P' && data[5] == 'W' && data[6] == 'S')
++		return FTEC_WHEELTYPE_PWTS;
++	if (data[4] == 'G' && data[5] == 'T' && data[6] == '2')
++		return FTEC_WHEELTYPE_PWGT2;
++	if (data[4] == 'G' && data[5] == 'V' && data[6] == '2')
++		return FTEC_WHEELTYPE_PWGT3RSV2;
++	if (data[4] == 'C' && data[5] == 'S' && data[6] == 'E')
++		return FTEC_WHEELTYPE_CSRE;
++	if (data[4] == 'C' && data[5] == 'S' && data[6] == 'R')
++		return FTEC_WHEELTYPE_CSR;
++	return FTEC_WHEELTYPE_UNKNOWN;
 +}
 +
 +int ftecff_init(struct hid_device *hdev)
@@ -15011,6 +15168,8 @@ index 0000000..f4fb6cc
 +	drv_data->range = init_range > 0 ? init_range : drv_data->max_range;
 +	ftec_set_range(hdev, drv_data->range);
 +
++	drv_data->wheel_type = ftec_wheel_type_from_pid(hdev->product);
++
 +	/* Create sysfs interface */
 +#define CREATE_SYSFS_FILE(name)                                                  \
 +	ret = device_create_file(&hdev->dev, &dev_attr_##name);                  \
@@ -15022,8 +15181,10 @@ index 0000000..f4fb6cc
 +
 +	CREATE_SYSFS_FILE(display)
 +	CREATE_SYSFS_FILE(range)
-+	CREATE_SYSFS_FILE(wheel_id)
++	CREATE_SYSFS_FILE(rim_id)
++	CREATE_SYSFS_FILE(wheel_type)
 +	CREATE_SYSFS_FILE(fw_version)
++	CREATE_SYSFS_FILE(fw_version_rim)
 +
 +	if (drv_data->quirks & FTEC_TUNING_MENU) {
 +		ftec_tuning_classdev_register(&hdev->dev, &drv_data->tuning);
@@ -15068,8 +15229,10 @@ index 0000000..f4fb6cc
 +
 +	REMOVE_SYSFS_FILE(display)
 +	REMOVE_SYSFS_FILE(range)
-+	REMOVE_SYSFS_FILE(wheel_id)
++	REMOVE_SYSFS_FILE(rim_id)
++	REMOVE_SYSFS_FILE(wheel_type)
 +	REMOVE_SYSFS_FILE(fw_version)
++	REMOVE_SYSFS_FILE(fw_version_rim)
 +
 +	if (drv_data->quirks & FTEC_TUNING_MENU) {
 +		ftec_tuning_classdev_unregister(&drv_data->tuning);
@@ -15163,6 +15326,12 @@ index 0000000..f4fb6cc
 +			kobject_uevent(&drv_data->tuning.dev->kobj,
 +				       KOBJ_CHANGE);
 +	} else if (data[0] == 0x01 && size == FTEC_WHEEL_REPORT_SIZE) {
++		if (hdev->product == CSR_ELITE_WHEELBASE_DEVICE_ID ||
++		    hdev->product == PORSCHE_911_WHEELBASE_DEVICE_ID) {
++			u8 wheel_type = ftec_wheel_type_from_legacy_report(data);
++			if (wheel_type != FTEC_WHEELTYPE_UNKNOWN)
++				drv_data->wheel_type = wheel_type;
++		}
 +		if (data[30] == 0xff) {
 +			// FIXME: this seems to work only with CSL Elite
 +			if (data[31] == 0x04) {
@@ -15178,17 +15347,23 @@ index 0000000..f4fb6cc
 +				}
 +			}
 +		} else {
++			u8 rim_id, fw_version_rim;
++
 +			drv_data->fw_version = get_unaligned_le16(
 +				&data[FTEC_WHEEL_REPORT_SIZE - 2]);
-+			// TODO: detect wheel change and react on it in some way?
-+			u16 wheel_id = get_unaligned_le16(
-+				&data[FTEC_WHEEL_REPORT_SIZE - 4]);
-+			if (drv_data->wheel_id != wheel_id) {
++			rim_id = data[FTEC_WHEEL_REPORT_SIZE - 4];
++			fw_version_rim = data[FTEC_WHEEL_REPORT_SIZE - 3];
++			if (drv_data->rim_id != rim_id) {
 +				hid_dbg(hdev,
-+					"Wheel changed from 0x%04X to 0x%04X\n",
-+					drv_data->wheel_id, wheel_id);
-+				drv_data->wheel_id = wheel_id;
++					"Rim changed to rim_id %u (rim fw %u)\n",
++					rim_id, fw_version_rim);
++				drv_data->rim_id = rim_id;
++				drv_data->fw_version_rim = fw_version_rim;
 +				schedule_work(&drv_data->wheel_work);
++			} else if (drv_data->fw_version_rim != fw_version_rim) {
++				hid_dbg(hdev, "Rim fw changed to %u\n",
++					fw_version_rim);
++				drv_data->fw_version_rim = fw_version_rim;
 +			}
 +		}
 +	}

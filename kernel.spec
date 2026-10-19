@@ -195,13 +195,13 @@ Summary: The Linux kernel
 %define specrpmversion 7.2.7
 %define specversion 7.2.7
 %define patchversion 7.2
-%define pkgrelease an22
+%define pkgrelease an23
 %define kversion 7
 %define tarfile_release 7.2.7
 # This is needed to do merge window version magic
 %define patchlevel 2
 # This allows pkg_release to have configurable %%{?dist} tag
-%define specrelease an22%{?buildid}%{?dist}
+%define specrelease an23%{?buildid}%{?dist}
 # This defines the kabi tarball version
 %define kabiversion 7.2.7
 
@@ -5079,7 +5079,9 @@ fi\
 #
 #
 %changelog
-* Sat Oct 17 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.2.7-an22]
+* Mon Oct 19 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.2.7-an23]
+- bump fanatecff (Antheas Kapenekakis)
+- add a quirk for the x20 (unsure if needed) (Antheas Kapenekakis)
 - ASoC: rt721-sdca: wait for PDEs to reach PS0 after powering them up (Matthew Schwartz)
 - ASoC: sdw_utils: honor empty DisCo port lists when creating DAI links (Matthew Schwartz)
 - ASoC: tas2783-sdw: use the BIOS speaker ID in the firmware name (Matthew Schwartz)

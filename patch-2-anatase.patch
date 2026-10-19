@@ -60184,3 +60184,57 @@ index b8873b18a648c7b36fa05cb4d36d7e5db7895175..61a737d20deb3b0d2274536ecc5266f7
 -- 
 2.55.0
 
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Mon, 19 Oct 2026 17:46:21 +0200
+Subject: add a quirk for the x20 (unsure if needed)
+
+there is an issue where sometimes after sleep the controller can switch to desktop mode, pointing to incorrect initialization due to race conditions when entering sleep
+---
+ drivers/platform/x86/asus-nb-wmi.c | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/drivers/platform/x86/asus-nb-wmi.c b/drivers/platform/x86/asus-nb-wmi.c
+index 933fd0d934ca0bf7d664fdf8b7aa3f85fc6c23a9..893897a3295a28c95841ed5b468eaf011569a3fa 100644
+--- a/drivers/platform/x86/asus-nb-wmi.c
++++ b/drivers/platform/x86/asus-nb-wmi.c
+@@ -603,6 +603,15 @@ static const struct dmi_system_id asus_quirks[] = {
+ 		},
+ 		.driver_data = (void *)&quirk_ally,
+ 	},
++	{
++		.callback = dmi_matched,
++		.ident = "ASUS ROG Xbox Ally X20",
++		.matches = {
++			DMI_MATCH(DMI_SYS_VENDOR, "ASUS"),
++			DMI_MATCH(DMI_BOARD_NAME, "RC74XA"),
++		},
++		.driver_data = (void *)&quirk_ally,
++	},
+ 	{},
+ };
+ 
+-- 
+2.55.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Mon, 19 Oct 2026 17:46:37 +0200
+Subject: bump fanatecff
+
+---
+ drivers/custom/fanatecff | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/custom/fanatecff b/drivers/custom/fanatecff
+index bc2601ba230bae3bcc33f1ca51d722569b588d16..d83c2a216e565ac519767e4efee3b6108798c079 160000
+--- a/drivers/custom/fanatecff
++++ b/drivers/custom/fanatecff
+@@ -1 +1 @@
+-Subproject commit bc2601ba230bae3bcc33f1ca51d722569b588d16
++Subproject commit d83c2a216e565ac519767e4efee3b6108798c079
+-- 
+2.55.0
+
