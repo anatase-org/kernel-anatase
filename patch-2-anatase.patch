@@ -60332,3 +60332,80 @@ index 5ba5d9959de412463381db13d9526b08ca589b02..455c443067ba3b05572336f1fdde913f
 -- 
 2.55.0
 
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Thu, 22 Oct 2026 18:22:07 +0200
+Subject: make ayaneo 3 35W
+
+---
+ drivers/platform/x86/amd/dptc.c | 32 ++++++++++++++++++++++++--------
+ 1 file changed, 24 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/platform/x86/amd/dptc.c b/drivers/platform/x86/amd/dptc.c
+index 455c443067ba3b05572336f1fdde913f924cfae0..f4e7e05df8755701a304e4f42facff12c4932b01 100644
+--- a/drivers/platform/x86/amd/dptc.c
++++ b/drivers/platform/x86/amd/dptc.c
+@@ -146,7 +146,7 @@ static const struct dptc_device_limits limits_28w = {
+ 	},
+ };
+ 
+-/* 30W class: OneXPlayer, AYANEO FLIP/GEEK/SLIDE/3, AOKZOE */
++/* 30W class: OneXPlayer, AYANEO FLIP/GEEK/SLIDE, AOKZOE */
+ static const struct dptc_device_limits limits_30w = {
+ 	.params = {
+ 		[DPTC_PPT_PL1_SPL]  = {  1,  4, 15, 30,  40 },
+@@ -161,6 +161,21 @@ static const struct dptc_device_limits limits_30w = {
+ 	},
+ };
+ 
++/* 35W class: AYANEO 3 */
++static const struct dptc_device_limits limits_35w = {
++	.params = {
++		[DPTC_PPT_PL1_SPL]  = {  1,  4, 15, 35,  40 },
++		[DPTC_PPT_PL2_SPPT] = {  1,  4, 20, 37,  43 },
++		[DPTC_PPT_PL3_FPPT] = {  1,  4, 25, 41,  50 },
++		[DPTC_CPU_TEMP]     = { 60, 70, 85, 90, 100 },
++	},
++	.profiles = {
++		[PLATFORM_PROFILE_LOW_POWER]   = { .vals = {  8,  8, 12, 0 } },
++		[PLATFORM_PROFILE_BALANCED]    = { .vals = { 15, 17, 25, 0 } },
++		[PLATFORM_PROFILE_PERFORMANCE] = { .vals = { 25, 28, 41, 0 } },
++	},
++};
++
+ /* 54W class: Ayaneo Kun (max TDP supported by the platform) */
+ static const struct dptc_device_limits limits_54w = {
+ 	.params = {
+@@ -563,20 +578,21 @@ static const struct dmi_system_id dptc_dmi_table[] = {
+ 		.driver_data = (void *)&limits_30w,
+ 	},
+ 	{
+-		.ident = "AYANEO 3",
++		.ident = "KONKR FIT",
+ 		.matches = {
+-			DMI_MATCH(DMI_BOARD_VENDOR, "AYANEO"),
+-			DMI_EXACT_MATCH(DMI_BOARD_NAME, "AYANEO 3"),
++			DMI_EXACT_MATCH(DMI_SYS_VENDOR, "KONKR"),
++			DMI_EXACT_MATCH(DMI_PRODUCT_NAME, "KONKR FIT"),
+ 		},
+ 		.driver_data = (void *)&limits_30w,
+ 	},
++	/* AYANEO - 35W */
+ 	{
+-		.ident = "KONKR FIT",
++		.ident = "AYANEO 3",
+ 		.matches = {
+-			DMI_EXACT_MATCH(DMI_SYS_VENDOR, "KONKR"),
+-			DMI_EXACT_MATCH(DMI_PRODUCT_NAME, "KONKR FIT"),
++			DMI_MATCH(DMI_BOARD_VENDOR, "AYANEO"),
++			DMI_EXACT_MATCH(DMI_BOARD_NAME, "AYANEO 3"),
+ 		},
+-		.driver_data = (void *)&limits_30w,
++		.driver_data = (void *)&limits_35w,
+ 	},
+ 	/* AYANEO 54W APU */
+ 	{
+-- 
+2.55.0
+

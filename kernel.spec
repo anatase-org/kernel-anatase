@@ -195,13 +195,13 @@ Summary: The Linux kernel
 %define specrpmversion 7.2.7
 %define specversion 7.2.7
 %define patchversion 7.2
-%define pkgrelease an24
+%define pkgrelease an25
 %define kversion 7
 %define tarfile_release 7.2.7
 # This is needed to do merge window version magic
 %define patchlevel 2
 # This allows pkg_release to have configurable %%{?dist} tag
-%define specrelease an24%{?buildid}%{?dist}
+%define specrelease an25%{?buildid}%{?dist}
 # This defines the kabi tarball version
 %define kabiversion 7.2.7
 
@@ -5079,7 +5079,8 @@ fi\
 #
 #
 %changelog
-* Tue Oct 20 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.2.7-an24]
+* Thu Oct 22 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.2.7-an25]
+- make ayaneo 3 35W (Antheas Kapenekakis)
 - make kun go up to 54W (Antheas Kapenekakis)
 - bump fanatecff (Antheas Kapenekakis)
 - add a quirk for the x20 (unsure if needed) (Antheas Kapenekakis)
