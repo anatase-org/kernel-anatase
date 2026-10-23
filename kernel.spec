@@ -195,13 +195,13 @@ Summary: The Linux kernel
 %define specrpmversion 7.2.7
 %define specversion 7.2.7
 %define patchversion 7.2
-%define pkgrelease an25
+%define pkgrelease an26
 %define kversion 7
 %define tarfile_release 7.2.7
 # This is needed to do merge window version magic
 %define patchlevel 2
 # This allows pkg_release to have configurable %%{?dist} tag
-%define specrelease an25%{?buildid}%{?dist}
+%define specrelease an26%{?buildid}%{?dist}
 # This defines the kabi tarball version
 %define kabiversion 7.2.7
 
@@ -5079,7 +5079,24 @@ fi\
 #
 #
 %changelog
-* Thu Oct 22 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.2.7-an25]
+* Fri Oct 23 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.2.7-an26]
+- HID: winwing: fix use-after-free in force feedback teardown (René Onier)
+- ALSA: core: Fix potential UAF after asynchronous card release (Takashi Iwai)
+- ALSA: usb-audio: Clamp implicit feedback packet count to URB capacity (Xiang Mei)
+- drm/nouveau: fix double-free in nvif_vmm_dtor (Peiyang He)
+- drm/nouveau/uvmm: fix UAF in nouveau_uvmm_sm when BO is in TTM_PL_SYSTEM (Peiyang He)
+- wifi: mac80211: drop oversized fragments to avoid extra_len overflow (Yuchao Zhang)
+- Bluetooth: RFCOMM: Reject short EA=0 frames in rfcomm_recv_frame() (Hui Peng)
+- Bluetooth: bnep: fix out-of-bounds reads on short RX/TX frames and control fallthrough (Hui Peng)
+- Bluetooth: L2CAP: validate frame length before control and FCS access (Aldo Ariel Panzardo)
+- ALSA: seq: Serialize compat port-info ioctls (Kyle Zeng)
+- sched/cache: Introduce task_struct->sched_cache_grp to fix UAF (Tim Chen)
+- sched/cache: Decouple sched_cache_group from mm to fix UAF (Tim Chen)
+- io_uring: fix task_work add use-after-free with SQPOLL (Jens Axboe)
+- futex: Fix private hash use-after-free on resize (Chris Mason)
+- futex: Also allocate private hash on vfork() (Peter Zijlstra)
+- KEYS: encrypted: fix integer overflow of datablob_len (Cen Zhang)
+- ipv4: validate checksum_start before completing checksum (Michael S. Tsirkin)
 - make ayaneo 3 35W (Antheas Kapenekakis)
 - make kun go up to 54W (Antheas Kapenekakis)
 - bump fanatecff (Antheas Kapenekakis)
