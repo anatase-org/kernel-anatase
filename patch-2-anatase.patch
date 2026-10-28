@@ -62984,3 +62984,30 @@ index 9cd25a77999e65dfa6b1f45cbac09306e4d90e8c..19b92c2c6579a209b929d825b3764a1e
 -- 
 2.56.0
 
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Wed, 28 Oct 2026 18:46:35 +0100
+Subject: add s2idle quirk for gpd win as well
+
+---
+ drivers/platform/x86/amd/pmc/pmc.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/platform/x86/amd/pmc/pmc.c b/drivers/platform/x86/amd/pmc/pmc.c
+index 0c9c64601ead1010e9b753be8d57b6715fec5af8..9a7907db22e5231a3c0cfe7c2094400b7f710c8d 100644
+--- a/drivers/platform/x86/amd/pmc/pmc.c
++++ b/drivers/platform/x86/amd/pmc/pmc.c
+@@ -931,6 +931,9 @@ static int amd_pmc_probe(struct platform_device *pdev)
+ 
+ 	platform_set_drvdata(pdev, dev);
+ 	if (IS_ENABLED(CONFIG_SUSPEND)) {
++		/* Allow GPD controllers to settle after Modern Standby entry. */
++		amd_pmc_s2idle_dev_ops.begin_delay =
++			!disable_workarounds && dmi_match(DMI_SYS_VENDOR, "GPD") ? 500 : 0;
+ 		err = acpi_register_lps0_dev(&amd_pmc_s2idle_dev_ops);
+ 		if (err)
+ 			dev_warn(dev->dev, "failed to register LPS0 sleep handler, expect increased power consumption\n");
+-- 
+2.56.0
+
