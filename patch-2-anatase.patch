@@ -63011,3 +63011,39 @@ index 0c9c64601ead1010e9b753be8d57b6715fec5af8..9a7907db22e5231a3c0cfe7c2094400b
 -- 
 2.56.0
 
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Thu, 29 Oct 2026 19:03:20 +0100
+Subject: platform/x86: ayaneo-ec: Add KONKR FIT support
+
+The KONKR FIT supports the same EC interface for fan control and charge
+inhibition as Ayaneo devices. Add an exact DMI match and use the existing
+charge-limit quirk to enable these features.
+
+Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
+---
+ drivers/platform/x86/ayaneo-ec.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/drivers/platform/x86/ayaneo-ec.c b/drivers/platform/x86/ayaneo-ec.c
+index 7c26975c0628ef9a313140c4f2de2ff3dfe11084..7e2cdb43bfe6ba5eba6be9ccfc7fb81c0164e0cd 100644
+--- a/drivers/platform/x86/ayaneo-ec.c
++++ b/drivers/platform/x86/ayaneo-ec.c
+@@ -153,6 +153,13 @@ static const struct dmi_system_id dmi_table[] = {
+ 		},
+ 		.driver_data = (void *)&quirk_charge_limit,
+ 	},
++	{
++		.matches = {
++			DMI_EXACT_MATCH(DMI_SYS_VENDOR, "KONKR"),
++			DMI_EXACT_MATCH(DMI_PRODUCT_NAME, "KONKR FIT"),
++		},
++		.driver_data = (void *)&quirk_charge_limit,
++	},
+ 	{
+ 		.matches = {
+ 			DMI_EXACT_MATCH(DMI_SYS_VENDOR, "Mysten Labs, Inc."),
+-- 
+2.56.0
+

@@ -195,13 +195,13 @@ Summary: The Linux kernel
 %define specrpmversion 7.2.7
 %define specversion 7.2.7
 %define patchversion 7.2
-%define pkgrelease an27
+%define pkgrelease an28
 %define kversion 7
 %define tarfile_release 7.2.7
 # This is needed to do merge window version magic
 %define patchlevel 2
 # This allows pkg_release to have configurable %%{?dist} tag
-%define specrelease an27%{?buildid}%{?dist}
+%define specrelease an28%{?buildid}%{?dist}
 # This defines the kabi tarball version
 %define kabiversion 7.2.7
 
@@ -5079,7 +5079,8 @@ fi\
 #
 #
 %changelog
-* Wed Oct 28 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.2.7-an27]
+* Thu Oct 29 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.2.7-an28]
+- platform/x86: ayaneo-ec: Add KONKR FIT support (Antheas Kapenekakis)
 - add s2idle quirk for gpd win as well (Antheas Kapenekakis)
 - HID: winwing: fix use-after-free in force feedback teardown (René Onier)
 - ALSA: core: Fix potential UAF after asynchronous card release (Takashi Iwai)
