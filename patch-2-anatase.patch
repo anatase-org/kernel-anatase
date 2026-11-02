@@ -63047,3 +63047,395 @@ index 7c26975c0628ef9a313140c4f2de2ff3dfe11084..7e2cdb43bfe6ba5eba6be9ccfc7fb81c
 -- 
 2.56.0
 
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Chaitanya Kumar Borah <chaitanya.kumar.borah@intel.com>
+Date: Thu, 9 Jul 2026 17:09:50 +0530
+Subject: drm/i915/dp: s/intel_dp_needs_vsc_sdp/intel_dp_needs_vsc_colorimetry
+
+The function answers whether a VSC SDP with colorimetry and pixel
+encoding payload is required by the content being displayed.
+Rename it to reflect that.
+
+No functional change intended.
+
+Assisted-by: GitHub_Copilot:claude-sonnet-4.6
+Signed-off-by: Chaitanya Kumar Borah <chaitanya.kumar.borah@intel.com>
+Reviewed-by: Pranay Samala <pranay.samala@intel.com>
+Link: https://patch.msgid.link/20260709113951.3557968-2-chaitanya.kumar.borah@intel.com
+(cherry picked from commit a0e65490319c468f4585e84994a7a4085b5da341)
+---
+ drivers/gpu/drm/i915/display/intel_ddi.c | 2 +-
+ drivers/gpu/drm/i915/display/intel_dp.c  | 8 ++++----
+ drivers/gpu/drm/i915/display/intel_dp.h  | 4 ++--
+ 3 files changed, 7 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/gpu/drm/i915/display/intel_ddi.c b/drivers/gpu/drm/i915/display/intel_ddi.c
+index 95008e0c0eb8759dd56a15c9fc33e301474ef6cb..e5517bc42b6a90e3d881cf0fb25c0065c170c15b 100644
+--- a/drivers/gpu/drm/i915/display/intel_ddi.c
++++ b/drivers/gpu/drm/i915/display/intel_ddi.c
+@@ -470,7 +470,7 @@ void intel_ddi_set_dp_msa(const struct intel_crtc_state *crtc_state,
+ 	 * YCBCR 420, HDR BT.2020 signals we should program MSA MISC1 fields
+ 	 * which indicate VSC SDP for the Pixel Encoding/Colorimetry Format.
+ 	 */
+-	if (intel_dp_needs_vsc_sdp(crtc_state, conn_state))
++	if (intel_dp_needs_vsc_colorimetry(crtc_state, conn_state))
+ 		temp |= DP_MSA_MISC_COLOR_VSC_SDP;
+ 
+ 	intel_de_write(display, TRANS_MSA_MISC(display, cpu_transcoder),
+diff --git a/drivers/gpu/drm/i915/display/intel_dp.c b/drivers/gpu/drm/i915/display/intel_dp.c
+index ba0b19d1163cf959937d6b2348123b96bd4a0bdc..27282f5cb2088e23c773cec0d65a5a4e35454f97 100644
+--- a/drivers/gpu/drm/i915/display/intel_dp.c
++++ b/drivers/gpu/drm/i915/display/intel_dp.c
+@@ -3283,7 +3283,7 @@ static void intel_dp_compute_vsc_sdp(struct intel_dp *intel_dp,
+ 	struct drm_dp_vsc_sdp *vsc;
+ 
+ 	if ((!intel_dp->colorimetry_support ||
+-	     !intel_dp_needs_vsc_sdp(crtc_state, conn_state)) &&
++	     !intel_dp_needs_vsc_colorimetry(crtc_state, conn_state)) &&
+ 	    !crtc_state->has_psr)
+ 		return;
+ 
+@@ -3293,7 +3293,7 @@ static void intel_dp_compute_vsc_sdp(struct intel_dp *intel_dp,
+ 	vsc->sdp_type = DP_SDP_VSC;
+ 
+ 	/* Needs colorimetry */
+-	if (intel_dp_needs_vsc_sdp(crtc_state, conn_state)) {
++	if (intel_dp_needs_vsc_colorimetry(crtc_state, conn_state)) {
+ 		intel_dp_compute_vsc_colorimetry(crtc_state, conn_state,
+ 						 vsc);
+ 	} else if (crtc_state->has_panel_replay) {
+@@ -5260,8 +5260,8 @@ static bool intel_dp_get_and_ack_sink_irq_esi_sst(struct intel_dp *intel_dp, u8
+ }
+ 
+ bool
+-intel_dp_needs_vsc_sdp(const struct intel_crtc_state *crtc_state,
+-		       const struct drm_connector_state *conn_state)
++intel_dp_needs_vsc_colorimetry(const struct intel_crtc_state *crtc_state,
++			       const struct drm_connector_state *conn_state)
+ {
+ 	/*
+ 	 * As per DP 1.4a spec section 2.2.4.3 [MSA Field for Indication
+diff --git a/drivers/gpu/drm/i915/display/intel_dp.h b/drivers/gpu/drm/i915/display/intel_dp.h
+index 46a7f5c70981f6e76328287403173ca0d6b40d96..ce69aaf32237545e4005f88baa1cb661b50cf830 100644
+--- a/drivers/gpu/drm/i915/display/intel_dp.h
++++ b/drivers/gpu/drm/i915/display/intel_dp.h
+@@ -133,8 +133,8 @@ int intel_dp_max_link_data_rate(struct intel_dp *intel_dp,
+ bool intel_dp_joiner_needs_dsc(struct intel_display *display,
+ 			       int num_joined_pipes);
+ bool intel_dp_has_joiner(struct intel_dp *intel_dp);
+-bool intel_dp_needs_vsc_sdp(const struct intel_crtc_state *crtc_state,
+-			    const struct drm_connector_state *conn_state);
++bool intel_dp_needs_vsc_colorimetry(const struct intel_crtc_state *crtc_state,
++				    const struct drm_connector_state *conn_state);
+ void intel_dp_set_infoframes(struct intel_encoder *encoder, bool enable,
+ 			     const struct intel_crtc_state *crtc_state,
+ 			     const struct drm_connector_state *conn_state);
+-- 
+2.56.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Chaitanya Kumar Borah <chaitanya.kumar.borah@intel.com>
+Date: Thu, 9 Jul 2026 17:09:51 +0530
+Subject: drm/i915/dp: set VSC_SDP MSA delegation only for capable sinks
+
+Per DP 1.4a section 2.2.4.3, the MSA MISC1 VSC_SDP bit signals that
+the sink should defer colorimetry to the VSC SDP. It should only be set
+when the sink advertises DP_VSC_SDP_EXT_FOR_COLORIMETRY_SUPPORTED and a
+VSC SDP with pixel encoding/colorimetry payload will actually be sent.
+
+Fold the colorimetry_support check into intel_dp_needs_vsc_colorimetry()
+so both intel_ddi_set_dp_msa() and intel_dp_compute_vsc_sdp() share a
+single consistent gate.
+
+Assisted-by: GitHub_Copilot:claude-sonnet-4.6
+Signed-off-by: Chaitanya Kumar Borah <chaitanya.kumar.borah@intel.com>
+Reviewed-by: Pranay Samala <pranay.samala@intel.com>
+Link: https://patch.msgid.link/20260709113951.3557968-3-chaitanya.kumar.borah@intel.com
+(cherry picked from commit 6d7efb5fbb812d7cd7899dd1aacacb02a36a5886)
+---
+ drivers/gpu/drm/i915/display/intel_ddi.c |  2 ++
+ drivers/gpu/drm/i915/display/intel_dp.c  | 14 ++++++++++----
+ 2 files changed, 12 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/gpu/drm/i915/display/intel_ddi.c b/drivers/gpu/drm/i915/display/intel_ddi.c
+index e5517bc42b6a90e3d881cf0fb25c0065c170c15b..d5f4309b1ec89d4de25fbf8bc13178f8e586fb93 100644
+--- a/drivers/gpu/drm/i915/display/intel_ddi.c
++++ b/drivers/gpu/drm/i915/display/intel_ddi.c
+@@ -469,6 +469,8 @@ void intel_ddi_set_dp_msa(const struct intel_crtc_state *crtc_state,
+ 	 * of Color Encoding Format and Content Color Gamut] while sending
+ 	 * YCBCR 420, HDR BT.2020 signals we should program MSA MISC1 fields
+ 	 * which indicate VSC SDP for the Pixel Encoding/Colorimetry Format.
++	 * Only set the delegation bit when the content needs it and
++	 * the sink advertises support.
+ 	 */
+ 	if (intel_dp_needs_vsc_colorimetry(crtc_state, conn_state))
+ 		temp |= DP_MSA_MISC_COLOR_VSC_SDP;
+diff --git a/drivers/gpu/drm/i915/display/intel_dp.c b/drivers/gpu/drm/i915/display/intel_dp.c
+index 27282f5cb2088e23c773cec0d65a5a4e35454f97..179e652d53673818a40bcd80f1add9bf60718d2e 100644
+--- a/drivers/gpu/drm/i915/display/intel_dp.c
++++ b/drivers/gpu/drm/i915/display/intel_dp.c
+@@ -3282,8 +3282,7 @@ static void intel_dp_compute_vsc_sdp(struct intel_dp *intel_dp,
+ {
+ 	struct drm_dp_vsc_sdp *vsc;
+ 
+-	if ((!intel_dp->colorimetry_support ||
+-	     !intel_dp_needs_vsc_colorimetry(crtc_state, conn_state)) &&
++	if (!intel_dp_needs_vsc_colorimetry(crtc_state, conn_state) &&
+ 	    !crtc_state->has_psr)
+ 		return;
+ 
+@@ -3292,7 +3291,6 @@ static void intel_dp_compute_vsc_sdp(struct intel_dp *intel_dp,
+ 	crtc_state->infoframes.enable |= intel_hdmi_infoframe_enable(DP_SDP_VSC);
+ 	vsc->sdp_type = DP_SDP_VSC;
+ 
+-	/* Needs colorimetry */
+ 	if (intel_dp_needs_vsc_colorimetry(crtc_state, conn_state)) {
+ 		intel_dp_compute_vsc_colorimetry(crtc_state, conn_state,
+ 						 vsc);
+@@ -5263,11 +5261,19 @@ bool
+ intel_dp_needs_vsc_colorimetry(const struct intel_crtc_state *crtc_state,
+ 			       const struct drm_connector_state *conn_state)
+ {
++	struct intel_dp *intel_dp =
++		enc_to_intel_dp(to_intel_encoder(conn_state->best_encoder));
++
+ 	/*
+ 	 * As per DP 1.4a spec section 2.2.4.3 [MSA Field for Indication
+ 	 * of Color Encoding Format and Content Color Gamut], in order to
+-	 * sending YCBCR 420 or HDR BT.2020 signals we should use DP VSC SDP.
++	 * send YCBCR 420 or HDR BT.2020 signals we should use DP VSC SDP.
++	 * Only signal this when the sink advertises VSC SDP colorimetry
++	 * support.
+ 	 */
++	if (!intel_dp->colorimetry_support)
++		return false;
++
+ 	if (crtc_state->output_format == INTEL_OUTPUT_FORMAT_YCBCR420)
+ 		return true;
+ 
+-- 
+2.56.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Xiao Lu <xiaolu.xie@intel.com>
+Date: Wed, 28 Oct 2026 19:24:23 +0800
+Subject: drm/i915/display: Write the DIP header last on Xe2+ and reset
+ VSC_SELECT
+
+On Xe2_LPD and later the video DIP data registers are located in the
+core display clock domain, while the packets that are anchored to a
+transmission line register get double buffered in the transcoder clock
+domain. The hardware clock crosses the whole packet to the transcoder
+clock domain on the write of the packet header (dword 0), hence bspec
+requires programming all the data bytes of such packets first and the
+header last. On PTL the VSC SDP is anchored to the transmission line
+(EMP_AS_SDP_TL) when the AS SDP is enabled, and bspec recommends using
+the same order for all the video DIPs, so that the programming doesn't
+depend on how a given packet is double buffered.
+
+hsw_write_infoframe() writes the header first, so the clock crossing
+triggered by the header write happens before the data of the packet has
+been updated. Write the header last on display version 20+.
+
+Also, VSC_SELECT in VIDEO_DIP_CTL is a two bit field selecting whether
+the header and the data of the VSC SDP come from the hardware or from
+the software, but hsw_write_infoframe() ORs the wanted value into
+whatever the register already contained, so a stale setting is not
+replaced (e.g. 1 | 2 results in 3). Clear the field before setting it,
+and clear it as well when the SDPs get disabled in
+intel_dp_set_infoframes(), so that a stale setting left behind by an
+earlier user doesn't carry over.
+
+This is meant to address the VSC SDP being dropped by an eDP panel on
+PTL after some HDR modesets, where the VSC ECC registers differ from
+the working case.
+
+Link: https://gitlab.freedesktop.org/drm/xe/kernel/-/work_items/9693
+Bspec: 75640
+Signed-off-by: Xiao Lu <xiaolu.xie@intel.com>
+Message-ID: <20261028112423.2445450-1-xiaolu.xie@intel.com>
+Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
+---
+ drivers/gpu/drm/i915/display/intel_dp.c   |  4 ++++
+ drivers/gpu/drm/i915/display/intel_hdmi.c | 21 ++++++++++++++++-----
+ 2 files changed, 20 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/gpu/drm/i915/display/intel_dp.c b/drivers/gpu/drm/i915/display/intel_dp.c
+index 179e652d53673818a40bcd80f1add9bf60718d2e..0a097fa70e80e1577867e2b14ba0a3b1c80ef842 100644
+--- a/drivers/gpu/drm/i915/display/intel_dp.c
++++ b/drivers/gpu/drm/i915/display/intel_dp.c
+@@ -5465,6 +5465,10 @@ void intel_dp_set_infoframes(struct intel_encoder *encoder,
+ 	if (!enable || !crtc_state->has_psr)
+ 		val &= ~VIDEO_DIP_ENABLE_VSC_HSW;
+ 
++	/* Reset the VSC select when disabling the SDPs, so it doesn't go stale */
++	if (!enable)
++		val &= ~VSC_SELECT_MASK;
++
+ 	intel_de_write(display, reg, val);
+ 	intel_de_posting_read(display, reg);
+ 
+diff --git a/drivers/gpu/drm/i915/display/intel_hdmi.c b/drivers/gpu/drm/i915/display/intel_hdmi.c
+index b9d11fb8559dfec0adebe42419d1e9dee128d88a..242aa06c4f622b9c347ef5307491f14362d55b4f 100644
+--- a/drivers/gpu/drm/i915/display/intel_hdmi.c
++++ b/drivers/gpu/drm/i915/display/intel_hdmi.c
+@@ -524,6 +524,12 @@ void hsw_write_infoframe(struct intel_encoder *encoder,
+ 	const u32 *data = frame;
+ 	enum transcoder cpu_transcoder = crtc_state->cpu_transcoder;
+ 	intel_reg_t ctl_reg = HSW_TVIDEO_DIP_CTL(display, cpu_transcoder);
++	/*
++	 * On Xe2_LPD+ the packet registers are clock crossed to the transcoder
++	 * clock domain on the write of the packet header (dword 0), so the
++	 * header must be written after all the data.
++	 */
++	bool hdr_last = DISPLAY_VER(display) >= 20 && len > 0;
+ 	int data_size;
+ 	int i;
+ 	u32 val = intel_de_read(display, ctl_reg);
+@@ -535,25 +541,30 @@ void hsw_write_infoframe(struct intel_encoder *encoder,
+ 	val &= ~hsw_infoframe_enable(type);
+ 	intel_de_write(display, ctl_reg, val);
+ 
+-	for (i = 0; i < len; i += 4) {
++	for (i = hdr_last ? 4 : 0; i < len; i += 4)
+ 		intel_de_write(display,
+ 			       hsw_dip_data_reg(display, cpu_transcoder, type, i >> 2),
+-			       *data);
+-		data++;
+-	}
++			       data[i >> 2]);
+ 	/* Write every possible data byte to force correct ECC calculation. */
+ 	for (; i < data_size; i += 4)
+ 		intel_de_write(display,
+ 			       hsw_dip_data_reg(display, cpu_transcoder, type, i >> 2),
+ 			       0);
++	if (hdr_last)
++		intel_de_write(display,
++			       hsw_dip_data_reg(display, cpu_transcoder, type, 0),
++			       data[0]);
+ 
+ 	/* Wa_14013475917 */
+ 	if (!(IS_DISPLAY_VER(display, 13, 14) && crtc_state->has_psr &&
+ 	      !crtc_state->has_panel_replay && type == DP_SDP_VSC))
+ 		val |= hsw_infoframe_enable(type);
+ 
+-	if (type == DP_SDP_VSC)
++	if (type == DP_SDP_VSC) {
++		/* VSC_SELECT is a two bit field, don't OR into a stale value */
++		val &= ~VSC_SELECT_MASK;
+ 		val |= VSC_DIP_HW_DATA_SW_HEA;
++	}
+ 
+ 	intel_de_write(display, ctl_reg, val);
+ 	intel_de_posting_read(display, ctl_reg);
+-- 
+2.56.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Mon, 2 Nov 2026 16:03:09 +0100
+Subject: drm/i915/quirks: Disable self-refresh and LOBF on ONEXPLAYER 3
+
+Panel Replay freezes the ONEXPLAYER 3 OLED with BT.2020 signalling.
+PSR1 also freezes on newer BIOS versions, and leaving LOBF enabled
+when self-refresh is disabled makes the panel go black.
+
+Use the existing DMI quirk table with partial vendor and product
+matches. Disable PSR and Panel Replay through the existing display
+parameters, including the pre-link-training Panel Replay sink enable.
+Add a LOBF quirk to the existing quirk mask and check it alongside the
+LOBF debug flag.
+
+This trades idle panel power savings for stable display output while
+retaining PQ. Hardware validation is still required.
+
+Link: https://gitlab.freedesktop.org/drm/xe/kernel/-/work_items/9692
+Link: https://github.com/HHHHanasak1/onexplayer3-steamos-setup/pull/15
+Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
+---
+ drivers/gpu/drm/i915/display/intel_alpm.c   |  6 ++++--
+ drivers/gpu/drm/i915/display/intel_quirks.c | 20 ++++++++++++++++++++
+ drivers/gpu/drm/i915/display/intel_quirks.h |  1 +
+ 3 files changed, 25 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/i915/display/intel_alpm.c b/drivers/gpu/drm/i915/display/intel_alpm.c
+index c6963ea420cc9509268894943cfda9ac62000f9e..29ce3aa08703e0e10b352dba25661e410ff0b342 100644
+--- a/drivers/gpu/drm/i915/display/intel_alpm.c
++++ b/drivers/gpu/drm/i915/display/intel_alpm.c
+@@ -16,6 +16,7 @@
+ #include "intel_dp_aux.h"
+ #include "intel_psr.h"
+ #include "intel_psr_regs.h"
++#include "intel_quirks.h"
+ #include "intel_vrr.h"
+ 
+ #define SILENCE_PERIOD_MIN_TIME	80
+@@ -326,8 +327,9 @@ void intel_alpm_lobf_compute_config(struct intel_dp *intel_dp,
+ {
+ 	struct intel_display *display = to_intel_display(intel_dp);
+ 
+-	if (intel_dp->alpm.lobf_disable_debug) {
+-		drm_dbg_kms(display->drm, "LOBF is disabled by debug flag\n");
++	if (intel_dp->alpm.lobf_disable_debug ||
++	    intel_has_quirk(display, QUIRK_DISABLE_LOBF)) {
++		drm_dbg_kms(display->drm, "LOBF is disabled by debug flag or quirk\n");
+ 		return;
+ 	}
+ 
+diff --git a/drivers/gpu/drm/i915/display/intel_quirks.c b/drivers/gpu/drm/i915/display/intel_quirks.c
+index 33245f44c0d50154b3ff712e41cb65132ac1b081..fd130b4c3416180f3274ad95f1fb8cef469c52f2 100644
+--- a/drivers/gpu/drm/i915/display/intel_quirks.c
++++ b/drivers/gpu/drm/i915/display/intel_quirks.c
+@@ -100,6 +100,14 @@ static void quirk_disable_psr2(struct intel_display *display)
+ 	drm_info(display->drm, "PSR2 support not currently available for this setup, applying disable PSR2 quirk\n");
+ }
+ 
++static void quirk_disable_psr_and_lobf(struct intel_display *display)
++{
++	display->params.enable_psr = 0;
++	display->params.enable_panel_replay = 0;
++	intel_set_quirk(display, QUIRK_DISABLE_LOBF);
++	drm_info(display->drm, "Disabling PSR, Panel Replay and LOBF\n");
++}
++
+ struct intel_quirk {
+ 	int device;
+ 	int subsystem_vendor;
+@@ -188,6 +196,18 @@ static const struct intel_dmi_quirk intel_dmi_quirks[] = {
+ 		},
+ 		.hook = quirk_no_pps_backlight_power_hook,
+ 	},
++	{
++		.dmi_id_list = &(const struct dmi_system_id[]) {
++			{
++				.matches = {
++					DMI_MATCH(DMI_SYS_VENDOR, "ONE-NETBOOK"),
++					DMI_MATCH(DMI_PRODUCT_NAME, "ONEXPLAYER 3"),
++				},
++			},
++			{ }
++		},
++		.hook = quirk_disable_psr_and_lobf,
++	},
+ };
+ 
+ static struct intel_quirk intel_quirks[] = {
+diff --git a/drivers/gpu/drm/i915/display/intel_quirks.h b/drivers/gpu/drm/i915/display/intel_quirks.h
+index 970a4fe52fafca976259ad823a7bfa218c8581db..b70e7ea42a70e794a391c87b2582e8d862e6a974 100644
+--- a/drivers/gpu/drm/i915/display/intel_quirks.h
++++ b/drivers/gpu/drm/i915/display/intel_quirks.h
+@@ -23,6 +23,7 @@ enum intel_quirk_id {
+ 	QUIRK_EDP_LIMIT_RATE_HBR2,
+ 	QUIRK_DISABLE_EDP_PANEL_REPLAY,
+ 	QUIRK_DISABLE_PSR2,
++	QUIRK_DISABLE_LOBF,
+ };
+ 
+ void intel_init_quirks(struct intel_display *display);
+-- 
+2.56.0
+

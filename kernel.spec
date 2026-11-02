@@ -195,13 +195,13 @@ Summary: The Linux kernel
 %define specrpmversion 7.2.7
 %define specversion 7.2.7
 %define patchversion 7.2
-%define pkgrelease an28
+%define pkgrelease an29
 %define kversion 7
 %define tarfile_release 7.2.7
 # This is needed to do merge window version magic
 %define patchlevel 2
 # This allows pkg_release to have configurable %%{?dist} tag
-%define specrelease an28%{?buildid}%{?dist}
+%define specrelease an29%{?buildid}%{?dist}
 # This defines the kabi tarball version
 %define kabiversion 7.2.7
 
@@ -5079,7 +5079,11 @@ fi\
 #
 #
 %changelog
-* Thu Oct 29 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.2.7-an28]
+* Mon Nov 02 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.2.7-an29]
+- drm/i915/quirks: Disable self-refresh and LOBF on ONEXPLAYER 3 (Antheas Kapenekakis)
+- drm/i915/display: Write the DIP header last on Xe2+ and reset VSC_SELECT (Xiao Lu)
+- drm/i915/dp: set VSC_SDP MSA delegation only for capable sinks (Chaitanya Kumar Borah)
+- drm/i915/dp: s/intel_dp_needs_vsc_sdp/intel_dp_needs_vsc_colorimetry (Chaitanya Kumar Borah)
 - platform/x86: ayaneo-ec: Add KONKR FIT support (Antheas Kapenekakis)
 - add s2idle quirk for gpd win as well (Antheas Kapenekakis)
 - HID: winwing: fix use-after-free in force feedback teardown (René Onier)
