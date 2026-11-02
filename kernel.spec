@@ -195,13 +195,13 @@ Summary: The Linux kernel
 %define specrpmversion 7.2.7
 %define specversion 7.2.7
 %define patchversion 7.2
-%define pkgrelease an29
+%define pkgrelease an30
 %define kversion 7
 %define tarfile_release 7.2.7
 # This is needed to do merge window version magic
 %define patchlevel 2
 # This allows pkg_release to have configurable %%{?dist} tag
-%define specrelease an29%{?buildid}%{?dist}
+%define specrelease an30%{?buildid}%{?dist}
 # This defines the kabi tarball version
 %define kabiversion 7.2.7
 
@@ -5079,7 +5079,9 @@ fi\
 #
 #
 %changelog
-* Mon Nov 02 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.2.7-an29]
+* Mon Nov 02 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.2.7-an30]
+- platform/x86/amd: dptc: Add ONEXPLAYER F1L support (Antheas Kapenekakis)
+- drm: panel-orientation-quirks: Add ONEXPLAYER F1L (Antheas Kapenekakis)
 - drm/i915/quirks: Disable self-refresh and LOBF on ONEXPLAYER 3 (Antheas Kapenekakis)
 - drm/i915/display: Write the DIP header last on Xe2+ and reset VSC_SELECT (Xiao Lu)
 - drm/i915/dp: set VSC_SDP MSA delegation only for capable sinks (Chaitanya Kumar Borah)

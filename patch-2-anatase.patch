@@ -63439,3 +63439,82 @@ index 970a4fe52fafca976259ad823a7bfa218c8581db..b70e7ea42a70e794a391c87b2582e8d8
 -- 
 2.56.0
 
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Mon, 2 Nov 2026 18:03:21 +0100
+Subject: drm: panel-orientation-quirks: Add ONEXPLAYER F1L
+
+The ONEXPLAYER F1L uses a portrait 1080x1920 panel mounted with its
+left side up, like the other OneXFly variants. Without a panel
+orientation quirk, Game Mode is reported to display upside down.
+
+Add an exact DMI match for the F1L and reuse the existing
+lcd1080x1920_leftside_up orientation data.
+
+Link: https://github.com/anatase-org/anatase/issues/42#issuecomment-6582072508
+Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
+---
+ drivers/gpu/drm/drm_panel_orientation_quirks.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/drivers/gpu/drm/drm_panel_orientation_quirks.c b/drivers/gpu/drm/drm_panel_orientation_quirks.c
+index 6e7dac6f8e70e476840b0b6bdaeeb96fea9bc64b..66d73b993c79ad433ce98fe447885409538f6c1b 100644
+--- a/drivers/gpu/drm/drm_panel_orientation_quirks.c
++++ b/drivers/gpu/drm/drm_panel_orientation_quirks.c
+@@ -588,6 +588,12 @@ static const struct dmi_system_id orientation_data[] = {
+ 		  DMI_EXACT_MATCH(DMI_PRODUCT_NAME, "ONEXPLAYER X1Mini Pro"),
+ 		},
+ 		.driver_data = (void *)&lcd1600x2560_leftside_up,
++	}, {	/* OneXPlayer OneXFly F1L */
++		.matches = {
++		  DMI_EXACT_MATCH(DMI_SYS_VENDOR, "ONE-NETBOOK"),
++		  DMI_EXACT_MATCH(DMI_PRODUCT_NAME, "ONEXPLAYER F1L"),
++		},
++		.driver_data = (void *)&lcd1080x1920_leftside_up,
+ 	}, {	/* OneXPlayer OneXFly F1 Pro (OLED) Strix Point */
+ 		.matches = {
+ 		  DMI_EXACT_MATCH(DMI_SYS_VENDOR, "ONE-NETBOOK"),
+-- 
+2.56.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Mon, 2 Nov 2026 18:03:21 +0100
+Subject: platform/x86/amd: dptc: Add ONEXPLAYER F1L support
+
+The ONEXPLAYER F1L is missing from the DPTC DMI table, leaving HHD
+without TDP controls even though its Ryzen 7 8840U is already in
+the supported SoC table.
+
+Match its board name and use the existing 30W OneXPlayer limits.
+
+Link: https://github.com/anatase-org/anatase/issues/42
+Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
+---
+ drivers/platform/x86/amd/dptc.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/drivers/platform/x86/amd/dptc.c b/drivers/platform/x86/amd/dptc.c
+index f4e7e05df8755701a304e4f42facff12c4932b01..0b79ffdfb03fc4ba4275fc37bb75f52a3353a329 100644
+--- a/drivers/platform/x86/amd/dptc.c
++++ b/drivers/platform/x86/amd/dptc.c
+@@ -393,6 +393,14 @@ static const struct dmi_system_id dptc_dmi_table[] = {
+ 		.driver_data = (void *)&limits_30w,
+ 	},
+ 	/* OneXPlayer (Intel variants filtered by SoC table) */
++	{
++		.ident = "ONEXPLAYER F1L",
++		.matches = {
++			DMI_MATCH(DMI_BOARD_VENDOR, "ONE-NETBOOK"),
++			DMI_EXACT_MATCH(DMI_BOARD_NAME, "ONEXPLAYER F1L"),
++		},
++		.driver_data = (void *)&limits_30w,
++	},
+ 	{
+ 		.ident = "ONEXPLAYER F1Pro",
+ 		.matches = {
+-- 
+2.56.0
+
