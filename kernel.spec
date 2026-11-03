@@ -195,13 +195,13 @@ Summary: The Linux kernel
 %define specrpmversion 7.2.7
 %define specversion 7.2.7
 %define patchversion 7.2
-%define pkgrelease an30
+%define pkgrelease an31
 %define kversion 7
 %define tarfile_release 7.2.7
 # This is needed to do merge window version magic
 %define patchlevel 2
 # This allows pkg_release to have configurable %%{?dist} tag
-%define specrelease an30%{?buildid}%{?dist}
+%define specrelease an31%{?buildid}%{?dist}
 # This defines the kabi tarball version
 %define kabiversion 7.2.7
 
@@ -5079,7 +5079,8 @@ fi\
 #
 #
 %changelog
-* Mon Nov 02 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.2.7-an30]
+* Tue Nov 03 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.2.7-an31]
+- ipv4: free inet_opt and ireq_opt after an RCU grace period (Eric Dumazet)
 - platform/x86/amd: dptc: Add ONEXPLAYER F1L support (Antheas Kapenekakis)
 - drm: panel-orientation-quirks: Add ONEXPLAYER F1L (Antheas Kapenekakis)
 - drm/i915/quirks: Disable self-refresh and LOBF on ONEXPLAYER 3 (Antheas Kapenekakis)
