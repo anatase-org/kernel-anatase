@@ -195,13 +195,13 @@ Summary: The Linux kernel
 %define specrpmversion 7.2.7
 %define specversion 7.2.7
 %define patchversion 7.2
-%define pkgrelease an31
+%define pkgrelease an32
 %define kversion 7
 %define tarfile_release 7.2.7
 # This is needed to do merge window version magic
 %define patchlevel 2
 # This allows pkg_release to have configurable %%{?dist} tag
-%define specrelease an31%{?buildid}%{?dist}
+%define specrelease an32%{?buildid}%{?dist}
 # This defines the kabi tarball version
 %define kabiversion 7.2.7
 
@@ -1023,7 +1023,7 @@ Source1: Makefile.rhelver
 Source2: %{name}.changelog
 
 %define evdi_version 1.15.0
-%define nvidia_version 615.78.08-an01
+%define nvidia_version 620.70.06-an01
 %define nvidia_version_rel 1
 %define nvidia_epoch 3
 %if %{with_nvidia}
@@ -5079,7 +5079,8 @@ fi\
 #
 #
 %changelog
-* Tue Nov 03 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.2.7-an31]
+* Thu Nov 05 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.2.7-an32]
+- bump nvidia (Antheas Kapenekakis)
 - ipv4: free inet_opt and ireq_opt after an RCU grace period (Eric Dumazet)
 - platform/x86/amd: dptc: Add ONEXPLAYER F1L support (Antheas Kapenekakis)
 - drm: panel-orientation-quirks: Add ONEXPLAYER F1L (Antheas Kapenekakis)
