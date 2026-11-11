@@ -118,11 +118,12 @@ if [ ! -f "$linuxfn" ]; then
     kernel_major=${TARFILE_RELEASE%%.*}
     curl -L -o "$linuxfn" "https://cdn.kernel.org/pub/linux/kernel/v${kernel_major}.x/linux-${TARFILE_RELEASE}.tar.xz"
 fi
-if [ ! -f "$zfsfn" ]; then
-    echo "Downloading $zfsfn"
-    curl -L -o "$zfsfn" \
-        "https://github.com/openzfs/zfs/releases/download/zfs-${ZFS_RELEASE}/zfs-${ZFS_RELEASE}.tar.gz"
-fi
+# ZFS source download is disabled while building with --without zfs.
+# if [ ! -f "$zfsfn" ]; then
+#     echo "Downloading $zfsfn"
+#     curl -L -o "$zfsfn" \
+#         "https://github.com/openzfs/zfs/releases/download/zfs-${ZFS_RELEASE}/zfs-${ZFS_RELEASE}.tar.gz"
+# fi
 
 #
 # Open source driver
@@ -137,7 +138,8 @@ fi
 
 popd
 
-cp /cache/$linuxfn /cache/$zfsfn /cache/$ofn .
+cp /cache/$linuxfn /cache/$ofn .
+# cp /cache/$zfsfn .
 
 #
 # Build
@@ -162,7 +164,7 @@ rpmbuild \
   --define '_srcrpmdir /artifacts/SRPMS' \
   --define '_sourcedir %(pwd)/' \
   --define '_specdir   %(pwd)/' \
-  --with anatase "${rpmbuild_signing_opts[@]}" --with nvidia --with zfs \
+  --with anatase "${rpmbuild_signing_opts[@]}" --with nvidia --without zfs \
   -ba kernel.spec &
 rpmbuild_pid=$!
 
