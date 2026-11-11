@@ -172,13 +172,13 @@ Summary: The Linux kernel
 %define specrpmversion 7.3.4
 %define specversion 7.3.4
 %define patchversion 7.3
-%define pkgrelease rc00
+%define pkgrelease an01
 %define kversion 7
 %define tarfile_release 7.3.4
 # This is needed to do merge window version magic
 %define patchlevel 3
 # This allows pkg_release to have configurable %%{?dist} tag
-%define specrelease rc00%{?buildid}%{?dist}
+%define specrelease an01%{?buildid}%{?dist}
 # This defines the kabi tarball version
 %define kabiversion 7.3.4
 
@@ -4936,7 +4936,7 @@ fi\
 #
 #
 %changelog
-* Wed Nov 11 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.3.4-rc00]
+* Wed Nov 11 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.3.4-an01]
 - config: add new arm options (Antheas Kapenekakis)
 - arm64: dts: qcom: add Retroid Pocket Duo (Teguh Sobirin)
 - arm64: dts: qcom: add common dtsi for Eliza Retroid Pocket devices (Teguh Sobirin)
