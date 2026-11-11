@@ -23,7 +23,7 @@
 %bcond_with clang_lto
 
 %if %{with clang_lto} && %{without toolchain_clang}
-{error:clang_lto requires --with toolchain_clang}
+%{error:clang_lto requires --with toolchain_clang}
 %endif
 
 # RPM macros strip everything in BUILDROOT, either with __strip
@@ -75,22 +75,6 @@
 		print(flavour)
 	end
 }
-
-# This returns the main kernel tied to a debug variant. For example,
-# kernel-debug is the debug version of kernel, so we return an empty
-# string. However, kernel-64k-debug is the debug version of kernel-64k,
-# in this case we need to return "+64k", and so on. This is used in
-# macros below where we need this for some uname based requires.
-#   %1 - Variant name (e.g., "64k-debug")
-#   Returns: "+main_variant" for compound variants, empty string for simple variants
-%define uname_variant() %{lua:
-	local flavour = rpm.expand('%{?1:%{1}}')
-	_, _, main, sub = flavour:find("(%w+)-(.*)")
-	if main then
-		print("+" .. main)
-	end
-}
-
 
 # At the time of this writing (2019-03), RHEL8 packages use w2.xzdio
 # compression for rpms (xz, level 2).
@@ -184,26 +168,19 @@ Summary: The Linux kernel
 # Set released_kernel to 0 when the upstream source tarball contains an
 #  unreleased kernel development snapshot.
 %global released_kernel 1
-# Set debugbuildsenabled to 1 to build separate base and debug kernels
-#  (on supported architectures). The kernel-debug-* subpackages will
-#  contain the debug kernel.
-# Set debugbuildsenabled to 0 to not build a separate debug kernel, but
-#  to build the base kernel using the debug configuration. (Specifying
-#  the --with-release option overrides this setting.)
-%define debugbuildsenabled 1
 # define buildid .local
-%define specrpmversion 7.2.7
-%define specversion 7.2.7
-%define patchversion 7.2
-%define pkgrelease an32
+%define specrpmversion 7.3.4
+%define specversion 7.3.4
+%define patchversion 7.3
+%define pkgrelease rc00
 %define kversion 7
-%define tarfile_release 7.2.7
+%define tarfile_release 7.3.4
 # This is needed to do merge window version magic
-%define patchlevel 2
+%define patchlevel 3
 # This allows pkg_release to have configurable %%{?dist} tag
-%define specrelease an32%{?buildid}%{?dist}
+%define specrelease rc00%{?buildid}%{?dist}
 # This defines the kabi tarball version
-%define kabiversion 7.2.7
+%define kabiversion 7.3.4
 
 # If this variable is set to 1, a bpf selftests build failure will cause a
 # fatal kernel package build error
@@ -248,7 +225,7 @@ Summary: The Linux kernel
 %define with_arm64_16k %{?_with_arm64_16k:    1} %{?!_with_arm64_16k:    0}
 # kernel-64k (aarch64 kernel with 64K page_size)
 %define with_arm64_64k %{?_without_arm64_64k: 0} %{?!_without_arm64_64k: 1}
-# we default reatime builds to off for fedora and on for rhel/centos/eln
+# we default realtime builds to off for fedora and on for rhel/centos/eln
 %if 0%{?fedora}
 # kernel-rt (x86_64 and aarch64 only PREEMPT_RT enabled kernel)
 %define with_realtime  %{?_with_realtime:  1} %{?!_with_realtime:  0}
@@ -264,13 +241,14 @@ Summary: The Linux kernel
 %define with_automotive %{?_with_automotive:  1} %{?!_with_automotive:   0}
 
 # Supported variants
-#            with_base with_debug    with_gcov
-# stock      X         X             X
-# zfcpdump   X                       X
-# arm64_16k  X         X             X
-# arm64_64k  X         X             X
-# realtime   X         X             X
-# automotive X         X             X
+#                    with_base with_debug    with_gcov
+# stock              X         X             X
+# zfcpdump           X                       X
+# arm64_16k          X         X             X
+# arm64_64k          X         X             X
+# realtime           X         X             X
+# realtime_arm64_64k X         X             X
+# automotive         X         X             X
 
 # kernel-doc
 %define with_doc       %{?_without_doc:       0} %{?!_without_doc:       1}
@@ -336,9 +314,6 @@ Summary: The Linux kernel
 #
 # Cross compile requested?
 %define with_cross    %{?_with_cross:         1} %{?!_with_cross:        0}
-#
-# build a release kernel on rawhide
-%define with_release   %{?_with_release:      1} %{?!_with_release:      0}
 
 # verbose build, i.e. no silent rules and V=1
 %define with_verbose %{?_with_verbose:        1} %{?!_with_verbose:      0}
@@ -426,10 +401,6 @@ Summary: The Linux kernel
 
 %if %{with_vanilla}
 %define nopatches 1
-%endif
-
-%if %{with_release}
-%define debugbuildsenabled 1
 %endif
 
 %if !%{with_debuginfo}
@@ -583,7 +554,6 @@ Summary: The Linux kernel
 
 %if %{zipmodules}
 %global zipsed -e 's/\.ko$/\.ko.%compext/'
-# for parallel xz processes, replace with 1 to go back to single process
 %endif
 
 # turn off kABI DUP check and DWARF-based check if kABI check is disabled
@@ -605,7 +575,6 @@ Summary: The Linux kernel
 # only package docs noarch
 %ifnarch noarch
 %define with_doc 0
-%define doc_build_fail true
 %endif
 
 %if 0%{?fedora}
@@ -714,7 +683,7 @@ Summary: The Linux kernel
 %define nobuildarches i386 i686
 %endif
 
-%ifarch %nobuildarches
+%ifarch %{nobuildarches}
 # disable BuildKernel commands
 %define with_stock 0
 %define with_debug 0
@@ -737,28 +706,18 @@ Summary: The Linux kernel
 %define with_kmap 0
 %endif
 
-# Architectures we build tools/cpupower on
-%if 0%{?fedora}
-%define cpupowerarchs %{ix86} x86_64 ppc64le aarch64 riscv64
-%else
-%define cpupowerarchs i686 x86_64 ppc64le aarch64 riscv64
+# ynl is built and installed by the tools build
+%if !%{with_tools}
+%define with_ynl 0
 %endif
+
+# Architectures we build tools/cpupower on
+%define cpupowerarchs x86_64 ppc64le aarch64 riscv64
 
 %if 0%{?use_vdso}
 %define _use_vdso 1
 %else
 %define _use_vdso 0
-%endif
-
-# If build of debug packages is disabled, we need to know if we want to create
-# meta debug packages or not, after we define with_debug for all specific cases
-# above. So this must be at the end here, after all cases of with_debug or not.
-%define with_debug_meta 0
-%if !%{debugbuildsenabled}
-%if %{with_debug}
-%define with_debug_meta 1
-%endif
-%define with_debug 0
 %endif
 
 # short-hand for "are we building base/non-debug variants of ...?"
@@ -898,7 +857,7 @@ BuildRequires: libnl3-devel
 %endif
 %endif
 
-%if %{with_tools} && %{with_ynl}
+%if %{with_ynl}
 BuildRequires: python3-pyyaml python3-jsonschema python3-pip python3-setuptools >= 61
 BuildRequires: (python3-wheel if python3-setuptools < 70)
 %endif
@@ -906,7 +865,7 @@ BuildRequires: (python3-wheel if python3-setuptools < 70)
 BuildRequires: openssl-devel
 
 %if %{with_selftests}
-BuildRequires: clang llvm-devel fuse-devel zlib-devel binutils-devel python3-docutils python3-jsonschema
+BuildRequires: clang llvm-devel fuse-devel zlib-devel binutils-devel libuuid-devel python3-docutils python3-jsonschema
 %ifarch x86_64 riscv64
 BuildRequires: lld
 %endif
@@ -955,10 +914,15 @@ BuildRequires: pesign >= 0.10-4
 %endif
 %endif
 
+# If CROSS_COMPILE is defined then we skip the BuildRequires because we do not
+# know which package maintains that toolchain prefix.
 %if %{with_cross}
+%if %{undefined CROSS_COMPILE}
 BuildRequires: binutils-%{_build_arch}-linux-gnu, gcc-%{_build_arch}-linux-gnu
-%define cross_opts CROSS_COMPILE=%{_build_arch}-linux-gnu-
-%define __strip %{_build_arch}-linux-gnu-strip
+%define CROSS_COMPILE %{_build_arch}-linux-gnu-
+%endif
+%define cross_opts CROSS_COMPILE=%{CROSS_COMPILE}
+%define __strip %{CROSS_COMPILE}strip
 %endif
 
 # These below are required to build man pages
@@ -1222,10 +1186,10 @@ The %{name} meta package
 #
 %define kernel_reqprovconf(o) \
 %if %{-o:0}%{!-o:1}\
-Provides: kernel = %{specversion}-%{pkg_release}\
-Provides: %{name} = %{specversion}-%{pkg_release}\
+Provides: kernel = %{specversion}-%{release}\
+Provides: %{name} = %{specversion}-%{release}\
 %endif\
-Provides: %{name}-%{_target_cpu} = %{specrpmversion}-%{pkg_release}%{uname_suffix %{?1}}\
+Provides: %{name}-%{_target_cpu} = %{specrpmversion}-%{release}%{uname_suffix %{?1}}\
 Provides: %{name}-uname-r = %{KVERREL}%{uname_suffix %{?1}}\
 Requires: %{name}%{?1:-%{1}}-modules-core-uname-r = %{KVERREL}%{uname_suffix %{?1}}\
 Requires(pre): %{kernel_prereq}\
@@ -1248,7 +1212,6 @@ AutoProv: yes\
 
 %package doc
 Summary: Various documentation bits found in the kernel source
-Group: Documentation
 %description doc
 This package contains documentation files from the kernel
 source. Various bits of information about the Linux kernel and the
@@ -1343,7 +1306,6 @@ AutoReqProv: no
 %description -n python3-perf-debuginfo
 This package provides debug information for the perf python bindings.
 
-# the python_sitearch macro should already be defined from above
 %{expand:%%global _find_debuginfo_opts %{?_find_debuginfo_opts} -p '.*%%{python3_sitearch}/perf.*so(\.debug)?|XXX' -o python3-perf-debuginfo.list}
 
 # with_perf
@@ -1364,7 +1326,6 @@ of applications which use perf library from kernel source.
 
 %package -n libperf-debuginfo
 Summary: Debug information for package libperf
-Group: Development/Debug
 Requires: %{name}-debuginfo-common-%{_target_cpu} = %{version}-%{release}
 AutoReqProv: no
 %description -n libperf-debuginfo
@@ -1433,7 +1394,7 @@ This package provides debug information for package %{name}-tools.
 # of matching the pattern against the symlinks file.
 %{expand:%%global _find_debuginfo_opts %{?_find_debuginfo_opts} -p '.*%%{_bindir}/bootconfig(\.debug)?|.*%%{_bindir}/centrino-decode(\.debug)?|.*%%{_bindir}/powernow-k8-decode(\.debug)?|.*%%{_bindir}/cpupower(\.debug)?|.*%%{_libdir}/libcpupower.*|.*%%{python3_sitearch}/_raw_pylibcpupower.*|.*%%{_bindir}/turbostat(\.debug)?|.*%%{_bindir}/x86_energy_perf_policy(\.debug)?|.*%%{_bindir}/tmon(\.debug)?|.*%%{_bindir}/lsgpio(\.debug)?|.*%%{_bindir}/gpio-hammer(\.debug)?|.*%%{_bindir}/gpio-event-mon(\.debug)?|.*%%{_bindir}/gpio-watch(\.debug)?|.*%%{_bindir}/iio_event_monitor(\.debug)?|.*%%{_bindir}/iio_generic_buffer(\.debug)?|.*%%{_bindir}/lsiio(\.debug)?|.*%%{_bindir}/intel-speed-select(\.debug)?|.*%%{_bindir}/page_owner_sort(\.debug)?|.*%%{_bindir}/slabinfo(\.debug)?|.*%%{_sbindir}/intel_sdsi(\.debug)?|.*%%{_bindir}/ynltool(\.debug)?|XXX' -o %{name}-tools-debuginfo.list}
 
-%if %{with_tools} && %{with_ynl}
+%if %{with_ynl}
 %package -n python3-%{name}-tools
 Summary: Various Python tools for the kernel
 %description -n python3-%{name}-tools
@@ -1513,7 +1474,6 @@ This package provides debug information for the rv package.
 %if %{with_kmap} && %{with_base}
 %package -n %{name}-kmap-internal
 Summary: Kernel source-to-module mapping data and module list
-Group: Development/System
 BuildRequires: python3
 %description -n %{name}-kmap-internal
 The %{name}-kmap-internal package contains a JSON mapping file that describes
@@ -1535,7 +1495,7 @@ Files installed under /usr/share/%{name}-kmap-internal/:
 
 %package selftests-internal
 Summary: Kernel samples and selftests
-Requires: binutils, bpftool, fuse-libs, iproute-tc, iputils, keyutils, nmap-ncat, python3
+Requires: binutils, bpftool, fuse-libs, iproute-tc, iputils, keyutils, libuuid, nmap-ncat, python3
 Provides: %{name}-selftests-internal-present
 %description selftests-internal
 Kernel sample programs and selftests.
@@ -1569,11 +1529,10 @@ external Linux kernel modules, and a yum plugin to aid enforcement.
 %endif
 
 %if %{with_kabidw_base}
-%package kernel-kabidw-base-internal
+%package -n %{name}-kabidw-base-internal
 Summary: The baseline dataset for kABI verification using DWARF data
-Group: System Environment/Kernel
 AutoReqProv: no
-%description kernel-kabidw-base-internal
+%description -n %{name}-kabidw-base-internal
 The package contains data describing the current ABI of the Red Hat Enterprise
 Linux kernel, suitable for the kabi-dw tool.
 %endif
@@ -1602,18 +1561,14 @@ This is required to use SystemTap with %{name}%{?1:-%{1}}-%{KVERREL}.\
 
 #
 # This macro creates a kernel-<subpackage>-devel package.
-#	%%kernel_devel_package [-m] <subpackage> <pretty-name>
+#	%%kernel_devel_package <subpackage>
 #
-# Options:
-#   -m: For debug variants with debugbuildsenabled==0, adds a dependency on the
-#       non-debug variant's devel package (e.g., 64k-debug-devel requires 64k-devel)
 # Arguments:
 #   %1 - Variant/subpackage name (e.g., "debug", "rt")
-#   %2 - Pretty name for description (e.g., "debug", "PREEMPT_RT")
 #
-%define kernel_devel_package(m) \
+%define kernel_devel_package() \
 %package %{?1:%{1}-}devel\
-Summary: Development package for building kernel modules to match the %{?2:%{2} }kernel\
+Summary: Development package for building kernel modules to match the %{?1:%{1} }kernel\
 Provides: %{name}%{?1:-%{1}}-devel-%{_target_cpu} = %{specrpmversion}-%{release}\
 Provides: %{name}-devel-%{_target_cpu} = %{specrpmversion}-%{release}%{uname_suffix %{?1}}\
 Provides: kernel-devel-uname-r = %{KVERREL}%{uname_suffix %{?1}}\
@@ -1629,29 +1584,30 @@ Requires: bison\
 Requires: flex\
 Requires: make\
 Requires: gcc\
-%if %{-m:1}%{!-m:0}\
-Requires: %{name}-devel-uname-r = %{KVERREL}%{uname_variant %{?1}}\
-%endif\
 %description %{?1:%{1}-}devel\
 This package provides kernel headers and makefiles sufficient to build modules\
-against the %{?2:%{2} }kernel package.\
+against the %{?1:%{1} }kernel package.\
 %{nil}
 
 #
 # This macro creates an empty kernel-<subpackage>-devel-matched package that
 # requires both the core and devel packages locked on the same version.
-#	%%kernel_devel_matched_package [-m] <subpackage> <pretty-name>
+#	%%kernel_devel_matched_package <subpackage>
 #
-%define kernel_devel_matched_package(m) \
+%define kernel_devel_matched_package() \
 %package %{?1:%{1}-}devel-matched\
-Summary: Meta package to install matching core and devel packages for a given %{?2:%{2} }kernel\
+Summary: Meta package to install matching core and devel packages for a given %{?1:%{1} }kernel\
 Requires: %{name}%{?1:-%{1}}-devel = %{specrpmversion}-%{release}\
 Requires: %{name}%{?1:-%{1}}-core = %{specrpmversion}-%{release}\
 %description %{?1:%{1}-}devel-matched\
-This meta package is used to install matching core and devel packages for a given %{?2:%{2} }kernel.\
+This meta package is used to install matching core and devel packages for a given %{?1:%{1} }kernel.\
 %{nil}
 
-%define kernel_modules_extra_matched_package(m) \
+#
+# This macro creates the kernel-modules-extra-matched meta package.
+#	%%kernel_modules_extra_matched_package
+#
+%define kernel_modules_extra_matched_package() \
 %package modules-extra-matched\
 Summary: Meta package which requires modules-extra to be installed for all kernels.\
 %description modules-extra-matched\
@@ -1660,12 +1616,11 @@ This meta package provides a single reference that other packages can Require to
 
 #
 # This macro creates a kernel-<subpackage>-modules-internal package.
-#	%%kernel_modules_internal_package <subpackage> <pretty-name>
+#	%%kernel_modules_internal_package <subpackage>
 #
 %define kernel_modules_internal_package() \
 %package %{?1:%{1}-}modules-internal\
-Summary: Extra kernel modules to match the %{?2:%{2} }kernel\
-Group: System Environment/Kernel\
+Summary: Extra kernel modules to match the %{?1:%{1} }kernel\
 Provides: %{name}%{?1:-%{1}}-modules-internal-%{_target_cpu} = %{specrpmversion}-%{release}\
 Provides: %{name}%{?1:-%{1}}-modules-internal-%{_target_cpu} = %{specrpmversion}-%{release}%{uname_suffix %{?1}}\
 Provides: %{name}%{?1:-%{1}}-modules-internal = %{specrpmversion}-%{release}%{uname_suffix %{?1}}\
@@ -1678,22 +1633,19 @@ Supplements: (%{name}-selftests-internal-present and %{name}-uname-r = %{KVERREL
 AutoReq: no\
 AutoProv: yes\
 %description %{?1:%{1}-}modules-internal\
-This package provides kernel modules for the %{?2:%{2} }kernel package for Red Hat internal usage.\
+This package provides kernel modules for the %{?1:%{1} }kernel package for Red Hat internal usage.\
 %{nil}
 
 #
 # This macro creates a kernel-<subpackage>-modules-extra package.
-#	%%kernel_modules_extra_package [-m] <subpackage> <pretty-name>
+#	%%kernel_modules_extra_package <subpackage>
 #
-# Options:
-#   -m: For debug variants, adds a dependency on the non-debug variant's modules-extra
 # Arguments:
 #   %1 - Variant/subpackage name
-#   %2 - Pretty name for description
 #
-%define kernel_modules_extra_package(m) \
+%define kernel_modules_extra_package() \
 %package %{?1:%{1}-}modules-extra\
-Summary: Extra kernel modules to match the %{?2:%{2} }kernel\
+Summary: Extra kernel modules to match the %{?1:%{1} }kernel\
 Provides: %{name}%{?1:-%{1}}-modules-extra-%{_target_cpu} = %{specrpmversion}-%{release}\
 Provides: %{name}%{?1:-%{1}}-modules-extra-%{_target_cpu} = %{specrpmversion}-%{release}%{uname_suffix %{?1}}\
 Provides: %{name}%{?1:-%{1}}-modules-extra = %{specrpmversion}-%{release}%{uname_suffix %{?1}}\
@@ -1702,22 +1654,19 @@ Provides: %{name}%{?1:-%{1}}-modules-extra-uname-r = %{KVERREL}%{uname_suffix %{
 Requires: %{name}-uname-r = %{KVERREL}%{uname_suffix %{?1}}\
 Requires: %{name}%{?1:-%{1}}-modules-uname-r = %{KVERREL}%{uname_suffix %{?1}}\
 Requires: %{name}%{?1:-%{1}}-modules-core-uname-r = %{KVERREL}%{uname_suffix %{?1}}\
-%if %{-m:1}%{!-m:0}\
-Requires: %{name}-modules-extra-uname-r = %{KVERREL}%{uname_variant %{?1}}\
-%endif\
 AutoReq: no\
 AutoProv: yes\
 %description %{?1:%{1}-}modules-extra\
-This package provides less commonly used kernel modules for the %{?2:%{2} }kernel package.\
+This package provides less commonly used kernel modules for the %{?1:%{1} }kernel package.\
 %{nil}
 
 #
 # This macro creates a kernel-<subpackage>-modules-akmods package.
-#	%%kernel_modules_akmods_package [-m] <subpackage> <pretty-name>
+#	%%kernel_modules_akmods_package <subpackage>
 #
-%define kernel_modules_akmods_package(m) \
+%define kernel_modules_akmods_package() \
 %package %{?1:%{1}-}modules-akmods\
-Summary: OOT kernel modules that match the %{?2:%{2} }kernel\
+Summary: OOT kernel modules that match the %{?1:%{1} }kernel\
 License: BROADCOM and CDDL AND GPL-2.0-only AND MIT\
 Provides: %{name}%{?1:-%{1}}-modules-akmods-%{_target_cpu} = %{specrpmversion}-%{release}\
 Provides: %{name}%{?1:-%{1}}-modules-akmods-%{_target_cpu} = %{specrpmversion}-%{release}%{uname_suffix %{?1}}\
@@ -1733,22 +1682,19 @@ Provides: %{name}%{?1:-%{1}}-modules-akmods-uname-r = %{KVERREL}%{uname_suffix %
 Requires: %{name}-uname-r = %{KVERREL}%{uname_suffix %{?1}}\
 Requires: %{name}%{?1:-%{1}}-modules-uname-r = %{KVERREL}%{uname_suffix %{?1}}\
 Requires: %{name}%{?1:-%{1}}-modules-core-uname-r = %{KVERREL}%{uname_suffix %{?1}}\
-%if %{-m:1}%{!-m:0}\
-Requires: %{name}-modules-akmods-uname-r = %{KVERREL}%{uname_variant %{?1}}\
-%endif\
 AutoReq: no\
 AutoProv: yes\
 %description %{?1:%{1}-}modules-akmods\
-This package provides traditionally OOT modules for the %{?2:%{2} }kernel package.\
+This package provides traditionally OOT modules for the %{?1:%{1} }kernel package.\
 Refer to their respective licenses.\
 
 #
 # This macro creates a kernel-<subpackage>-nvidia package.
-#	%%kernel_nvidia_package [-m] <subpackage> <nvpkg> <pretty-name>
+#	%%kernel_nvidia_package <nvpkg> <subpackage>
 #
-%define kernel_nvidia_package(m) \
+%define kernel_nvidia_package() \
 %package %{?2:%{2}-}%{1}\
-Summary: Extra kernel modules to match the %{?3:%{3} }kernel\
+Summary: Extra kernel modules to match the %{?2:%{2} }kernel\
 License: (GPL-2.0-only OR MIT)\
 Provides: %{name}%{?2:-%{2}}-%{1}-%{_target_cpu} = %{specrpmversion}-%{release}\
 Provides: %{name}%{?2:-%{2}}-%{1}-%{_target_cpu} = %{specrpmversion}-%{release}%{uname_suffix %{?2}}\
@@ -1759,28 +1705,22 @@ Provides: nvidia-kmod = %{?nvidia_epoch:%{nvidia_epoch}:}%{nvidia_version}\
 Requires: %{name}-uname-r = %{KVERREL}%{uname_suffix %{?2}}\
 Requires: %{name}%{?2:-%{2}}-modules-uname-r = %{KVERREL}%{uname_suffix %{?2}}\
 Requires: %{name}%{?2:-%{2}}-modules-core-uname-r = %{KVERREL}%{uname_suffix %{?2}}\
-%if %{-m:1}%{!-m:0}\
-Requires: %{name}%{?2:-%{2}}-uname-r = %{KVERREL}%{uname_variant %{?2}}\
-%endif\
 AutoReq: no\
 AutoProv: yes\
 %description %{?2:%{2}-}%{1}\
-This package provides the Nvidia Open DRM modules for the %{?3:%{3} }kernel package.\
+This package provides the Nvidia Open DRM modules for the %{?2:%{2} }kernel package.\
 %{nil}
 
 #
 # This macro creates a kernel-<subpackage>-modules package.
-#	%%kernel_modules_package [-m] <subpackage> <pretty-name>
+#	%%kernel_modules_package <subpackage>
 #
-# Options:
-#   -m: For debug variants, adds a dependency on the non-debug variant's modules
 # Arguments:
 #   %1 - Variant/subpackage name
-#   %2 - Pretty name for description
 #
-%define kernel_modules_package(m) \
+%define kernel_modules_package() \
 %package %{?1:%{1}-}modules\
-Summary: kernel modules to match the %{?2:%{2}-}core kernel\
+Summary: kernel modules to match the %{?1:%{1}-}core kernel\
 Provides: %{name}%{?1:-%{1}}-modules-%{_target_cpu} = %{specrpmversion}-%{release}\
 Provides: %{name}%{?1:-%{1}}-modules-%{_target_cpu} = %{specrpmversion}-%{release}%{uname_suffix %{?1}}\
 Provides: %{name}%{?1:-%{1}}-modules = %{specrpmversion}-%{release}%{uname_suffix %{?1}}\
@@ -1788,35 +1728,29 @@ Provides: installonlypkg(kernel-module)\
 Provides: %{name}%{?1:-%{1}}-modules-uname-r = %{KVERREL}%{uname_suffix %{?1}}\
 Requires: %{name}-uname-r = %{KVERREL}%{uname_suffix %{?1}}\
 Requires: %{name}%{?1:-%{1}}-modules-core-uname-r = %{KVERREL}%{uname_suffix %{?1}}\
-%if %{-m:1}%{!-m:0}\
-Requires: %{name}-modules-uname-r = %{KVERREL}%{uname_variant %{?1}}\
-%endif\
 AutoReq: no\
 AutoProv: yes\
 %description %{?1:%{1}-}modules\
-This package provides commonly used kernel modules for the %{?2:%{2}-}core kernel package.\
+This package provides commonly used kernel modules for the %{?1:%{1}-}core kernel package.\
 %{nil}
 
 #
 # This macro creates a kernel-<subpackage>-modules-core package.
-#	%%kernel_modules_core_package [-m] <subpackage> <pretty-name>
+#	%%kernel_modules_core_package <subpackage>
 #
-%define kernel_modules_core_package(m) \
+%define kernel_modules_core_package() \
 %package %{?1:%{1}-}modules-core\
-Summary: Core kernel modules to match the %{?2:%{2}-}core kernel\
+Summary: Core kernel modules to match the %{?1:%{1}-}core kernel\
 Provides: %{name}%{?1:-%{1}}-modules-core-%{_target_cpu} = %{specrpmversion}-%{release}\
 Provides: %{name}%{?1:-%{1}}-modules-core-%{_target_cpu} = %{specrpmversion}-%{release}%{uname_suffix %{?1}}\
 Provides: %{name}%{?1:-%{1}}-modules-core = %{specrpmversion}-%{release}%{uname_suffix %{?1}}\
 Provides: installonlypkg(kernel-module)\
 Provides: %{name}%{?1:-%{1}}-modules-core-uname-r = %{KVERREL}%{uname_suffix %{?1}}\
 Requires: %{name}-uname-r = %{KVERREL}%{uname_suffix %{?1}}\
-%if %{-m:1}%{!-m:0}\
-Requires: %{name}-modules-core-uname-r = %{KVERREL}%{uname_variant %{?1}}\
-%endif\
 AutoReq: no\
 AutoProv: yes\
 %description %{?1:%{1}-}modules-core\
-This package provides essential kernel modules for the %{?2:%{2}-}core kernel package.\
+This package provides essential kernel modules for the %{?1:%{1}-}core kernel package.\
 %{nil}
 
 #
@@ -1843,46 +1777,37 @@ The meta-package for the %{1} kernel\
 #
 # This macro creates a kernel-<subpackage> and its -devel and -debuginfo too.
 #	%%define variant_summary The Linux kernel compiled for <configuration>
-#	%%kernel_variant_package [-n <pretty-name>] [-m] [-o] <subpackage>
+#	%%kernel_variant_package [-o] <subpackage>
 #
 # Options:
-#   -n <name>: Use <name> as the pretty variant name in descriptions (default: <subpackage>)
-#   -m: Used with debugbuildsenabled==0 to create a "meta" debug variant that
-#       depends on non-debug variant and skips debug/internal/partner packages.
 #   -o: Skips main "Provides" that would satisfy general kernel requirements that
 #       special-purpose kernels shouldn't include.
 # Arguments:
 #   %1 - Variant/subpackage name (e.g., "debug", "rt", "zfcpdump"), or empty for stock kernel
 #
-%define kernel_variant_package(n:mo) \
+%define kernel_variant_package(o) \
 %package %{?1:%{1}-}core\
 Summary: %{variant_summary}\
 Provides: %{name}-%{?1:%{1}-}core-uname-r = %{KVERREL}%{uname_suffix %{?1}}\
 Provides: installonlypkg(kernel)\
-%if %{-m:1}%{!-m:0}\
-Requires: %{name}-core-uname-r = %{KVERREL}%{uname_variant %{?1}}\
-Requires: %{name}-%{?1:%{1}-}-modules-core-uname-r = %{KVERREL}%{uname_variant %{?1}}\
-%endif\
 %{expand:%%kernel_reqprovconf %{?1:%{1}} %{-o:%{-o}}}\
 %if %{?1:1} %{!?1:0} \
 %{expand:%%kernel_meta_package %{?1:%{1}}}\
 %endif\
-%{expand:%%kernel_devel_package %{?1:%{1}} %{!?{-n}:%{1}}%{?{-n}:%{-n*}} %{-m:%{-m}}}\
-%{expand:%%kernel_devel_matched_package %{?1:%{1}} %{!?{-n}:%{1}}%{?{-n}:%{-n*}} %{-m:%{-m}}}\
-%{expand:%%kernel_modules_package %{?1:%{1}} %{!?{-n}:%{1}}%{?{-n}:%{-n*}} %{-m:%{-m}}}\
-%{expand:%%kernel_modules_core_package %{?1:%{1}} %{!?{-n}:%{1}}%{?{-n}:%{-n*}} %{-m:%{-m}}}\
-%{expand:%%kernel_modules_extra_package %{?1:%{1}} %{!?{-n}:%{1}}%{?{-n}:%{-n*}} %{-m:%{-m}}}\
-%{expand:%%kernel_modules_akmods_package %{?1:%{1}} %{!?{-n}:%{1}}%{?{-n}:%{-n*}} %{-m:%{-m}}}\
+%{expand:%%kernel_devel_package %{?1:%{1}}}\
+%{expand:%%kernel_devel_matched_package %{?1:%{1}}}\
+%{expand:%%kernel_modules_package %{?1:%{1}}}\
+%{expand:%%kernel_modules_core_package %{?1:%{1}}}\
+%{expand:%%kernel_modules_extra_package %{?1:%{1}}}\
+%{expand:%%kernel_modules_akmods_package %{?1:%{1}}}\
 %if %{with_nvidia}\
-%{expand:%%kernel_nvidia_package nvidia %{?1:%{1}} %{!?{-n}:%{1}}%{?{-n}:%{-n*}} %{-m:%{-m}}}\
+%{expand:%%kernel_nvidia_package nvidia %{?1:%{1}}}\
 %endif\
-%if %{-m:0}%{!-m:1}\
-%{expand:%%kernel_modules_internal_package %{?1:%{1}} %{!?{-n}:%{1}}%{?{-n}:%{-n*}}}\
+%{expand:%%kernel_modules_internal_package %{?1:%{1}}}\
 %if 0%{!?fedora:1}\
-%{expand:%%kernel_modules_partner_package %{?1:%{1}} %{!?{-n}:%{1}}%{?{-n}:%{-n*}}}\
+%{expand:%%kernel_modules_partner_package %{?1:%{1}}}\
 %endif\
 %{expand:%%kernel_debuginfo_package %{?1:%{1}}}\
-%endif\
 %if %{with_efiuki} && ("%{1}" != "rt" && "%{1}" != "rt-debug" && "%{1}" != "rt-64k" && "%{1}" != "rt-64k-debug")\
 %package %{?1:%{1}-}uki-virt\
 Summary: %{variant_summary} unified kernel image for virtual machines\
@@ -1898,7 +1823,7 @@ Provides: installonlypkg(kernel)\
 Requires: %{name}%{?1:-%{1}}-uki-virt = %{specrpmversion}-%{release}\
 Requires(pre): systemd >= 254-1\
 %endif\
-%if %{with_dtbloader} && ("%{?1}" == "" || "%{1}" == "debug")\
+%if %{with_dtbloader} && ("%{?1}" == "" || "%{?1}" == "debug")\
 # This is not a full UKI, uki is in the name for compat with kernel_variant_posttrans -u\
 %package %{?1:%{1}-}uki-dtbloader\
 Summary: %{variant_summary} with systemd-stub for auto DTB loading\
@@ -1918,12 +1843,11 @@ Conflicts: %{name}%{?1:-%{1}}-core = %{specrpmversion}-%{release}\
 
 #
 # This macro creates a kernel-<subpackage>-modules-partner package.
-#	%%kernel_modules_partner_package <subpackage> <pretty-name>
+#	%%kernel_modules_partner_package <subpackage>
 #
 %define kernel_modules_partner_package() \
 %package %{?1:%{1}-}modules-partner\
-Summary: Extra kernel modules to match the %{?2:%{2} }kernel\
-Group: System Environment/Kernel\
+Summary: Extra kernel modules to match the %{?1:%{1} }kernel\
 Provides: %{name}%{?1:-%{1}}-modules-partner-%{_target_cpu} = %{specrpmversion}-%{release}\
 Provides: %{name}%{?1:-%{1}}-modules-partner-%{_target_cpu} = %{specrpmversion}-%{release}%{uname_suffix %{?1}}\
 Provides: %{name}%{?1:-%{1}}-modules-partner = %{specrpmversion}-%{release}%{uname_suffix %{?1}}\
@@ -1935,7 +1859,7 @@ Requires: %{name}%{?1:-%{1}}-modules-core-uname-r = %{KVERREL}%{uname_suffix %{?
 AutoReq: no\
 AutoProv: yes\
 %description %{?1:%{1}-}modules-partner\
-This package provides kernel modules for the %{?2:%{2} }kernel package for Red Hat partners usage.\
+This package provides kernel modules for the %{?1:%{1} }kernel package for Red Hat partners usage.\
 %{nil}
 
 # Now, each variant package.
@@ -1958,11 +1882,7 @@ a 16K page size.
 
 %if %{with_arm64_16k} && %{with_debug}
 %define variant_summary The Linux kernel compiled with extra debugging enabled
-%if !%{debugbuildsenabled}
-%kernel_variant_package -m 16k-debug
-%else
 %kernel_variant_package 16k-debug
-%endif
 %description 16k-debug-core
 The debug kernel package contains a variant of the ARM64 Linux kernel using
 a 16K page size.
@@ -1981,11 +1901,7 @@ a 64K page size.
 
 %if %{with_arm64_64k} && %{with_debug}
 %define variant_summary The Linux kernel compiled with extra debugging enabled
-%if !%{debugbuildsenabled}
-%kernel_variant_package -m 64k-debug
-%else
 %kernel_variant_package 64k-debug
-%endif
 %description 64k-debug-core
 The debug kernel package contains a variant of the ARM64 Linux kernel using
 a 64K page size.
@@ -2026,11 +1942,7 @@ a 64K page size.
 
 %if %{with_realtime_arm64_64k} && %{with_debug}
 %define variant_summary The Linux PREEMPT_RT kernel compiled with extra debugging enabled
-%if !%{debugbuildsenabled}
-%kernel_variant_package -m rt-64k-debug
-%else
 %kernel_variant_package rt-64k-debug
-%endif
 %description rt-64k-debug-core
 The debug kernel package contains a variant of the ARM64 Linux PREEMPT_RT kernel using
 a 64K page size.
@@ -2063,11 +1975,7 @@ PREEMPT_RT real-time preemption support, targeted for Automotive platforms
 
 %if %{with_stock} && %{with_debug}
 %define variant_summary The Linux kernel compiled with extra debugging enabled
-%if !%{debugbuildsenabled}
-%kernel_variant_package -m debug
-%else
 %kernel_variant_package debug
-%endif
 %description debug-core
 The kernel package contains the Linux kernel (vmlinuz), the core of any
 Linux operating system.  The kernel handles the basic functions
@@ -2269,11 +2177,7 @@ mv COPYING COPYING-%{specrpmversion}-%{release}
 # on linux-next prevent scripts/setlocalversion from mucking with our version numbers
 rm -f localversion-next localversion-rt
 
-# Mangle /usr/bin/python shebangs to /usr/bin/python3
 # Mangle all Python shebangs to be Python 3 explicitly
-# -p preserves timestamps
-# -n prevents creating ~backup files
-# -i specifies the interpreter for the shebang
 # This fixes errors such as
 # *** ERROR: ambiguous python shebang in /usr/bin/kvm_stat: #!/usr/bin/python. Change it to python3 (or python2) explicitly.
 # We patch all sources below for which we got a report/error.
@@ -2295,7 +2199,7 @@ sed -e s,@KVER,%{KVERREL}, -e s,@SBAT_SUFFIX,%{sbat_suffix}, %{SOURCE84} > uki-a
 sed -e s,@KVER,%{KVERREL}, -e s,@SBAT_SUFFIX,%{sbat_suffix}, %{SOURCE85} > kernel.sbat
 
 # only deal with configs if we are going to build for the arch
-%ifnarch %nobuildarches
+%ifnarch %{nobuildarches}
 
 if [ -L configs ]; then
 	rm -f configs
@@ -2312,7 +2216,7 @@ cp %{SOURCE3000} .
 # kernel-local - rename and copy for partial snippet config process
 cp %{SOURCE3001} partial-kernel-local-snip.config
 cp %{SOURCE3001} partial-kernel-local-debug-snip.config
-FLAVOR=%{primary_target} SPECPACKAGE_NAME=%{name} SPECVERSION=%{specversion} SPECRPMVERSION=%{specrpmversion} ./generate_all_configs.sh %{debugbuildsenabled}
+FLAVOR=%{primary_target} SPECPACKAGE_NAME=%{name} SPECVERSION=%{specversion} SPECRPMVERSION=%{specrpmversion} ./generate_all_configs.sh
 
 # Collect custom defined config options
 %{log_msg "Collect custom defined config options"}
@@ -2343,7 +2247,6 @@ GetArch()
 
 # Merge in any user-provided local config option changes
 %{log_msg "Merge in any user-provided local config option changes"}
-%ifnarch %nobuildarches
 for i in %{all_configs}
 do
   kern_arch="$(GetArch $i)"
@@ -2363,19 +2266,10 @@ do
   done
   rm -f $i.tmp
 done
-%endif
 
 %if %{signkernel}%{signmodules}
 for i in *.config; do
   sed -i 's@CONFIG_EFI_SBAT_FILE=""@CONFIG_EFI_SBAT_FILE="kernel.sbat"@' $i
-done
-%endif
-
-# Adjust FIPS module name for RHEL
-%if 0%{?rhel}
-%{log_msg "Adjust FIPS module name for RHEL"}
-for i in *.config; do
-  sed -i 's/CONFIG_CRYPTO_FIPS_NAME=.*/CONFIG_CRYPTO_FIPS_NAME="Red Hat Enterprise Linux %{rhel} - Kernel Cryptographic API"/' $i
 done
 %endif
 
@@ -2406,16 +2300,11 @@ update_scripts() {
 }
 
 %{log_msg "Set scripts/SOURCES targets"}
-update_target=%{primary_target}
-if [ "%{primary_target}" == "rhel" ]; then
-: # no-op to avoid empty if-fi error
+update_scripts %{primary_target}
 %if 0%{?centos}
-  update_scripts $update_target
-  %{log_msg "Updating scripts/sources to centos version"}
-  update_target=centos
+%{log_msg "Updating scripts/sources to centos version"}
+update_scripts centos
 %endif
-fi
-update_scripts $update_target
 
 %endif
 
@@ -2438,7 +2327,7 @@ cd ..
 %{log_msg "Start of build stage"}
 
 %{log_msg "General arch build configuration"}
-rm -rf %{buildroot_unstripped} || true
+rm -rf %{buildroot_unstripped}
 mkdir -p %{buildroot_unstripped}
 
 %if %{with_sparse}
@@ -2500,7 +2389,7 @@ InitBuildVars() {
     cp configs/x509.genkey certs/.
     %endif
 
-%if %{with_debuginfo} == 0
+%if !%{with_debuginfo}
     sed -i 's/^\(CONFIG_DEBUG_INFO.*\)=y/# \1 is not set/' .config
 %endif
 
@@ -2522,14 +2411,13 @@ BuildBpftool(){
 #   $2 (KernelImage) - Path to kernel image file produced by build
 #   $3 (DoVDSO) - Whether to install VDSO files (1=yes, 0=no)
 #   $4 (Variant) - Variant suffix (e.g., "debug", "rt", "zfcpdump"), or empty for stock kernel
-#   $5 (InstallName) - Name for installed kernel (default: "vmlinuz")
 BuildKernel() {
     %{log_msg "BuildKernel for $4"}
     MakeTarget=$1
     KernelImage=$2
     DoVDSO=$3
     Variant=$4
-    InstallName=${5:-vmlinuz}
+    InstallName=vmlinuz
 
     %{log_msg "Setup variables"}
     DoModules=1
@@ -2639,12 +2527,6 @@ BuildKernel() {
     # We estimate the size of the initramfs because rpm needs to take this size
     # into consideration when performing disk space calculations. (See bz #530778)
     dd if=/dev/zero of=$RPM_BUILD_ROOT/boot/initramfs-$KernelVer.img bs=1M count=40
-
-    if [ -f arch/$Arch/boot/zImage.stub ]; then
-      %{log_msg "Copy zImage.stub to RPM_BUILD_ROOT"}
-      cp arch/$Arch/boot/zImage.stub $RPM_BUILD_ROOT/%{image_install_path}/zImage.stub-$KernelVer || :
-      cp arch/$Arch/boot/zImage.stub $RPM_BUILD_ROOT/lib/modules/$KernelVer/zImage.stub-$KernelVer || :
-    fi
 
     %if %{signkernel}
     %{log_msg "Copy kernel for signing"}
@@ -2796,9 +2678,6 @@ BuildKernel() {
     # dirs for additional modules per module-init-tools, kbuild/modules.txt
     mkdir -p $RPM_BUILD_ROOT/lib/modules/$KernelVer/updates
     mkdir -p $RPM_BUILD_ROOT/lib/modules/$KernelVer/weak-updates
-    # CONFIG_KERNEL_HEADER_TEST generates some extra files in the process of
-    # testing so just delete
-    find . -name *.h.s -delete
     # first copy everything
     cp --parents `find  -type f -name "Makefile*" -o -name "Kconfig*"` $RPM_BUILD_ROOT/lib/modules/$KernelVer/build
     if [ ! -e Module.symvers ]; then
@@ -2847,7 +2726,7 @@ BuildKernel() {
 
 %if %{with_kabidw_base}
     # Don't build kabi base for debug kernels
-    if [ "$Variant" != "zfcpdump" -a "$Variant" != "debug" ]; then
+    if [[ "$Variant" != "zfcpdump" && "$Variant" != *debug* ]]; then
         mkdir -p $RPM_BUILD_ROOT/kabi-dwarf
         tar -xvf %{SOURCE301} -C $RPM_BUILD_ROOT/kabi-dwarf
 
@@ -3041,9 +2920,8 @@ BuildKernel() {
     ln -s $RPM_BUILD_ROOT%{debuginfodir}/lib/modules/$KernelVer/vmlinux vmlinux
     if [ -n "%{?vmlinux_decompressor}" ]; then
 	    eu-readelf -n  %{vmlinux_decompressor} | grep "Build ID" | awk '{print $NF}' > vmlinux.decompressor.id
-	    # Without build-id the build will fail. But for s390 the build-id
-	    # wasn't added before 5.11. In case it is missing prefer not
-	    # packaging the debuginfo over a build failure.
+	    # If the decompressor carries no build-id, prefer not packaging
+	    # its debuginfo over a build failure.
 	    if [ -s vmlinux.decompressor.id ]; then
 		    cp vmlinux.decompressor.id $RPM_BUILD_ROOT/lib/modules/$KernelVer/build/vmlinux.decompressor.id
 		    cp %{vmlinux_decompressor} $RPM_BUILD_ROOT%{debuginfodir}/lib/modules/$KernelVer/vmlinux.decompressor
@@ -3081,9 +2959,9 @@ BuildKernel() {
     collect_modules_list networking \
       'register_netdev|ieee80211_register_hw|usbnet_probe|phy_driver_register|rt(l_|2x00)(pci|usb)_probe|register_netdevice'
     collect_modules_list block \
-      'ata_scsi_ioctl|scsi_add_host|scsi_add_host_with_dma|blk_alloc_queue|blk_init_queue|register_mtd_blktrans|scsi_esp_register|scsi_register_device_handler|blk_queue_physical_block_size' 'pktcdvd.ko|dm-mod.ko'
+      'ata_scsi_ioctl|scsi_add_host|scsi_add_host_with_dma|blk_alloc_queue|register_mtd_blktrans|scsi_esp_register|scsi_register_device_handler|blk_queue_physical_block_size' 'dm-mod.ko'
     collect_modules_list drm \
-      'drm_open|drm_init'
+      'drm_open'
     collect_modules_list modesetting \
       'drm_crtc_init'
 
@@ -3163,7 +3041,7 @@ BuildKernel() {
 # with_efiuki
 %endif
 	:  # in case of empty block
-    fi # "$Variant" == "rt" || "$Variant" == "rt-debug" || "$Variant" == "automotive" || "$Variant" == "automotive-debug"
+    fi # "$Variant" == rt/rt-debug/rt-64k/rt-64k-debug/automotive/automotive-debug
 
 %if %{with_dtbloader}
     if [[ -z "$Variant" || "$Variant" == "debug" ]]; then
@@ -3388,8 +3266,8 @@ BuildKernel() {
 
     # This is going to create a broken link during the build, but we don't use
     # it after this point.  We need the link to actually point to something
-    # when kernel-devel is installed, and a relative link doesn't work across
-    # the F17 UsrMove feature.
+    # when kernel-devel is installed, and /lib/modules lives on the /usr side
+    # of the merged-/usr layout, so a relative link would not resolve.
     ln -sf $DevelDir $RPM_BUILD_ROOT/lib/modules/$KernelVer/build
 
 %if %{with_debuginfo}
@@ -3491,7 +3369,7 @@ BuildKernel %make_target %kernel_image %{_use_vdso} automotive
 BuildKernel %make_target %kernel_image %{_use_vdso}
 %endif
 
-%ifnarch noarch i686 %{nobuildarches}
+%ifnarch noarch %{nobuildarches}
 %if !%{with_debug} && !%{with_zfcpdump} && !%{with_stock} && !%{with_arm64_16k} && !%{with_arm64_64k} && !%{with_realtime} && !%{with_realtime_arm64_64k} && !%{with_automotive}
 # If only building the user space tools, then initialize the build environment
 # and some variables so that the various userspace tools can be built.
@@ -3568,8 +3446,6 @@ chmod +x tools/power/cpupower/utils/version-gen.sh
     %{log_msg "build centrino-decode powernow-k8-decode"}
     %{tools_make} %{?_smp_mflags} centrino-decode powernow-k8-decode
     popd
-%endif
-%ifarch x86_64
    pushd tools/power/x86/x86_energy_perf_policy/
    %{log_msg "build x86_energy_perf_policy"}
    %{tools_make}
@@ -3625,7 +3501,6 @@ if [ -f $RPM_BUILD_ROOT/$DevelDir/vmlinux.h ]; then
 elif [ -f $DevelDir/vmlinux.h ]; then
   RPM_VMLINUX_H=$DevelDir/vmlinux.h
 fi
-echo "${RPM_VMLINUX_H}" > ../vmlinux_h_path
 
 %if %{with_selftests}
 %{log_msg "start build selftests"}
@@ -3669,7 +3544,7 @@ pushd tools/testing/selftests
 export CFLAGS="%{build_cflags}"
 export CXXFLAGS="%{build_cxxflags}"
 
-%{make} %{?_smp_mflags} EXTRA_CFLAGS="${RPM_OPT_FLAGS}" EXTRA_CXXFLAGS="${RPM_OPT_FLAGS}" EXTRA_LDFLAGS="%{__global_ldflags}" ARCH=$Arch V=1 TARGETS="bpf cgroup kmod mm net net/can net/forwarding net/hsr net/mptcp net/netfilter net/packetdrill net/tcp_ao tc-testing memfd drivers/net drivers/net/hw iommu cachestat pid_namespace rlimits timens pidfd capabilities clone3 exec filesystems firmware landlock mount mount_setattr move_mount_set_group nsfs openat2 proc safesetid seccomp tmpfs uevent vDSO" SKIP_TARGETS="" $force_targets INSTALL_PATH=%{buildroot}%{_libexecdir}/kselftests VMLINUX_H="${RPM_VMLINUX_H}" install
+%{make} %{?_smp_mflags} EXTRA_CFLAGS="${RPM_OPT_FLAGS}" EXTRA_CXXFLAGS="${RPM_OPT_FLAGS}" EXTRA_LDFLAGS="%{__global_ldflags}" ARCH=$Arch V=1 TARGETS="bpf cgroup kmod mm net net/af_unix net/can net/forwarding net/hsr net/mptcp net/netfilter net/packetdrill net/tcp_ao tc-testing memfd drivers/net drivers/net/hw iommu cachestat pid_namespace rlimits timens pidfd capabilities clone3 exec filesystems firmware landlock mount mount_setattr move_mount_set_group nsfs openat2 proc safesetid seccomp tmpfs uevent vDSO vfio" SKIP_TARGETS="" $force_targets INSTALL_PATH=%{buildroot}%{_libexecdir}/kselftests VMLINUX_H="${RPM_VMLINUX_H}" install
 
 # Restore the original level of source fortification
 %define _fortify_level %{_fortify_level_bak}
@@ -3717,7 +3592,7 @@ cp ./bpf/tools/sbin/bpftool %{buildroot}%{_libexecdir}/kselftests/bpf/bpftool
 
 # Append RHEL-specific BPF selftests DENYLIST.rhel to the global DENYLIST that
 # is automatically picked by BPF selftest runners.
-%if 0%{?rhel}%{?centos}
+%if 0%{?rhel}
     cat ./bpf/DENYLIST.rhel >> %{buildroot}%{_libexecdir}/kselftests/bpf/DENYLIST
 %endif
 
@@ -3729,7 +3604,7 @@ popd
 %{log_msg "start install docs"}
 # Make the HTML pages.
 %{log_msg "build html docs"}
-%{__make} PYTHON=/usr/bin/python3 htmldocs || %{doc_build_fail}
+%{__make} PYTHON=/usr/bin/python3 htmldocs
 
 # sometimes non-world-readable files sneak into the kernel source tree
 chmod -R a=rX Documentation
@@ -3799,9 +3674,9 @@ find Documentation -type d | xargs chmod u+w
 # https://inbox.sourceware.org/debugedit/20250220153858.963312-1-mark@klomp.org/
 %if %{with_cross}
 %define __override_target_tools_for_debugedit \
-	export OBJCOPY=%{_build_arch}-linux-gnu-objcopy \
-	export NM=%{_build_arch}-linux-gnu-nm \
-	export READELF=%{_build_arch}-linux-gnu-readelf \
+	export OBJCOPY=%{CROSS_COMPILE}objcopy \
+	export NM=%{CROSS_COMPILE}nm \
+	export READELF=%{CROSS_COMPILE}readelf \
 %{nil}
 %endif
 
@@ -3826,9 +3701,6 @@ find Documentation -type d | xargs chmod u+w
 %install
 
 cd linux-%{KVERREL}
-
-# re-define RPM_VMLINUX_H, because it doesn't carry over from %build
-RPM_VMLINUX_H="$(cat ../vmlinux_h_path)"
 
 %if %{with_doc}
 docdir=$RPM_BUILD_ROOT%{_datadir}/doc/kernel-doc-%{specversion}-%{pkgrelease}
@@ -4065,6 +3937,12 @@ find -type d -exec install -d %{buildroot}%{_libexecdir}/kselftests/drivers/net/
 find -type f -executable -exec install -D -m755 {} %{buildroot}%{_libexecdir}/kselftests/drivers/net/bonding/{} \;
 find -type f ! -executable -exec install -D -m644 {} %{buildroot}%{_libexecdir}/kselftests/drivers/net/bonding/{} \;
 popd
+# install net/af_unix selftests
+pushd tools/testing/selftests/net/af_unix
+find -type d -exec install -d %{buildroot}%{_libexecdir}/kselftests/net/af_unix/{} \;
+find -type f -executable -exec install -D -m755 {} %{buildroot}%{_libexecdir}/kselftests/net/af_unix/{} \;
+find -type f ! -executable -exec install -D -m644 {} %{buildroot}%{_libexecdir}/kselftests/net/af_unix/{} \;
+popd
 # install net/can selftests
 pushd tools/testing/selftests/net/can
 find -type d -exec install -d %{buildroot}%{_libexecdir}/kselftests/net/can/{} \;
@@ -4253,6 +4131,12 @@ find -type d -exec install -d %{buildroot}%{_libexecdir}/kselftests/vDSO/{} \;
 find -type f -executable -exec install -D -m755 {} %{buildroot}%{_libexecdir}/kselftests/vDSO/{} \;
 find -type f ! -executable -exec install -D -m644 {} %{buildroot}%{_libexecdir}/kselftests/vDSO/{} \;
 popd
+# install vfio selftests
+pushd tools/testing/selftests/vfio
+find -type d -exec install -d %{buildroot}%{_libexecdir}/kselftests/vfio/{} \;
+find -type f -executable -exec install -D -m755 {} %{buildroot}%{_libexecdir}/kselftests/vfio/{} \;
+find -type f ! -executable -exec install -D -m644 {} %{buildroot}%{_libexecdir}/kselftests/vfio/{} \;
+popd
 %endif
 
 %if %{with_kmap} && %{with_base}
@@ -4417,7 +4301,7 @@ fi\
 %{nil}
 
 #
-# This macro defines a %%post script for a kernel*-modules-core package.
+# This macro defines a %%posttrans script for a kernel*-modules-core package.
 #	%%kernel_modules_core_post [<subpackage>]
 #
 %define kernel_modules_core_post() \
@@ -4427,7 +4311,7 @@ fi\
 
 # This macro defines a %%posttrans script for a kernel package.
 #	%%kernel_variant_posttrans [-v <subpackage>] [-u uki-suffix]
-# More text can follow to go at the end of this variant's %%post.
+# More text can follow to go at the end of this variant's %%posttrans.
 #
 # Options:
 #   -v <variant>: Variant name (e.g., "debug", "rt")
@@ -4519,11 +4403,13 @@ entry_type=""\
     entry_type="--entry-type %{!?-u:type1}%{?-u:type2}" \
 }\
 /bin/kernel-install remove %{KVERREL}%{?-v:+%{-v*}} $entry_type || exit 0\
+%if 0%{!?fedora:1}\
 %if !%{with_automotive}\
 if [ -x %{_sbindir}/weak-modules ]\
 then\
     %{_sbindir}/weak-modules --remove-kernel %{KVERREL}%{?-v:+%{-v*}} || exit 0\
 fi\
+%endif\
 %endif\
 %{nil}
 
@@ -4657,9 +4543,9 @@ fi\
 
 %if %{with_kabidw_base}
 %ifarch x86_64 s390x ppc64le aarch64 riscv64
-%files kernel-kabidw-base-internal
+%files -n %{name}-kabidw-base-internal
 %defattr(-,root,root)
-/kabidw-base/%{_target_cpu}/*
+/kabidw-base/%{_target_cpu}*/*
 %endif
 %endif
 
@@ -4748,12 +4634,10 @@ fi\
 %{_unitdir}/cpupower.service
 %config(noreplace) %{_sysconfdir}/cpupower-service.conf
 %{_datadir}/bash-completion/completions/cpupower
+%{_mandir}/man[1-8]/cpupower*
 %ifarch x86_64
 %{_bindir}/centrino-decode
 %{_bindir}/powernow-k8-decode
-%endif
-%{_mandir}/man[1-8]/cpupower*
-%ifarch x86_64
 %{_bindir}/x86_energy_perf_policy
 %{_mandir}/man8/x86_energy_perf_policy*
 %{_bindir}/turbostat
@@ -4872,10 +4756,8 @@ fi\
 #
 # This macro defines the %%files sections for a kernel package
 # and its devel and debuginfo packages.
-#	%%kernel_variant_files [-k vmlinux] <use_vdso> <condition> <subpackage>
+#	%%kernel_variant_files <use_vdso> <condition> <subpackage>
 #
-# Options:
-#   -k <name>: Kernel image filename (default: "vmlinuz")
 # Arguments:
 #   %1 - Whether VDSO was built (1=yes, 0=no) - controls if vdso files are included
 #   %2 - Condition (usually with_<variant>) - only generate files section if true
@@ -4892,13 +4774,13 @@ fi\
 #   - kernel-uki-virt: unified kernel image for VMs (if with_efiuki)
 #   - kernel-uki-dtbloader: kernel with systemd-stub for auto DTB loading (if with_dtbloader)
 #
-%define kernel_variant_files(k:) \
+%define kernel_variant_files() \
 %if %{2}\
 %{expand:%%files %{?1:-f kernel-%{?3:%{3}-}ldsoconf.list} %{?3:%{3}-}core}\
 %{!?_licensedir:%global license %%doc}\
 %%license linux-%{KVERREL}/COPYING-%{version}-%{release}\
-/lib/modules/%{KVERREL}%{?3:+%{3}}/%{?-k:%{-k*}}%{!?-k:vmlinuz}\
-%ghost /%{image_install_path}/%{?-k:%{-k*}}%{!?-k:vmlinuz}-%{KVERREL}%{?3:+%{3}}\
+/lib/modules/%{KVERREL}%{?3:+%{3}}/vmlinuz\
+%ghost /%{image_install_path}/vmlinuz-%{KVERREL}%{?3:+%{3}}\
 /lib/modules/%{KVERREL}%{?3:+%{3}}/.vmlinuz.hmac \
 %ghost /%{image_install_path}/.vmlinuz-%{KVERREL}%{?3:+%{3}}.hmac \
 %ifarch %{dtb_arches}\
@@ -4956,7 +4838,7 @@ fi\
 %{expand:%%files -f kernel-%{?3:%{3}-}modules-partner.list %{?3:%{3}-}modules-partner}\
 %endif\
 %if %{with_debuginfo}\
-%ifnarch noarch\
+%ifnarch noarch %{nobuildarches}\
 %{expand:%%files -f debuginfo%{?3}.list %{?3:%{3}-}debuginfo}\
 %endif\
 %endif\
@@ -4968,14 +4850,14 @@ fi\
 /lib/modules/%{KVERREL}%{?3:+%{3}}/symvers.%compext\
 /lib/modules/%{KVERREL}%{?3:+%{3}}/config\
 /lib/modules/%{KVERREL}%{?3:+%{3}}/modules.builtin*\
-%attr(0644, root, root) /lib/modules/%{KVERREL}%{?3:+%{3}}/%{?-k:%{-k*}}%{!?-k:vmlinuz}-virt.efi\
-%attr(0644, root, root) /lib/modules/%{KVERREL}%{?3:+%{3}}/.%{?-k:%{-k*}}%{!?-k:vmlinuz}-virt.efi.hmac\
-%ghost /%{image_install_path}/efi/EFI/Linux/%{?-k:%{-k*}}%{!?-k:*}-%{KVERREL}%{?3:+%{3}}.efi\
+%attr(0644, root, root) /lib/modules/%{KVERREL}%{?3:+%{3}}/vmlinuz-virt.efi\
+%attr(0644, root, root) /lib/modules/%{KVERREL}%{?3:+%{3}}/.vmlinuz-virt.efi.hmac\
+%ghost /%{image_install_path}/efi/EFI/Linux/*-%{KVERREL}%{?3:+%{3}}.efi\
 %{expand:%%files %{?3:%{3}-}uki-virt-addons}\
-%dir /lib/modules/%{KVERREL}%{?3:+%{3}}/%{?-k:%{-k*}}%{!?-k:vmlinuz}-virt.efi.extras.optional/ \
-/lib/modules/%{KVERREL}%{?3:+%{3}}/%{?-k:%{-k*}}%{!?-k:vmlinuz}-virt.efi.extras.optional/*.addon.efi\
+%dir /lib/modules/%{KVERREL}%{?3:+%{3}}/vmlinuz-virt.efi.extras.optional/ \
+/lib/modules/%{KVERREL}%{?3:+%{3}}/vmlinuz-virt.efi.extras.optional/*.addon.efi\
 %endif\
-%if %{with_dtbloader} && ("%{?3}" == "" || "%{3}" == "debug")\
+%if %{with_dtbloader} && ("%{?3}" == "" || "%{?3}" == "debug")\
 %{expand:%%files %{?3:%{3}-}uki-dtbloader}\
 %%license linux-%{KVERREL}/COPYING-%{version}-%{release}\
 %dir /lib/modules\
@@ -4984,14 +4866,14 @@ fi\
 /lib/modules/%{KVERREL}%{?3:+%{3}}/config\
 /lib/modules/%{KVERREL}%{?3:+%{3}}/modules.builtin*\
 /lib/modules/%{KVERREL}%{?3:+%{3}}/symvers.%compext\
-/lib/modules/%{KVERREL}%{?3:+%{3}}/%{?-k:%{-k*}}%{!?-k:vmlinuz}-dtbloader.efi\
-/lib/modules/%{KVERREL}%{?3:+%{3}}/.%{?-k:%{-k*}}%{!?-k:vmlinuz}-dtbloader.efi.hmac\
+/lib/modules/%{KVERREL}%{?3:+%{3}}/vmlinuz-dtbloader.efi\
+/lib/modules/%{KVERREL}%{?3:+%{3}}/.vmlinuz-dtbloader.efi.hmac\
 %ghost %attr(0644, root, root) /boot/System.map-%{KVERREL}%{?3:+%{3}}\
 %ghost %attr(0644, root, root) /boot/config-%{KVERREL}%{?3:+%{3}}\
 %ghost %attr(0600, root, root) /boot/initramfs-%{KVERREL}%{?3:+%{3}}.img\
 %ghost %attr(0644, root, root) /boot/symvers-%{KVERREL}%{?3:+%{3}}.%compext\
-%ghost %attr(0755, root, root) /%{image_install_path}/%{?-k:%{-k*}}%{!?-k:vmlinuz}-%{KVERREL}%{?3:+%{3}}\
-%ghost %attr(0644, root, root) /%{image_install_path}/.%{?-k:%{-k*}}%{!?-k:vmlinuz}-%{KVERREL}%{?3:+%{3}}.hmac\
+%ghost %attr(0755, root, root) /%{image_install_path}/vmlinuz-%{KVERREL}%{?3:+%{3}}\
+%ghost %attr(0644, root, root) /%{image_install_path}/.vmlinuz-%{KVERREL}%{?3:+%{3}}.hmac\
 %ifarch %{dtb_arches}\
 /lib/modules/%{KVERREL}%{?3:+%{3}}/dtb \
 %ghost /%{image_install_path}/dtb-%{KVERREL}%{?3:+%{3}} \
@@ -5037,31 +4919,6 @@ fi\
 
 %endif # with_nvidia
 
-%if %{with_debug_meta}
-%files debug
-%files debug-core
-%files debug-devel
-%files debug-devel-matched
-%files debug-modules
-%files debug-modules-core
-%files debug-modules-extra
-%if %{with_arm64_16k}
-%files 16k-debug
-%files 16k-debug-core
-%files 16k-debug-devel
-%files 16k-debug-devel-matched
-%files 16k-debug-modules
-%files 16k-debug-modules-extra
-%endif
-%if %{with_arm64_64k}
-%files 64k-debug
-%files 64k-debug-core
-%files 64k-debug-devel
-%files 64k-debug-devel-matched
-%files 64k-debug-modules
-%files 64k-debug-modules-extra
-%endif
-%endif
 %kernel_variant_files %{_use_vdso} %{with_zfcpdump} zfcpdump
 %kernel_variant_files %{_use_vdso} %{with_arm64_16k_base} 16k
 %kernel_variant_files %{_use_vdso} %{with_arm64_64k_base} 64k
@@ -5079,65 +4936,79 @@ fi\
 #
 #
 %changelog
-* Thu Nov 05 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.2.7-an32]
-- bump nvidia (Antheas Kapenekakis)
-- ipv4: free inet_opt and ireq_opt after an RCU grace period (Eric Dumazet)
-- platform/x86/amd: dptc: Add ONEXPLAYER F1L support (Antheas Kapenekakis)
-- drm: panel-orientation-quirks: Add ONEXPLAYER F1L (Antheas Kapenekakis)
-- drm/i915/quirks: Disable self-refresh and LOBF on ONEXPLAYER 3 (Antheas Kapenekakis)
-- drm/i915/display: Write the DIP header last on Xe2+ and reset VSC_SELECT (Xiao Lu)
-- drm/i915/dp: set VSC_SDP MSA delegation only for capable sinks (Chaitanya Kumar Borah)
-- drm/i915/dp: s/intel_dp_needs_vsc_sdp/intel_dp_needs_vsc_colorimetry (Chaitanya Kumar Borah)
-- platform/x86: ayaneo-ec: Add KONKR FIT support (Antheas Kapenekakis)
-- add s2idle quirk for gpd win as well (Antheas Kapenekakis)
-- HID: winwing: fix use-after-free in force feedback teardown (René Onier)
-- ALSA: core: Fix potential UAF after asynchronous card release (Takashi Iwai)
-- ALSA: usb-audio: Clamp implicit feedback packet count to URB capacity (Xiang Mei)
-- drm/nouveau: fix double-free in nvif_vmm_dtor (Peiyang He)
-- drm/nouveau/uvmm: fix UAF in nouveau_uvmm_sm when BO is in TTM_PL_SYSTEM (Peiyang He)
-- wifi: mac80211: drop oversized fragments to avoid extra_len overflow (Yuchao Zhang)
-- Bluetooth: RFCOMM: Reject short EA=0 frames in rfcomm_recv_frame() (Hui Peng)
-- Bluetooth: bnep: fix out-of-bounds reads on short RX/TX frames and control fallthrough (Hui Peng)
-- Bluetooth: L2CAP: validate frame length before control and FCS access (Aldo Ariel Panzardo)
-- ALSA: seq: Serialize compat port-info ioctls (Kyle Zeng)
-- sched/cache: Introduce task_struct->sched_cache_grp to fix UAF (Tim Chen)
-- sched/cache: Decouple sched_cache_group from mm to fix UAF (Tim Chen)
-- io_uring: fix task_work add use-after-free with SQPOLL (Jens Axboe)
-- futex: Fix private hash use-after-free on resize (Chris Mason)
-- futex: Also allocate private hash on vfork() (Peter Zijlstra)
-- KEYS: encrypted: fix integer overflow of datablob_len (Cen Zhang)
-- ipv4: validate checksum_start before completing checksum (Michael S. Tsirkin)
-- make ayaneo 3 35W (Antheas Kapenekakis)
-- make kun go up to 54W (Antheas Kapenekakis)
-- bump fanatecff (Antheas Kapenekakis)
-- add a quirk for the x20 (unsure if needed) (Antheas Kapenekakis)
-- ASoC: rt721-sdca: wait for PDEs to reach PS0 after powering them up (Matthew Schwartz)
-- ASoC: sdw_utils: honor empty DisCo port lists when creating DAI links (Matthew Schwartz)
-- ASoC: tas2783-sdw: use the BIOS speaker ID in the firmware name (Matthew Schwartz)
-- ASoC: amd: acp: add ACP70 SoundWire machine entry for ASUS RC74XA (Matthew Schwartz)
-- ASoC: amd: acp-config: force SoundWire probe on ASUS RC74XA (Matthew Schwartz)
-- ASoC: amd: ps: fix snd_acp63_remove() teardown ordering (Fan Wu)
-- ASoC: tas2783-sdw: add firmware download status check (Baojun Xu)
-- ASoC: rt721: Reset codec to fix abnormal sound (Oder Chiou)
-- ASoC: rt721: Use the function_status check to avoid duplicate presets (Oder Chiou)
-- ASoC: rt721: fix uninitialized stream_config->type (Shuming Fan)
-- ASoC: rt721-sdca: Adjust latency control to fix no-sound issue (Jack Yu)
-- ASoC: tas2783-sdw: split a stereo stream across the two mono amps (Antoine Monnet)
-- ASoC: tas2783-sdw: do not cache read-only Controls (Andrey Golovko)
-- ASoC: tas2783-sdw: make multi-byte MBQ registers reachable (Andrey Golovko)
-- ASoC: tas2783-sdw: power the Function up before preparing the port (Andrey Golovko)
-- ASoC: sdw_utils: prepare the stream again when resuming (Andrey Golovko)
-- ASoC: tas2783-sdw: do not treat read-only Controls as writable (Andrey Golovko)
-- platform-x86: msi-wmi-platform: Add Gen 4 device (Derek J. Clark)
-- platform/x86: wmi-msi-platform: Add MSI Claw A8 support (Derek J. Clark)
-- platform/x86: msi-wmi-platform: Clean up devices (Derek J. Clark)
-- bump modules (Antheas Kapenekakis)
-- platform/x86: ayaneo-ec: Add AYANEO NEXT 2 support (Antheas Kapenekakis)
-- platform/x86/amd: dptc: Recognize Ryzen 5 7640U (Antheas Kapenekakis)
-- platform/x86/amd: dptc: Add KONKR FIT support (Antheas Kapenekakis)
-- platform/x86/amd: dptc: Add AYANEO NEXT 2 support (Antheas Kapenekakis)
-- bump nvidia (Antheas Kapenekakis)
-- hid: 8bitdo: unify handling, fix ABXY mapping on ultimates (Antheas Kapenekakis)
+* Wed Nov 11 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.3.4-rc00]
+- config: add new arm options (Antheas Kapenekakis)
+- arm64: dts: qcom: add Retroid Pocket Duo (Teguh Sobirin)
+- arm64: dts: qcom: add common dtsi for Eliza Retroid Pocket devices (Teguh Sobirin)
+- arm64: dts: qcom: add Retroid Pocket Nova (Teguh Sobirin)
+- arm64: dts: qcom: add Retroid Pocket 6 (Teguh Sobirin)
+- arm64: dts: qcom: add common dtsi for QCS8550 Retroid Pocket devices (Teguh Sobirin)
+- ASoC: codecs: lpass-tx-macro: fix SWR_MIC10/11 routes of TX SMIC MUX0 (Teguh Sobirin)
+- soundwire: qcom: allow the highest numbered port to be allocated (Teguh Sobirin)
+- Bluetooth: hci_qca: add WCN7750 with host-managed supplies (Teguh Sobirin)
+- PCI: qcom: Honor IOMMU provider's #iommu-cells in qcom_pcie_config_sid_1_9_0() (Manivannan Sadhasivam)
+- wifi: ath12k: ahb: add the WCN7750 hybrid-bus transport (Teguh Sobirin)
+- wifi: ath12k: add WCN7750 hw1.0 (Teguh Sobirin)
+- wifi: ath12k: add the WCN7750 copy engine configuration (Teguh Sobirin)
+- wifi: ath12k: guard the link peer table against concurrent teardown (Teguh Sobirin)
+- wifi: ath12k: tolerate a missing hwmon device on thermal cleanup (Teguh Sobirin)
+- wifi: ath12k: stop touching srngs after the HAL is torn down (Teguh Sobirin)
+- wifi: ath12k: add ath12k_core_firmware_crashed() (Teguh Sobirin)
+- wifi: ath12k: track the firmware generation across recovery (Teguh Sobirin)
+- wifi: ath12k: support cold boot calibration (Teguh Sobirin)
+- wifi: ath12k: send ddr_range and gpio_info in host_cap (Teguh Sobirin)
+- wifi: ath12k: add the QMI device info request (Teguh Sobirin)
+- wifi: ath12k: cap the shadow register configuration at 38 entries (Teguh Sobirin)
+- wifi: ath12k: download the QDSS trace configuration (Teguh Sobirin)
+- wifi: ath12k: support targets with fixed firmware memory (Teguh Sobirin)
+- wifi: ath12k: take the shadow register base from hw_params (Teguh Sobirin)
+- wifi: ath12k: add an optional cfg_static_window hif op (Teguh Sobirin)
+- wifi: ath12k: keep the CE interrupt mask balanced across restarts (Teguh Sobirin)
+- wifi: ath12k: allow receive-only services in map_service_to_pipe (Teguh Sobirin)
+- wifi: ath12k: let the MSI CE/DP IRQ setup serve platform devices (Teguh Sobirin)
+- wifi: ath12k: share the register window geometry with the core (Teguh Sobirin)
+- wifi: ath12k: move MSI state from ath12k_pci to ath12k_base (Teguh Sobirin)
+- dt-bindings: remoteproc: qcom: sc7180-pas: add the Eliza WPSS (Teguh Sobirin)
+- arm64: dts: qcom: eliza: Describe the CDSP remoteproc (Abel Vesa)
+- ASoC: qdsp6: q6apm-lpass: start RX port at prepare (Teguh Sobirin)
+- ASoC: qcom: sc8280xp: add sound card support for eliza (Teguh Sobirin)
+- ASoC: qcom: common: set jack for codecs on Quaternary MI2S (Teguh Sobirin)
+- arm64: dts: qcom: eliza: add Iris video codec node (Teguh Sobirin)
+- media: iris: add Eliza platform support (Teguh Sobirin)
+- dt-bindings: media: qcom,sm8550-iris: document Eliza compatible (Teguh Sobirin)
+- scsi: ufs: ufs-qcom: add Eliza match data (Teguh Sobirin)
+- ASoC: es8326: add optional vdd and vddio supplies (Teguh Sobirin)
+- ASoC: dt-bindings: everest,es8326: add vdd and vddio supplies (Teguh Sobirin)
+- Input: edt-ft5x06 - allow overriding the input device name from DT (Teguh Sobirin)
+- Input: edt-ft5x06 - add no_regmap_bulk_read option (Teguh Sobirin)
+- arm64: dts: qcom: eliza: add UART10 on QUP2 SE2 (Teguh Sobirin)
+- arm64: dts: qcom: eliza: add I2C6 on QUP1 SE6 (Teguh Sobirin)
+- arm64: dts: qcom: eliza: Add GPU cooling (Gaurav Kohli)
+- arm64: dts: qcom: eliza: Add GPU nodes (Puranam V G Tejaswi)
+- arm64: dts: qcom: eliza: Add GPU SMMU node (Abel Vesa)
+- arm64: dts: qcom: eliza: Add support for MM clock controllers (Taniya Das)
+- clk: qcom: camcc: Add support for camera clock controller for Eliza (Taniya Das)
+- clk: qcom: gpucc: Add GPU Clock Controller driver for Eliza (Taniya Das)
+- clk: qcom: videocc: Add video clock controller driver for Eliza (Taniya Das)
+- dt-bindings: clock: qcom: Add support for CAMCC for Eliza (Taniya Das)
+- dt-bindings: clock: qcom: document the Eliza GPU Clock Controller (Taniya Das)
+- dt-bindings: clock: qcom: Add video clock controller on Qualcomm Eliza SoC (Taniya Das)
+- arm64: dts: qcom: milos: Add power-domains for camcc and videocc (Taniya Das)
+- dt-bindings: clock: qcom,milos-videocc: Add missing power-domains support (Taniya Das)
+- dt-bindings: clock: qcom,milos-camcc: Add missing power-domains support (Taniya Das)
+- leds: Add driver for HEROIC HTR3212 (Teguh Sobirin)
+- dt-bindings: leds: add HEROIC HTR3212 (Teguh Sobirin)
+- dt-bindings: vendor-prefixes: add HEROIC (Teguh Sobirin)
+- Input: rsinput - add AYN and Retroid Pocket UART gamepad driver (Teguh Sobirin)
+- dt-bindings: input: add RSInput UART gamepad controller (Teguh Sobirin)
+- drm/panel: add Ilitek IL97680A based panels (Teguh Sobirin)
+- dt-bindings: display: panel: add Ilitek IL97680A based panels (Teguh Sobirin)
+- drm/panel: visionox-vtdr6130: add the RetroidPocket RP6 panel (Teguh Sobirin)
+- dt-bindings: display: panel: visionox,vtdr6130: add RetroidPocket panels (Teguh Sobirin)
+- drm/panel: visionox-vtdr6130: move the panel data into a descriptor (Teguh Sobirin)
+- dt-bindings: vendor-prefixes: Add Retroid Pocket (Aaron Kling)
+- drm/msm/dpu: split a CRTC over two mixers only when one cannot do the mode (Teguh Sobirin)
+- drm/msm/dpu: program MERGE_3D for command mode encoders (Teguh Sobirin)
 - redhat: update CONFIG_LOCAL for ARM (Antheas Kapenekakis)
 - redhat: hwids: Map Galaxy Book4 Edge NP940XMA and NP750XQB (Antheas Kapenekakis)
 - arm64: dts: qcom: galaxy-book4-edge: describe EC event interface (Antheas Kapenekakis)
@@ -5158,79 +5029,21 @@ fi\
 - redhat: genspec: use full-index to prevent git changing diffs (Antheas Kapenekakis)
 - firmware: qcom: scm: Allow QSEECOM on the Samsung Galaxy Book4 Edge (Maxim Storetvedt)
 - Bluetooth: hci_qca: Drop unused event during BT on (Cheng Jiang)
-- arm64: dts: qcom: purwa: Override Iris clocks and operating points (Wangao Wang)
-- drm/msm/dp: skip PUSH_IDLE when the link was never enabled (Jesse Casco)
-- arm64: dts: qcom: x1e80100: Add CAMCC block definition (Bryan O'Donoghue)
 - redhat: Add Galaxy Book4 Edge 14/16 DTB hardware IDs (Antheas Kapenekakis)
 - dt-bindings: arm: Add Samsung Galaxy Book4 Edge (Maxim Storetvedt)
 - arm64: dts: qcom: Add hamoa Samsung Galaxy Book4 Edge devicetrees (Maxim Storetvedt)
 - redhat: package local DTB HWID mappings (Antheas Kapenekakis)
-- sync-arm: add grub fallback (useful for handhelds in the future too) (Antheas Kapenekakis)
-- drop random replacement of config (Antheas Kapenekakis)
-- Revert "sync-arm: add nvidia support" (Antheas Kapenekakis)
-- sync-arm: add nvidia support (Antheas Kapenekakis)
-- fixup sync more (Antheas Kapenekakis)
-- sync: disable tpm luks empty file for now (Antheas Kapenekakis)
-- sync: reboot first (Antheas Kapenekakis)
-- update config local for rp6 (Antheas Kapenekakis)
-- input: misc: Add Qualcomm SPMI PMIC haptics driver (Fenglin Wu)
-- dt-bindings: input: Add Qualcomm SPMI PMIC haptics (Fenglin Wu)
-- leds: Add driver for HEROIC HTR3212 (Teguh Sobirin)
-- drm/panel: visionox-vtdr6130: select supplies for each panel (Antheas Kapenekakis)
-- drm/panel: visionox-vtdr6130: preserve physical dimensions in modes (Antheas Kapenekakis)
-- arm64: dts: qcom: sm8550: Add GCC CX power domain (Abel Vesa)
-- clk: qcom: gcc-sm8550: Tie the CX power domain to controller (Abel Vesa)
-- dt-bindings: clock: qcom: sm8550-gcc: Add CX power domain (Abel Vesa)
-- power: supply: qcom_battmgr: expose CHARGE_NOW on SM8350-class firmware (Jan-Michael Brummer)
-- power: supply: qcom_battmgr: fix CHARGE_FULL* on SM8350-class firmware (Jan-Michael Brummer)
-- drm/panel: visionox-vtdr6130: Add Retroid Pocket 6 panel (Aaron Kling)
-- drm/panel: visionox-vtdr6130: Modularize panel config (Aaron Kling)
-- drm/panel: visionox-vtdr6130: Add panel orientation support (Aaron Kling)
-- dt-bindings: display: visionox,vtdr6130: Add Retroid Pocket 6 panel (Aaron Kling)
-- arm64: dts: qcom: Add Retroid Pocket 6 (Aaron Kling)
-- dt-bindings: vendor-prefixes: Add Retroid Pocket (Aaron Kling)
-- arm64: dts: qcom: Add AYN QCS8550 Common (Teguh Sobirin)
-- dt-bindings: mfd: qcom,spmi-pmic: Document haptics device (Fenglin Wu)
-- drm/of: Implement drm_of_get_panel_orientation() (Thomas Zimmermann)
-- clk: qcom: common: ensure runtime PM suspend completes on probe (Taniya Das)
-- drm/panel: Enable DSC for Visionox VTDR6130 panel (Jun Nie)
-- crypto: qce - Add runtime PM and interconnect bandwidth scaling support (Udit Tiwari)
-- ASoC: dt-bindings: qcom,q6apm-lpass-dais: Document DAI subnode (Mohammad Rafi Shaik)
-- arm64: dts: qcom: sm8550: add PCIe port labels (Joe Sandom)
-- drm/i915/vrr: Disable DC balance by default (Mitul Golani)
-- hid-asus: propagate fan events to userspace (Antheas Kapenekakis)
 - Revert "HID: asus: refactor the two workqueues and init sequence" (Antheas Kapenekakis)
-- redhat: Enable Zotac ZONE EC on x86 only (Antheas Kapenekakis)
-- hwmon: Add Zotac ZONE EC fan driver (Antheas Kapenekakis)
-- Switch to signal type helper functions from DC (Tomasz Pakuła)
-- Restore is_hdmi_vic_mode from ALLM stuff (Tomasz Pakuła)
-- Fix enum redeclaration (Tomasz Pakuła)
-- Force freesync_on_desktop for HDMI (Tomasz Pakuła)
-- drm/amd/display: freesync_on_desktop support for HDMI VRR (Tomasz Pakuła)
-- Merge HDMI and PCON paths (Tomasz Pakuła)
-- drm/amd/display: Enable HDMI VRR (Tomasz Pakuła)
-- drm/amd/display: Reintroduce VTEM info frame (Tomasz Pakuła)
-- drm/amd/display: Save HDMI gaming info to edid caps (Tomasz Pakuła)
-- drm/amd/display: Build HDMI vsif in correct slot (Tomasz Pakuła)
-- drm/amd/display: Support HDMI VRRmax=0 (Tomasz Pakuła)
-- drm/amd/display: Enable HDMI VRR over PCON (Tomasz Pakuła)
-- drm/amd/display: Rename PCON adaptive sync types (Tomasz Pakuła)
-- drm/edid: Parse more info from HDMI Forum vsdb (Tomasz Pakuła)
 - drm/amd/display: Add CH7218 PCON ID (Tomasz Pakuła)
-- drm/amd/display: Add PCON VRR ID check override (Tomasz Pakuła)
-- drm/amd/display: Refactor PCON VRR compatibility check (Tomasz Pakuła)
-- drm/amd/display: Separate DP/eDP and PCON paths completely (Tomasz Pakuła)
-- drm/amd/display: Use bigger VRR range if found in AMD vsdb (Tomasz Pakuła)
-- drm/amd/display: Check for VRR range in CEA AMD vsdb (Tomasz Pakuła)
-- drm/amd/display: Always try to parse AMD vsdb (Tomasz Pakuła)
-- drm/amd/display: Move DisplayID vrr parsing (Tomasz Pakuła)
-- drm/amd/display: Remove redundant edid checks (Tomasz Pakuła)
-- Modify display range if freesync capable (Tomasz Pakuła)
-- Do not modify display_info in freesync_caps (Tomasz Pakuła)
-- drm/amd/display: Refactor amdgpu_dm_update_freesync_caps() (Tomasz Pakuła)
+- drm/amd/display: Keep FreeSync for HF-VSDB VRR sinks in MCCS fallback (Fangzhi Zuo)
+- drm/amd/display: Use passive_vrr properties in amdgpu (Tomasz Pakuła)
+- drm: Add passive_vrr properties for passive/desktop VRR (Tomasz Pakuła)
+- drm/amd/display: Enable HDMI ALLM for Gaming-VRR (Fangzhi Zuo)
+- drm/amd/display: Add HDMI 2.1 VRR support from HF-VSDB (Fangzhi Zuo)
+- drm/edid: parse HDMI 2.1 gaming (ALLM/VRR) capabilities from HF-VSDB (Tomasz Pakuła)
+- drm/amd/display: Add 2.1 FreeSync support for AMD VSDB EDID Block (Fangzhi Zuo)
 - platform/x86: oxpec: Add OneXPlayer 3 quirk (Antheas Kapenekakis)
 - platform/x86: thinkpad_acpi: Enable fan control by default (Antheas Kapenekakis)
-- platform/x86: oxpec: Fix Apex charge limit control (Antheas Kapenekakis)
 - add new 8bitdo kernel driver (Antheas Kapenekakis)
 - HID: asus: add ROG XG Mobile 2025 support (Antheas Kapenekakis)
 - HID: asus: increase keyboard feature report size (Antheas Kapenekakis)
@@ -5240,17 +5053,17 @@ fi\
 - disable split lock detection by default (Antheas Kapenekakis)
 - platform/x86: oxpec: Report tablet mode on OneXPlayer detachables (Alexander Egorov)
 - platform/x86: oxpec: Distinguish OneXPlayer Super X board (Alexander Egorov)
-- platform/x86: oxpec: Add support for OneXPlayer X2 Mini Pro (Jeff Hagadorn)
 - draft patch for WIn5 failure (Antheas Kapenekakis)
 - platform/x86: Add Lenovo WMI lighting driver (Antheas Kapenekakis)
 - platform/x86: Add Lenovo GameZone fan WMI driver (Antheas Kapenekakis)
 - platform/x86: lenovo-wmi-other: Add full fan speed attribute (Antheas Kapenekakis)
 - x86/CPU/AMD: Lower RDSEED Warning level (Antheas Kapenekakis)
-- orientation: add x1 air (Antheas Kapenekakis)
 - drm/amdgpu: defer overdrive taint until used (Antheas Kapenekakis)
 - drm/amdgpu: enable override by default for APUs (Antheas Kapenekakis)
 - lower sleep interval to avoid waking up too long (Antheas Kapenekakis)
-- tmp: add MSI Center button event to msi-wmi (Antheas Kapenekakis)
+- platform/x86/amd: dptc: Add ONEXPLAYER F1L support (Antheas Kapenekakis)
+- platform/x86: ayaneo-ec: Add KONKR FIT support (Antheas Kapenekakis)
+- platform/x86: ayaneo-ec: Add AYANEO NEXT 2 support (Antheas Kapenekakis)
 - add suiplay (Antheas Kapenekakis)
 - disable custom brightness curve for now (Antheas Kapenekakis)
 - drm/amd/display: enable private color API universally (Antheas Kapenekakis)
@@ -5271,27 +5084,14 @@ fi\
 - [FOR-UPSTREAM] cec: cros-ec: update dmi match table to support newer bios releases (NaKyle)
 - [FOR-UPSTREAM] cec: cros_ec buffers messages, read all available rather than just 1. (NaKyle)
 - hid: steam: retain controller while steam is open (Antheas Kapenekakis)
-- HID: steam: Zero out inputs when disabling gamepad mode (Vicki Pfau)
-- HID: steam: Clean up locking (Vicki Pfau)
-- HID: steam: Don't set feature reports when disconnecting (Vicki Pfau)
-- HID: steam: Fix wording of connect/disconnect logs (Vicki Pfau)
-- HID: steam: Initial 2026 Steam Controller support (Vicki Pfau)
-- HID: steam: Refactor registration (Vicki Pfau)
-- HID: steam: Retry send/recv reports if stale (Vicki Pfau)
-- HID: steam: Zero-initialize reply in serial lookup (Vicki Pfau)
-- HID: steam: Rearrange teardown sequence (Vicki Pfau)
-- HID: steam: Fully unregister controller when hidraw is opened (Vicki Pfau)
-- HID: steam: Coalesce rumble packets (Vicki Pfau)
 - hwmon: (gpd-fan) Add GPD Win 5 (Antheas Kapenekakis)
-- platform/x86/amd: dptc: Add Minisforum V3 support (Antheas Kapenekakis)
-- amd-dptc: add non-plus AI Max variant (Antheas Kapenekakis)
-- add ai max 388 (Antheas Kapenekakis)
-- add x2mini pro to dptc (Antheas Kapenekakis)
-- lower tdp for ai max devices (Antheas Kapenekakis)
 - platform/x86/amd: dptc: Add device entries for handheld PCs (Antheas Kapenekakis)
 - platform/x86/amd: dptc: Add platform profile support (Antheas Kapenekakis)
 - platform/x86/amd: dptc: Add AMD DPTCi driver (Antheas Kapenekakis)
 - Documentation: firmware-attributes: generalize save_settings entry (Antheas Kapenekakis)
+- platform-x86: msi-wmi-platform: Add Gen 4 device (Derek J. Clark)
+- platform/x86: wmi-msi-platform: Add MSI Claw A8 support (Derek J. Clark)
+- platform/x86: msi-wmi-platform: Clean up devices (Derek J. Clark)
 - msi-wmi-platform: fix quirk end missing (Antheas Kapenekakis)
 - platform/x86: msi-wmi-platform: Restore fan curves on PWM disable and unload (Antheas Kapenekakis)
 - platform/x86: msi-wmi-platform: Update header text (Antheas Kapenekakis)
@@ -5303,9 +5103,21 @@ fi\
 - platform/x86: msi-wmi-platform: Add quirk system (Antheas Kapenekakis)
 - platform/x86: msi-wmi-platform: Add unlocked msi_wmi_platform_query (Antheas Kapenekakis)
 - platform/x86: msi-wmi-platform: Use input buffer for returning result (Armin Wolf)
+- ASoC: rt721-sdca: wait for PDEs to reach PS0 after powering them up (Matthew Schwartz)
+- ASoC: sdw_utils: honor empty DisCo port lists when creating DAI links (Matthew Schwartz)
+- ASoC: tas2783-sdw: use the BIOS speaker ID in the firmware name (Matthew Schwartz)
+- ASoC: amd: acp: add ACP70 SoundWire machine entry for ASUS RC74XA (Matthew Schwartz)
+- ASoC: amd: acp-config: force SoundWire probe on ASUS RC74XA (Matthew Schwartz)
+- ASoC: tas2783-sdw: add firmware download status check (Baojun Xu)
+- ASoC: rt721: Use the function_status check to avoid duplicate presets (Oder Chiou)
+- ASoC: tas2783-sdw: do not cache read-only Controls (Andrey Golovko)
+- ASoC: tas2783-sdw: make multi-byte MBQ registers reachable (Andrey Golovko)
 - [NOT FOR UPSTREAM] Add DSDT config for original Ally older BIOSes (Antheas Kapenekakis)
 - [NOT FOR UPSTREAM] remove ally quirk from asus_hid (Antheas Kapenekakis)
+- hid-asus: propagate fan events to userspace (Antheas Kapenekakis)
 - [HACK] ACPI: s2idle: Trigger _WAK as part of exiting s2idle (Antheas Kapenekakis)
+- add s2idle quirk for gpd win as well (Antheas Kapenekakis)
+- add a quirk for the x20 (unsure if needed) (Antheas Kapenekakis)
 - acpi/x86: s2idle: Subtract delay from last DSM fire in begin delay (Antheas Kapenekakis)
 - acpi/x86: s2idle: Listen to idle hints to perform MS transitions (Antheas Kapenekakis)
 - hint: Add hint class ABI for devices to receive updates on host activity (Antheas Kapenekakis)
@@ -5320,10 +5132,16 @@ fi\
 - platform/x86: asus-wmi: add early backlight init quirk (Antheas Kapenekakis)
 - HID: asus: add Zenbook Duo Keyboards (Antheas Kapenekakis)
 - [TEMPORARY] remove bmi260 matches from bmi270 driver due to sleep issues (Antheas Kapenekakis)
+- redhat: Enable Zotac ZONE EC on x86 only (Antheas Kapenekakis)
+- hwmon: Add Zotac ZONE EC fan driver (Antheas Kapenekakis)
 - ALSA: hda/realtek: Use DMI matching for Ayaneo Geek, Ayaneo 2, and Ayn MiniPro (CVMagic)
 - ALSA: hda/realtek: Add Ayaneo Air 1S audio quirk (fewtarius)
 - Codec: aw87xxx: add dmi match for handheld devices (Antheas Kapenekakis)
 - Codec: Add aw87xxx codec with ACPI implementation (CVMagic)
+- drm/i915/quirks: Disable self-refresh and LOBF on ONEXPLAYER 3 (Antheas Kapenekakis)
+- drm/i915/display: Write the DIP header last on Xe2+ and reset VSC_SELECT (Xiao Lu)
+- orientation: add x1 air (Antheas Kapenekakis)
+- drm: panel-orientation-quirks: Add ONEXPLAYER F1L (Antheas Kapenekakis)
 - panel quirks: add a2 pro (Antheas Kapenekakis)
 - add orientation for x1z (Antheas Kapenekakis)
 - drm: panel-orientation-quirks: add SuiPlay0X1 (Antheas Kapenekakis)
@@ -5362,7 +5180,6 @@ fi\
 - [FOR-UPSTREAM] Bluetooth: btrtl: add suspend handling to ignore BT_DIS (Robert Beckett)
 - [FROM-QUECTEL] Bluetooth: hci_sync: Fix BLE devices turning wakeup on/off (Cristian Ciocaltea)
 - [FROM-QUECTEL] Bluetooth: Fixed an issue where the Steam Deck could not into sleep because it continued advertizing after the Steam Controller was disconnected. (Rolando Roca)
-- [QUECTEL/VALVE] acpi match based on Quanta's 11T09 bios (Pierre-Loup A. Griffais)
 - [WIP] ASoC: max98388: Fix power on when resuming from suspend (Ethan Geller)
 - media: platform: cros-ec: Add AMD Lilac to the match table (Cristian Ciocaltea)
 - usb: dwc3: Fix "linux,extcon-name" (Andrey Smirnov)
@@ -5379,69 +5196,327 @@ fi\
 - CI: add ZFS module (Antheas Kapenekakis)
 - CI: add Nvidia LTS and Production modules (Antheas Kapenekakis)
 - CI: add akmod modules (Antheas Kapenekakis)
+- cleanup (Antheas Kapenekakis)
 - [NA] add dev tools (Antheas Kapenekakis)
 
-* Mon Sep 21 2026 Justin M. Forbes <jforbes@fedoraproject.org> [7.2.7-0]
-- platform/x86: int3472: Increase handshake GPIO delay to 200 ms (Hans de Goede)
-- platform/x86: int3472: Clean up GPIO parsing (Sakari Ailus)
-- platform/x86: int3472: Fix uninitialised variable warning (Sakari Ailus)
-- platform: int3472: discrete: Support multiple HIDs per GPIO map entry (Tarang Raval)
-- platform: int3472: discrete: con_id vana for Sony IMX471 as power enable (Kate Hsuan)
-- media: i2c: cvs: Add Lattice device quirk for VID:0x2ac1 PID:0x20d1 (Kate Hsuan)
-- media: ipu-bridge: Add sensor rotation quirk for Dell XPS 14 (Dell 14 Premium) DA14250 (Kate Hsuan)
-- Keep the older NTFS3 module around as well for Fedora (Justin M. Forbes)
-- redhat: configs: fedora: Enable CONFIG_FIREWIRE_KUNIT_NODE_TREE_TEST for x86 (Augusto Caringi)
-- Linux v7.2.7
+* Tue Nov 10 2026 Augusto Caringi <acaringi@redhat.com> [7.3.4-0]
+- Linux v7.3.4
 
-* Mon Sep 14 2026 Augusto Caringi <acaringi@redhat.com> [7.2.6-0]
+* Fri Nov 06 2026 Justin M. Forbes <jforbes@fedoraproject.org> [7.3.3-0]
+- Linux v7.3.3
+
+* Fri Nov 06 2026 Justin M. Forbes <jforbes@fedoraproject.org> [7.3.2-0]
+- Switch to changing the default for af_alg_restrict on F44 (Justin M. Forbes)
+- Add Fedora 43 back as a release target (Justin M. Forbes)
+- Fix up some RHEL configs so that things build (Justin M. Forbes)
+- fedora: aarch64: Enable RPi5 RTC driver (Peter Robinson)
+- rtc: Add Raspberry Pi 5 RTC driver (Sander Speetjens)
+- drm/vc4: Set DRM DMA device directly from HVS and V3D (Daniel Drake)
+- arm: dts: bcm2711: Add emc2301 to the CM4 IO board (Peter Robinson)
+- arm: dts: bcm2711: Add wakeup and alias to cm4 rtc (Peter Robinson)
+- fedora: add new configs for RPi drivers (Peter Robinson)
+- arm64: dts: broadcom: bcm2712: Add GPU IOMMU and IOMMU cache nodes (Daniel Drake)
+- arm64: dts: broadcom: rpi-5: Add RP1 PWM node (Stanimir Varbanov)
+- arm64: dts: broadcom: bcm2712-rpi-5-b: add spi0 interface (Gregor Herburger)
+- arm64: dts: broadcom: bcm2712: Add USB OTG port (Peter Robinson)
+- arm64: dts: broadcom: bcm2712: Add thermal monitor (Peter Robinson)
+- arm64: dts: broadcom: bcm2712: add arm PMU (Peter Robinson)
+- arm64: dts: broadcom: rp1: add spi controller (Gregor Herburger)
+- arm64: dts: broadcom: bcm2712-d-rpi-5-b: add compatible (Gregor Herburger)
+- dt-bindings: arm: bcm2835: Add 2712-d0 Stepping (Gregor Herburger)
+- arm64: dts: broadcom: bcm2712: adjust display status (Peter Robinson)
+- pwm: rp1: Add RP1 PWM controller driver (Naushir Patuck)
+- dt-bindings: pwm: Add Raspberry Pi RP1 PWM controller (Naushir Patuck)
+- iommu: Add Broadcom BCM2712 IOMMU driver (Daniel Drake)
+- iommu/generic_pt: Add Broadcom BCM2712 page table format (Daniel Drake)
+- dt-bindings: display: brcm,bcm2835-hvs: Document iommus property (Daniel Drake)
+- dt-bindings: iommu: Add Broadcom BCM2712 IOMMU (Daniel Drake)
+- iommu_pt: Fix test_pgsize_boundary() failure on narrow-OA formats (Daniel Drake)
+- Linux v7.3.2
+
+* Fri Oct 30 2026 Justin M. Forbes <jforbes@fedoraproject.org> [7.3.1-0]
+- Initial setup for stable Fedora release (Justin M. Forbes)
+- Allow hmac(sha512) for unpriviledged users (Justin M. Forbes)
+- Reset RHEL_RELEASE for 7.4 series (Justin M. Forbes)
+- redhat: fix builds by disabling HYPERV_MOUSE_KUNIT_TEST (Nico Pache)
+- Merge configs into common for 7.3 (Justin M. Forbes)
+- Turn on EROFS_FS_PAGE_CACHE_SHARE for Fedora (Justin M. Forbes)
+- Linux v7.3.1
+
+* Mon Oct 19 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.3.0-64]
+- Linux v7.3.0
+
+* Sun Oct 18 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.3.0-0.rc7.32c52ec87d62.63]
+- Linux v7.3.0-0.rc7.32c52ec87d62
+
+* Sat Oct 17 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.3.0-0.rc7.58161ead29e5.62]
+- Linux v7.3.0-0.rc7.58161ead29e5
+
+* Fri Oct 16 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.3.0-0.rc7.2f2f7eeef8b0.61]
+- Linux v7.3.0-0.rc7.2f2f7eeef8b0
+
+* Fri Oct 16 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.3.0-0.rc7.0fcb05b72344.60]
+- Turn on POWERCTRL_GENERIC for RHEL aarch64 (Justin M. Forbes)
+- Finalize 7.3 configs for Fedora (Justin M. Forbes)
+- redhat/configs: enable additional fedora riscv64 options (Jason Montleon)
+- Linux v7.3.0-0.rc7.0fcb05b72344
+
+* Wed Oct 14 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.3.0-0.rc7.4056b3c9d3c9.59]
+- Linux v7.3.0-0.rc7.4056b3c9d3c9
+
+* Tue Oct 13 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.3.0-0.rc7.58]
+- Enable AMDXDNA on RHEL x86_64. (John Wiele)
+- redhat/configs: enable CONFIG_IMA_INIT_LATE_SYNC for aarch64 (Bruno Meneguele) [RHEL-261837]
+- redhat: Move CONFIG_CRYPTO_PHMAC_S390 to the s390x subfolder (Thomas Huth)
+- redhat: Remove config files for non-existing CONFIG_CRYPTO_SHA256_ARM64 (Thomas Huth)
+
+* Mon Oct 12 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.3.0-0.rc7.57]
+- Linux v7.3.0-0.rc7
+
+* Sun Oct 11 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.3.0-0.rc6.a5ebb76233b7.56]
+- Linux v7.3.0-0.rc6.a5ebb76233b7
+
+* Sat Oct 10 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.3.0-0.rc6.3857c2fe5449.55]
+- Linux v7.3.0-0.rc6.3857c2fe5449
+
+* Fri Oct 09 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.3.0-0.rc6.af32da41b032.54]
+- Linux v7.3.0-0.rc6.af32da41b032
+
+* Thu Oct 08 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.3.0-0.rc6.0c2669a9f4a1.53]
+- Linux v7.3.0-0.rc6.0c2669a9f4a1
+
+* Wed Oct 07 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.3.0-0.rc6.602042bf29f6.52]
+- Linux v7.3.0-0.rc6.602042bf29f6
+
+* Tue Oct 06 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.3.0-0.rc6.22430ae5d90a.51]
+- Linux v7.3.0-0.rc6.22430ae5d90a
+
+* Mon Oct 05 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.3.0-0.rc6.50]
+- fedora: updates for the 7.3 merge window (Peter Robinson)
+- redhat/genlog: exclude only the merged branch of an excluded merge (Oleksii Baranov)
+- fedora: switch from old Android binder driver to rust (Peter Robinson)
+- Linux v7.3.0-0.rc6
+
+* Sun Oct 04 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.3.0-0.rc5.6addb4f38557.49]
+- Linux v7.3.0-0.rc5.6addb4f38557
+
+* Sat Oct 03 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.3.0-0.rc5.e767a4ea70a3.48]
+- Linux v7.3.0-0.rc5.e767a4ea70a3
+
+* Fri Oct 02 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.3.0-0.rc5.ce1e0223d8ad.47]
+- Linux v7.3.0-0.rc5.ce1e0223d8ad
+
+* Thu Oct 01 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.3.0-0.rc5.551c722f4080.46]
+- redhat: resolve rpmbuild via PATH and fail early if missing (Julio Faracco)
+- block: disable ublk (Jeff Moyer) [RHEL-266578]
+
+* Wed Sep 30 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.3.0-0.rc5.551c722f4080.45]
+- Linux v7.3.0-0.rc5.551c722f4080
+
+* Mon Sep 28 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.3.0-0.rc5.44]
+- Linux v7.3.0-0.rc5
+
+* Sun Sep 27 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.3.0-0.rc4.fd179f8a05be.43]
+- Linux v7.3.0-0.rc4.fd179f8a05be
+
+* Sat Sep 26 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.3.0-0.rc4.6812ce4e4379.42]
+- Linux v7.3.0-0.rc4.6812ce4e4379
+
+* Fri Sep 25 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.3.0-0.rc4.165768bb7026.41]
+- redhat: correct the scriptlet name in the posttrans doc comment (Jan Stancek)
+- redhat: drop the pre-5.11 archaeology from the build-id comment (Jan Stancek)
+- redhat: modernize the devel build-link comment (Jan Stancek)
+- redhat: simplify the BPF denylist guard (Jan Stancek)
+- redhat: drop the obsolete Group tags (Jan Stancek)
+- redhat: use one spelling for the release in versioned provides (Jan Stancek)
+- redhat: merge the adjacent x86_64 blocks in the tools files list (Jan Stancek)
+- redhat: drop the pointless fallback on the unstripped-root cleanup (Jan Stancek)
+- redhat: force with_ynl off when with_tools is off (Jan Stancek)
+- redhat: use the guarded argument form in the dtbloader conditions (Jan Stancek)
+- redhat: drop the redundant i686 from the userspace-only build guard (Jan Stancek)
+- redhat: use one spelling for the debuginfo files guard (Jan Stancek)
+- redhat: fold the primary_target test into the centos guard (Jan Stancek)
+- redhat: drop the dead InstallName parameter of BuildKernel (Jan Stancek)
+- redhat: drop the never-passed -k option from kernel_variant_files (Jan Stancek)
+- redhat: drop the broken -n plumbing from kernel_variant_package (Jan Stancek)
+- redhat: package the per-variant kabidw-base directories (Jan Stancek)
+- redhat: fix the doubled name of the kabidw-base package (Jan Stancek)
+- redhat: skip the kabi-dw baseline for every debug variant (Jan Stancek)
+- redhat: log the process_configs options after they are assembled (Jan Stancek)
+- redhat: fix the unexpanded error on the clang_lto sanity check (Jan Stancek)
+- redhat: document kernel_modules_extra_matched_package (Jan Stancek)
+- redhat: prune removed symbols from the module list patterns (Jan Stancek)
+- redhat: guard the preun weak-modules call like posttrans (Jan Stancek)
+- redhat: drop the broken doc_build_fail fallback (Jan Stancek)
+- redhat: drop the CONFIG_KERNEL_HEADER_TEST leftover cleanup (Jan Stancek)
+- redhat: drop the dead zImage.stub install step (Jan Stancek)
+- redhat: drop the unused RPM_VMLINUX_H hand-off to the install step (Jan Stancek)
+- redhat: collapse cpupowerarchs to a single arch list (Jan Stancek)
+- redhat: merge the adjacent x86_64 blocks in the tools build (Jan Stancek)
+- redhat: use one spelling for the with_debuginfo conditionals (Jan Stancek)
+- redhat: use one spelling for the remaining nobuildarches guards (Jan Stancek)
+- redhat: drop the nested nobuildarches guard in the config step (Jan Stancek)
+- redhat: sync the efiuki skip comment with its condition (Jan Stancek)
+- redhat: correct the kernel_modules_core_post doc comment (Jan Stancek)
+- redhat: trim the stale shebang-mangling comment block (Jan Stancek)
+- redhat: drop the stale python_sitearch comment (Jan Stancek)
+- redhat: drop the orphaned parallel-xz comment (Jan Stancek)
+- redhat: add realtime_arm64_64k to the supported variants table (Jan Stancek)
+- redhat: fix realtime typo in the build-switch comment (Jan Stancek)
+- add net/af_unix category to kernel-selftests-internal (Davide Caratti)
+- Linux v7.3.0-0.rc4.165768bb7026
+
+* Thu Sep 24 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.3.0-0.rc4.62f4c998b297.40]
+- redhat/configs/fedora: Enable AW88399 HDA side codec (Junjie Cao) [2537033]
+- Linux v7.3.0-0.rc4.62f4c998b297
+
+* Wed Sep 23 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.3.0-0.rc4.fe2ec83746e5.39]
+- fedora: arm64: enable Samsung S6E3FA7 panel driver (Sam Day)
+- fedora: arm64: SDM670 pinctrl+NoC drivers (Sam Day)
+- fedora: arm64: built-in SDM845 core drivers (Sam Day)
+- Enable kmod ML-DSA-87 signing for Fedora (Justin M. Forbes)
+- fedora: riscv: Enable SpacemiT K1 and K3 configs (Jennifer Berringer)
+- Linux v7.3.0-0.rc4.fe2ec83746e5
+
+* Tue Sep 22 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.3.0-0.rc4.f0100363d8c3.38]
+- redhat/configs/rhel: Enable kmod ML-DSA-87 signing for RHEL (Lenny Szubowicz)
+- Linux v7.3.0-0.rc4.f0100363d8c3
+
+* Mon Sep 21 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.3.0-0.rc4.37]
+- Linux v7.3.0-0.rc4
+
+* Sat Sep 19 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.3.0-0.rc3.40288c9206c1.36]
+- Keep the older NTFS3 module around as well for Fedora (Justin M. Forbes)
+- Linux v7.3.0-0.rc3.40288c9206c1
+
+* Fri Sep 18 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.3.0-0.rc3.5dd1818b15d9.35]
+- redhat: add vfio selftests to kernel-modules-internal package (Rodolfo Vick) [RHEL-237560]
+- random: set vdso is_ready later during boot process (Vladislav Dronov) [RHEL-127733]
+- configs: rhel: riscv: Enable THERMAL_OF and UFSHCD (Jennifer Berringer)
+- redhat: kernel.spec: allow overriding CROSS_COMPILE (Scott Weaver)
+- redhat/configs: riscv: Enable SpacemiT V100 RISC-V platform support (Iker Pedrosa)
+- Linux v7.3.0-0.rc3.5dd1818b15d9
+
+* Thu Sep 17 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.3.0-0.rc3.238650ef6c7c.34]
+- Linux v7.3.0-0.rc3.238650ef6c7c
+
+* Wed Sep 16 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.3.0-0.rc3.9b87fdc9af2f.33]
+- Linux v7.3.0-0.rc3.9b87fdc9af2f
+
+* Tue Sep 15 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.3.0-0.rc3.587858367581.32]
 - redhat/configs/fedora: Enable dwc dual-role and ulpi phy support (Hans de Goede)
 - redhat/configs/fedora: Enable some drivers for x86 tablets (Hans de Goede)
-- some BugsFixed for 7.2.6 (Justin M. Forbes)
-- media: i2c: cvs: Get the wake IRQ without claiming the GPIO (Junjie Cao) [2529031]
-- soundwire: dmi-quirks: add Lenovo Yoga Slim 7i 14IPH11 (Sataporn Saijai) [2529315]
-- media: ipu-bridge: do not use the CVS device lookup for IVSC (Sergey Zagursky) [2531810]
+- Linux v7.3.0-0.rc3.587858367581
+
+* Mon Sep 14 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.3.0-0.rc3.704340f1cd0d.31]
+- redhat/configs: automotive: disable CONFIG_CRYPTO_DEV_TEGRA (Erico Nunes)
+- redhat/configs: automotive: disable CONFIG_CRYPTO_DEV_VIRTIO (Erico Nunes)
+- Linux v7.3.0-0.rc3.704340f1cd0d
+
+* Sun Sep 13 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.3.0-0.rc2.2f0c1cf72f46.30]
+- Linux v7.3.0-0.rc2.2f0c1cf72f46
+
+* Sat Sep 12 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.3.0-0.rc2.5225b8eec4c9.29]
 - Switch to NTFS_FS module for Fedora (Justin M. Forbes)
-- BugsFixed and RHEL config for 7.2.5 (Justin M. Forbes)
-- Linux v7.2.6
-
-* Fri Sep 11 2026 Justin M. Forbes <jforbes@fedoraproject.org> [7.2.5-0]
 - redhat: configs: fedora: Enable Sony IMX471 image sensor (Kate Hsuan)
-- media: ipu-bridge: Add Sony IMX471 for Lenovo X1 Carbon G14 (Kate Hsuan)
-- media: ipu-bridge: Add DMI information of Lenovo X9 to the image upside-down list (Kate Hsuan)
-- media: i2c: imx471: Fix uninitialized error value in imx471_set_ctrl() (David Carlier)
-- media: i2c: imx471: Add Sony IMX471 image sensor driver (Kate Hsuan)
-- Input: soc_button_array - check btns_desc->package.count (Hans de Goede)
-- Input: soc_button_array - fix MS Surface Pro 11 probe failure (Hans de Goede)
-- Linux v7.2.5
+- Linux v7.3.0-0.rc2.5225b8eec4c9
 
-* Mon Sep 07 2026 Justin M. Forbes <jforbes@fedoraproject.org> [7.2.4-0]
-- Remove unnecessary config file for Fedora (Justin M. Forbes)
-- Add F43 and F44 to release_targets (Justin M. Forbes)
-- Linux v7.2.4
+* Fri Sep 11 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.3.0-0.rc2.08df884136f1.28]
+- gitlab-ci: remove default gitlab config file (Scott Weaver)
+- Linux v7.3.0-0.rc2.08df884136f1
 
-* Wed Sep 02 2026 Justin M. Forbes <jforbes@fedoraproject.org> [7.2.3-0]
-- Bluetooth: btusb: limit RTL8761B BROKEN_EXT_SCAN quirk to 0bda:a728 (Junjie Cao)
-- ACPI: scan: Do not combine resources that overlap completely (Rafael J. Wysocki)
-- ACPI: scan: Avoid registering platform devices with resource overlaps (Rafael J. Wysocki)
-- page_pool: keep frag_offset aligned for odd-sized requests (Florian Schauer) [2521546 2521847]
-- media: i2c: cvs: Pass link frequency explicitly to csi_set_link_cfg() (Laurent Pinchart)
-- media: i2c: cvs: Add NVL ACPI ID (Arun T)
-- media: i2c: cvs: Add IPU8 PCI device ID (Arun T)
+* Thu Sep 10 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.3.0-0.rc2.50d05c7c76c9.27]
+- Linux v7.3.0-0.rc2.50d05c7c76c9
+
+* Wed Sep 09 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.3.0-0.rc2.893e11787f78.26]
+- Linux v7.3.0-0.rc2.893e11787f78
+
+* Tue Sep 08 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.3.0-0.rc2.28924df2a08f.25]
+- redhat: remove the dead debugbuildsenabled machinery (Jan Stancek)
+- Fix the statement regarding CONFIG_RHEL_DIFFERENCES in the FAQ (Vladislav Dronov)
+- Linux v7.3.0-0.rc2.28924df2a08f
+
+* Mon Sep 07 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.3.0-0.rc2.24]
+- Linux v7.3.0-0.rc2
+
+* Sun Sep 06 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.3.0-0.rc1.1fc5a74b108f.23]
+- Linux v7.3.0-0.rc1.1fc5a74b108f
+
+* Sat Sep 05 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.3.0-0.rc1.4d7d9486c04d.22]
+- Linux v7.3.0-0.rc1.4d7d9486c04d
+
+* Fri Sep 04 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.3.0-0.rc1.bc35965f6940.21]
+- Linux v7.3.0-0.rc1.bc35965f6940
+
+* Thu Sep 03 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.3.0-0.rc1.940de590b839.20]
 - random: Drop the extrng module reference when import_ubuf() fails (Junjie Cao) [2524262]
-- Add mechanism to back out the af_alg_restrict sysctl (Justin M. Forbes)
-- crypto: af_alg - Stop after finding name in allowlist (Eric Biggers)
-- crypto: af_alg - Replace 'bool privileged' with flags (Eric Biggers)
-- crypto: af_alg - Make cbc(paes) privileged-only (Eric Biggers)
-- crypto: af_alg - clean up kernel-doc warnings (Randy Dunlap)
-- crypto: af_alg - Allow additional ciphers for cryptsetup (Eric Biggers)
-- crypto: af_alg - Add af_alg_restrict sysctl, defaulting to 1 (Eric Biggers)
-- Linux v7.2.3
+- Linux v7.3.0-0.rc1.940de590b839
 
-* Fri Aug 28 2026 Justin M. Forbes <jforbes@fedoraproject.org> [7.2.2-0]
-- Linux v7.2.2
+* Wed Sep 02 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.3.0-0.rc1.89a312991dc6.19]
+- rh_messages.h: Disable ConnectX-10 NVLink-C2C device (Benjamin Poirier)
+- Linux v7.3.0-0.rc1.89a312991dc6
 
-* Thu Aug 27 2026 Justin M. Forbes <jforbes@fedoraproject.org> [7.2.1-0]
-- Initial setup for stable Fedora release (Justin M. Forbes)
+* Tue Sep 01 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.3.0-0.rc1.786262be6048.18]
+- Turn off CONFIG_DRIVER_PE_KUNIT_TEST (Justin M. Forbes)
+- Linux v7.3.0-0.rc1.786262be6048
+
+* Mon Aug 31 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.3.0-0.rc1.17]
+- Linux v7.3.0-0.rc1
+
+* Sun Aug 30 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.3.0-0.rc0.08dbfad3f504.16]
+- Linux v7.3.0-0.rc0.08dbfad3f504
+
+* Sat Aug 29 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.3.0-0.rc0.cf72cbb39da8.15]
+- Linux v7.3.0-0.rc0.cf72cbb39da8
+
+* Fri Aug 28 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.3.0-0.rc0.1b78070aaef6.14]
+- Linux v7.3.0-0.rc0.1b78070aaef6
+
+* Thu Aug 27 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.3.0-0.rc0.3ba13f5e7180.13]
+- One more mismatch for automotive (Justin M. Forbes)
+- redhat/configs: disable CONFIG_INTERCONNECT_QCOM_MAILI (Brian Masney)
+- Fix up mismatches for aarch64 (Justin M. Forbes)
+- Linux v7.3.0-0.rc0.3ba13f5e7180
+
+* Wed Aug 26 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.3.0-0.rc0.45c13f3f9e3b.12]
+- Linux v7.3.0-0.rc0.45c13f3f9e3b
+
+* Tue Aug 25 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.3.0-0.rc0.66498c75b4f8.11]
+- Linux v7.3.0-0.rc0.66498c75b4f8
+
+* Mon Aug 24 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.3.0-0.rc0.47096fc3d064.10]
+- Fix up an s390 mismatch (Justin M. Forbes)
+- Switch CPU_IDLE for a mismatch (Justin M. Forbes)
+- Build drm_log (Jocelyn Falempe)
+- Linux v7.3.0-0.rc0.47096fc3d064
+
+* Sun Aug 23 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.3.0-0.rc0.2709dd5ae32f.9]
+- Linux v7.3.0-0.rc0.2709dd5ae32f
+
+* Sat Aug 22 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.3.0-0.rc0.26260251022f.8]
+- Linux v7.3.0-0.rc0.26260251022f
+
+* Fri Aug 21 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.3.0-0.rc0.818bebeb63dd.7]
+- Linux v7.3.0-0.rc0.818bebeb63dd
+
+* Thu Aug 20 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.3.0-0.rc0.11260c335ec6.6]
+- Fix up some s390x mismatches for Fedora (Justin M. Forbes)
+- A number of mismatch fixes for 7.3 merge window (Justin M. Forbes)
+- Linux v7.3.0-0.rc0.11260c335ec6
+
+* Thu Aug 20 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.3.0-0.rc0.bd5f485f3f02.5]
+- Turn off RUST in pending for ppc to revisit after merge window (Justin M. Forbes)
+
+* Wed Aug 19 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.3.0-0.rc0.bd5f485f3f02.4]
+- Turn on QCOM_PAS in pending (Justin M. Forbes)
+- Linux v7.3.0-0.rc0.bd5f485f3f02
+
+* Wed Aug 19 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.3.0-0.rc0.0f23d56f17fd.3]
+- Trim changelog for rebase (Justin M. Forbes)
+
+* Tue Aug 18 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.3.0-0.rc0.0f23d56f17fd.2]
+- Turn on CONFIG_BLK_INLINE_ENCRYPTION for RHEL pending too (Justin M. Forbes)
+- Turn on BLK_INLINE_ENCRYPTION_FALLBACK for mismatch (Justin M. Forbes)
 - Reset Makefile.rhelver for the 7.3 cycle (Justin M. Forbes)
 - Merge configs into common for 7.2 (Justin M. Forbes)
 - redhat/configs: automotive: enable RTC_DRV_PL031 (Eric Chanudet)
@@ -5458,108 +5533,28 @@ fi\
 - redhat: drop leftover kernel_kvm_post calls for rt-64k (Jan Stancek)
 - redhat: restore missing summary of the kernel-debug variant (Jan Stancek)
 - redhat: fix parse error in baseonly sanity check message (Jan Stancek)
-- Linux v7.2.1
-
-* Mon Aug 17 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.2.0-60]
 - dracut-virt.conf: change systemd-pcrphase to systemd-pcrextend (Vitaly Kuznetsov)
 - redhat/kernel.spec.template: Switch UKI addons to using UKI cert (Vitaly Kuznetsov)
-- Linux v7.2.0
-
-* Sun Aug 16 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.2.0-0.rc7.3eb40771c00a.59]
-- Linux v7.2.0-0.rc7.3eb40771c00a
-
-* Sat Aug 15 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.2.0-0.rc7.15ef2f78c49d.58]
-- Linux v7.2.0-0.rc7.15ef2f78c49d
-
-* Fri Aug 14 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.2.0-0.rc7.2f1baf1fc892.57]
 - redhat/configs: automotive: disable CONFIG_MD (Jared Kangas)
-- Linux v7.2.0-0.rc7.2f1baf1fc892
-
-* Thu Aug 13 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.2.0-0.rc7.3d6d817622b0.56]
-- Linux v7.2.0-0.rc7.3d6d817622b0
-
-* Wed Aug 12 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.2.0-0.rc7.f5bbbfec59b4.55]
-- Linux v7.2.0-0.rc7.f5bbbfec59b4
-
-* Tue Aug 11 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.2.0-0.rc7.d58772d8520c.54]
 - Clean up unnecessary pending entries (Justin M. Forbes)
 - Turn on CONFIG_CRYPTO_MLDSA for Fedora (Justin M. Forbes)
-- Linux v7.2.0-0.rc7.d58772d8520c
-
-* Mon Aug 10 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.2.0-0.rc7.53]
-- Linux v7.2.0-0.rc7
-
-* Sun Aug 09 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.2.0-0.rc6.06cf61899d64.52]
 - Fix up mismatch for rhel automotive (Justin M. Forbes)
 - Fix up a config mismatch in pending (Justin M. Forbes)
-- Linux v7.2.0-0.rc6.06cf61899d64
-
-* Fri Aug 07 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.2.0-0.rc6.f9a2394a2348.51]
-- Linux v7.2.0-0.rc6.f9a2394a2348
-
-* Thu Aug 06 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.2.0-0.rc6.0d8395707651.50]
-- Linux v7.2.0-0.rc6.0d8395707651
-
-* Wed Aug 05 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.2.0-0.rc6.c21bb4193868.49]
 - redhat/configs: automotive: debug: enable KASAN_INLINE (Jared Kangas)
-- Linux v7.2.0-0.rc6.c21bb4193868
-
-* Tue Aug 04 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.2.0-0.rc6.848acc8ffe1b.48]
 - Remove stale config items from 7.1 (Justin M. Forbes)
-- Linux v7.2.0-0.rc6.848acc8ffe1b
-
-* Mon Aug 03 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.2.0-0.rc6.47]
-- Linux v7.2.0-0.rc6
-
-* Sun Aug 02 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.2.0-0.rc5.2d2338c93da7.46]
-- Linux v7.2.0-0.rc5.2d2338c93da7
-
-* Sat Aug 01 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.2.0-0.rc5.02dc699f83d0.45]
 - Last configs for 7.2 Fedora (Justin M. Forbes)
-- Linux v7.2.0-0.rc5.02dc699f83d0
-
-* Fri Jul 31 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.2.0-0.rc5.8ba098e6b6ff.44]
 - redhat: Disable the CRYPTO_LIB_AESCFB config switch (Thomas Huth)
-- Linux v7.2.0-0.rc5.8ba098e6b6ff
-
-* Thu Jul 30 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.2.0-0.rc5.11028ab62899.43]
 - redhat/configs: do not enable IPQ_GCC_9650 (Eric Chanudet)
 - redhat/configs: do not enable CLK_X1P42100_* (Eric Chanudet)
-- Linux v7.2.0-0.rc5.11028ab62899
-
-* Wed Jul 29 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.2.0-0.rc5.fc02acf6ac0c.42]
-- Linux v7.2.0-0.rc5.fc02acf6ac0c
-
-* Tue Jul 28 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.2.0-0.rc5.62cc90241548.41]
 - redhat: always overwrite spec template copy (Jan Stancek)
 - gitlab-ci: enable ELN clang builds (Scott Weaver)
 - Turn on CONFIG_REGMAP for RHEL s390x (Justin M. Forbes)
 - Turn ACPI_PLATFORM_PROFILE to built-in for RHEL x86 (Justin M. Forbes)
 - Turn on CONFIG_RESCTRL_FS for RHEL x86 (Justin M. Forbes)
 - redhat: configs: rhel: Enable AMD ISP4 MIPI camera solution (Kate Hsuan)
-- Linux v7.2.0-0.rc5.62cc90241548
-
-* Mon Jul 27 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.2.0-0.rc5.40]
-- Linux v7.2.0-0.rc5
-
-* Sun Jul 26 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.2.0-0.rc4.3dab139d4795.39]
-- Linux v7.2.0-0.rc4.3dab139d4795
-
-* Sat Jul 25 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.2.0-0.rc4.0ce37745d4bf.38]
-- Linux v7.2.0-0.rc4.0ce37745d4bf
-
-* Thu Jul 23 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.2.0-0.rc4.4539944e5151.37]
 - fedora: updates for the 7.2 merge window (Peter Robinson)
-- Linux v7.2.0-0.rc4.4539944e5151
-
-* Wed Jul 22 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.2.0-0.rc4.248951ddc14d.36]
 - redhat/configs: Enable deadline and stall monitors (Gabriele Monaco)
-- Linux v7.2.0-0.rc4.248951ddc14d
-
-* Tue Jul 21 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.2.0-0.rc4.b95f03f04d47.35]
 - redhat/kernel.spec: fix build for rtonly (Jan Stancek)
-
-* Tue Jul 21 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.2.0-0.rc4.b95f03f04d47.34]
 - redhat: filtermods.py: document exact_pkg and ignore_deps rule attributes (Jan Stancek)
 - redhat: filtermods.py: make pick_best() deterministic on tied packages (Jan Stancek)
 - redhat: filtermods.py: add ignore_deps rule option (Jan Stancek)
@@ -5575,136 +5570,34 @@ fi\
 - redhat: filtermods.py: fix do_rpm_mapping_test() (Jan Stancek)
 - redhat: filtermods.py: simplify algorithm (Jan Stancek)
 - redhat: filtermods.py: add new tests (Jan Stancek)
-- Linux v7.2.0-0.rc4.b95f03f04d47
-
-* Mon Jul 20 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.2.0-0.rc4.33]
-- Linux v7.2.0-0.rc4
-
-* Sun Jul 19 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.2.0-0.rc3.c6859eed755d.32]
-- Linux v7.2.0-0.rc3.c6859eed755d
-
-* Sat Jul 18 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.2.0-0.rc3.1229e2e57a5c.31]
-- Linux v7.2.0-0.rc3.1229e2e57a5c
-
-* Fri Jul 17 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.2.0-0.rc3.fce2dfa773ce.30]
-- Linux v7.2.0-0.rc3.fce2dfa773ce
-
-* Thu Jul 16 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.2.0-0.rc3.37e2f878a7a6.29]
 - redhat/configs: enable QCS615 pinctrl and interconnect drivers (Wu Fang)
 - redhat/configs: automotive: enable SENSORS_INA2XX (Jared Kangas)
 - redhat/configs: automotive: enable PWM_FSL_FTM as a module (Jared Kangas)
-- Linux v7.2.0-0.rc3.37e2f878a7a6
-
-* Wed Jul 15 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.2.0-0.rc3.58717b2a1365.28]
 - Add fedora entry in pending for weird mismatch in scripts (Justin M. Forbes)
 - Fix up config mismatches (Justin M. Forbes)
-- Linux v7.2.0-0.rc3.58717b2a1365
-
-* Wed Jul 15 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.2.0-0.rc3.3b029c035b34.27]
 - redhat/kernel.spec: derive pesign_name_0 from secureboot_key_0 (Jan Stancek)
 - redhat/configs: Move IOMMU_PT_* from rhel-pending to rhel (Jennifer Berringer)
-
-* Tue Jul 14 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.2.0-0.rc3.3b029c035b34.26]
 - redhat/kernel.spec: require libbabeltrace2-devel (Yaakov Selkowitz)
 - redhat: move ynltool debuginfo to kernel-tools-debuginfo (Augusto Caringi)
-- Linux v7.2.0-0.rc3.3b029c035b34
-
-* Mon Jul 13 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.2.0-0.rc3.25]
-- Linux v7.2.0-0.rc3
-
-* Sun Jul 12 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.2.0-0.rc2.44696aa3a489.24]
-- Linux v7.2.0-0.rc2.44696aa3a489
-
-* Sat Jul 11 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.2.0-0.rc2.dd3210c47e8d.23]
 - Turn on CONFIG_REGMAP for RHEL s390x pending for mismatch (Justin M. Forbes)
 - redhat: add kmap.py tool and kernel-kmap-internal package (Rado Vrbovsky)
-- Linux v7.2.0-0.rc2.dd3210c47e8d
-
-* Thu Jul 09 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.2.0-0.rc2.0e35b9b6ec0f.22]
 - uki-virt: Add fdisk to the initramfs to make systemd-repart functional (Vitaly Kuznetsov)
 - redhat/configs: Enable Epson RX8111 RTC driver for arm/aarch64 builds. Signed-off-by: Nirmala Dalvi <ndalvi@redhat.com> (Nirmala Dalvi)
-
-* Tue Jul 07 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.2.0-0.rc2.0e35b9b6ec0f.21]
 - redhat: sign centos kernel and UKIs with 800 certs (Jan Stancek)
-- Linux v7.2.0-0.rc2.0e35b9b6ec0f
-
-* Mon Jul 06 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.2.0-0.rc2.20]
-- Linux v7.2.0-0.rc2
-
-* Sun Jul 05 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.2.0-0.rc1.7404ce516372.19]
-- Linux v7.2.0-0.rc1.7404ce516372
-
-* Sat Jul 04 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.2.0-0.rc1.1e9cdc2ea15a.18]
-- Linux v7.2.0-0.rc1.1e9cdc2ea15a
-
-* Fri Jul 03 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.2.0-0.rc1.d2c9a99135da.17]
 - redhat/mod-sign.sh: use CONFIG_MODULE_SIG_HASH (Jan Stancek)
 - redhat/kernel.spec.template: Pack a bit more descriptive name for extras/ (Vitaly Kuznetsov)
 - redhat/configs: Enable IOMMU_DEBUG_PAGEALLOC and AMD_IOMMU_IOMMUFD (Jerry Snitselaar)
-- Linux v7.2.0-0.rc1.d2c9a99135da
-
-* Thu Jul 02 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.2.0-0.rc1.4a50a141f05a.16]
-- Linux v7.2.0-0.rc1.4a50a141f05a
-
-* Wed Jul 01 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.2.0-0.rc1.665159e24674.15]
-- Linux v7.2.0-0.rc1.665159e24674
-
-* Sun Jun 28 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.2.0-0.rc1.14]
-- Linux v7.2.0-0.rc1
-
-* Sun Jun 28 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.2.0-0.rc0.780d569e6c4b.13]
-- Linux v7.2.0-0.rc0.780d569e6c4b
-
-* Sat Jun 27 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.2.0-0.rc0.5a66900afbd6.12]
 - redhat: configs: Enable USB4STREAM protocol (Dennis Chen) [RHEL-186934]
-- Linux v7.2.0-0.rc0.5a66900afbd6
-
-* Fri Jun 26 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.2.0-0.rc0.4edcdefd4083.11]
 - Fix up a mismatch for automotive CONFIG_CLK_X1E80100_GCC (Justin M. Forbes)
-- Linux v7.2.0-0.rc0.4edcdefd4083
-
-* Fri Jun 26 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.2.0-0.rc0.ab9de95c9cf9.10]
 - fedora: aarch64: Set CONFIG_DRIVER_DEFERRED_PROBE_TIMEOUT=-1 (Ali Erdinc Koroglu)
 - redhat: configs: Enable AMD ISP4 MIPI camera solution (Kate Hsuan)
 - redhat: configs: Enable Intel CVS (Kate Hsuan)
-
-* Thu Jun 25 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.2.0-0.rc0.ab9de95c9cf9.9]
-- Revert "Input: rmi4 - remove the need for artificial IRQ in case of HID" (Justin M. Forbes)
-- Linux v7.2.0-0.rc0.ab9de95c9cf9
-
-* Thu Jun 25 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.2.0-0.rc0.840ef6c78e6a.8]
 - Increase the s390x kernel baseline (Justin M. Forbes)
 - redhat/kspdx: remove redundant OR terms from joint license expression (Jan Stancek)
-
-* Wed Jun 24 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.2.0-0.rc0.840ef6c78e6a.7]
-- Linux v7.2.0-0.rc0.840ef6c78e6a
-
-* Tue Jun 23 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.2.0-0.rc0.502d801f0ab0.6]
 - redhat/kernel.spec: set also HOST_EXTRACFLAGS for BPF bootstrap build (Jan Stancek)
 - Trim changelog duplicates after rebase (Justin M. Forbes)
-- Linux v7.2.0-0.rc0.502d801f0ab0
-
-* Mon Jun 22 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.2.0-0.rc0.ef0c9f75a195.5]
 - redhat/configs: do not disable PCIEPORTBUS on ppc64le (Dan Horák)
-- Linux v7.2.0-0.rc0.ef0c9f75a195
-
-* Sun Jun 21 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.2.0-0.rc0.322008f87f91.4]
-- Linux v7.2.0-0.rc0.322008f87f91
-
-* Sat Jun 20 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.2.0-0.rc0.1a3746ccbb0a.3]
-- Linux v7.2.0-0.rc0.1a3746ccbb0a
-
-* Fri Jun 19 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.2.0-0.rc0.9ecfb2f7287a.2]
-- Linux v7.2.0-0.rc0.9ecfb2f7287a
-
-* Thu Jun 18 2026 Fedora Kernel Team <kernel-team@fedoraproject.org> [7.2.0-0.rc0.e771677c937d.1]
 - Reset RHEL_RELEASE for the 7.2 cycle (Scott Weaver)
-- Revert "crypto: rng - Override drivers/char/random in FIPS mode" (Patrick Talbert)
-- Revert "crypto: rng - Ensure stdrng is tested before user-space starts" (Patrick Talbert)
-- Revert "crypto: rng - Fix extrng EFAULT handling" (Patrick Talbert)
-- Revert "Correct manual merge error in crypto/rng.c" (Patrick Talbert)
-- Revert "Fix up rebase issues with rng.c" (Patrick Talbert)
-- Fix up rebase issues with rng.c (Justin M. Forbes)
 - fedora: cleanup the Cadence USB options (Peter Robinson)
 - Consolidate configs to common for 7.1 (Justin M. Forbes)
 - redhat/kernel.spec.template: Move UKI addons to extras/ (Vitaly Kuznetsov)
@@ -5757,7 +5650,6 @@ fi\
 - Revert "redhat/configs: enable CONFIG_WATCHDOG_HRTIMER_PRETIMEOUT" (David Arcari)
 - redhat/configs: rhel: Enable SPD5118 sensor driver (Jennifer Berringer)
 - Trim changelog and reset RHEL_RELEASE for 7.1 (Justin M. Forbes)
-- Correct manual merge error in crypto/rng.c (Patrick Talbert)
 - Fix up pending for mismatches (Justin M. Forbes)
 - Fix up rebase typo in drivers/pci/quirks.c (Justin M. Forbes)
 - Fix up mismatc with ACPI_PLATFORM_PROFILE (Justin M. Forbes)
@@ -6337,7 +6229,6 @@ fi\
 - redhat: configs: Clean up DVB settings in RHEL (Kate Hsuan)
 - Move CONFIG_ARCH_TEGRA_241_SOC config/common so that it is enabled for RHEL as well as Fedora. Get rid of uneeded CONFIG_TEGRA241_CMDQV in configs/fedora while we're at it. (Mark Salter)
 - fedora: arm64: Enable the rockchip HDMI QP support (Peter Robinson)
-- crypto: rng - Fix extrng EFAULT handling (Herbert Xu)
 - redhat: configs: rhel: aarch64: Support NV Jetson MIPI camera (Kate Hsuan)
 - gitlab-ci: disable clang CI pipelines (Scott Weaver)
 - redhat/configs: Remove obsolete arch64/64k/CONFIG_FORCE_MAX_ZONEORDER (Waiman Long)
@@ -6371,7 +6262,6 @@ fi\
 - redhat/configs: automotive: Enable j784s4evm am3359 tscadc configs (Joel Slebodnick)
 - redhat/configs: delete renamed CONFIG_MLX5_EN_MACSEC (Michal Schmidt)
 - rhel: disable DELL_RBU and cleanup related deps (Peter Robinson)
-- crypto: rng - Ensure stdrng is tested before user-space starts (Herbert Xu)
 - gitlab-ci: Add CKI_RETRIGGER_PIPELINE (Tales da Aparecida)
 - redhat: configs: disable the qla4xxx iSCSI driver (Chris Leech) [RHEL-1242]
 - Remove duplicated CONFIGs between automotive and RHEL (Julio Faracco)
@@ -6924,7 +6814,6 @@ fi\
 - redhat: configs: generic: x86: Disable CONFIG_VIDEO_OV01A10 for x86 platform (Hans de Goede)
 - redhat: remove pending-rhel CONFIG_XFS_ASSERT_FATAL file (Patrick Talbert)
 - New configs in fs/xfs (Fedora Kernel Team)
-- crypto: rng - Override drivers/char/random in FIPS mode (Herbert Xu)
 - random: Add hook to override device reads and getrandom(2) (Herbert Xu)
 - redhat/configs: share CONFIG_ARM64_ERRATUM_2966298 between rhel and fedora (Mark Salter)
 - configs: Remove S390 IOMMU config options that no longer exist (Jerry Snitselaar)
@@ -8620,7 +8509,6 @@ fi\
 - redhat: Replace hardware.redhat.com link in Unsupported message (Prarit Bhargava) [1810301]
 - x86: Fix compile issues with rh_check_supported() (Don Zickus)
 - KEYS: Make use of platform keyring for module signature verify (Robert Holmes)
-- Input: rmi4 - remove the need for artificial IRQ in case of HID (Benjamin Tissoires)
 - ARM: tegra: usb no reset (Peter Robinson)
 - arm: make CONFIG_HIGHPTE optional without CONFIG_EXPERT (Jon Masters)
 - redhat: rh_kabi: deduplication friendly structs (Jiri Benc)
@@ -8980,7 +8868,7 @@ fi\
 - [initial commit] Add scripts (Laura Abbott)
 - [initial commit] Add configs (Laura Abbott)
 - [initial commit] Add Makefiles (Laura Abbott)
-- Linux v7.2.0-0.rc0.e771677c937d
+- Linux v7.3.0-0.rc0.0f23d56f17fd
 
 ###
 # The following Emacs magic makes C-c C-e use UTC dates.

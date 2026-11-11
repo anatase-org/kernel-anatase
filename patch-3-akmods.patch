@@ -11135,7 +11135,7 @@ index 0000000..675325d
 +kunit_test_suite(evdi_test_suite);
 # ----------------------------------------
 # Module: fanatecff
-# Version: d83c2a2
+# Version: 136cb2d
 # ----------------------------------------
 diff --git a/drivers/custom/fanatecff/Kbuild b/drivers/custom/fanatecff/Kbuild
 new file mode 100644
@@ -11147,7 +11147,7 @@ index 0000000..dae85d0
 +hid-fanatec-y := hid-ftec.o hid-ftecff.o hid-ftecff-tuning.o hid-ftecff-wheel.o
 diff --git a/drivers/custom/fanatecff/Makefile b/drivers/custom/fanatecff/Makefile
 new file mode 100644
-index 0000000..eceb395
+index 0000000..834b2fa
 --- /dev/null
 +++ b/drivers/custom/fanatecff/Makefile
 @@ -0,0 +1,28 @@
@@ -11158,12 +11158,12 @@ index 0000000..eceb395
 +default:
 +	@echo -e "\n::\033[32m Compiling Fanatec kernel module\033[0m"
 +	@echo "========================================"
-+	$(MAKE) -C $(KERNEL_SRC) M=$$PWD
++	$(MAKE) -C $(KERNEL_SRC) M="$$PWD"
 +
 +clean:
 +	@echo -e "\n::\033[32m Cleaning Fanatec kernel module\033[0m"
 +	@echo "========================================"
-+	$(MAKE) -C $(KERNEL_SRC) M=$$PWD clean
++	$(MAKE) -C $(KERNEL_SRC) M="$$PWD" clean
 +
 +install:
 +	@echo -e "\n::\033[34m Installing Fanatec kernel module/udev rule\033[0m"
@@ -11533,10 +11533,10 @@ index 0000000..9e887d6
 +
 diff --git a/drivers/custom/fanatecff/hid-ftec.c b/drivers/custom/fanatecff/hid-ftec.c
 new file mode 100644
-index 0000000..45281c0
+index 0000000..446a22c
 --- /dev/null
 +++ b/drivers/custom/fanatecff/hid-ftec.c
-@@ -0,0 +1,1231 @@
+@@ -0,0 +1,1297 @@
 +#include "hid-ftec.h"
 +
 +#include <linux/device.h>
@@ -11550,10 +11550,16 @@ index 0000000..45281c0
 +
 +// adjustabel initial value for break load cell
 +int init_load = 4;
-+module_param(init_load, int, 0);
++module_param(init_load, int, 0444);
++MODULE_PARM_DESC(init_load,
++		 "Initial brake load cell value (0-9); applied at device init");
++
 +// expose PID HID descriptor via hidraw
 +bool hidraw_pid = true;
-+module_param(hidraw_pid, bool, 0);
++module_param(hidraw_pid, bool, 0444);
++MODULE_PARM_DESC(hidraw_pid,
++		 "Expose the PID HID descriptor via a hidraw device");
++
 +// use custom button mapping
 +bool custom_button_mapping = false;
 +module_param(custom_button_mapping, bool, 0);
@@ -11784,6 +11790,21 @@ index 0000000..45281c0
 +#include "hid-ftec-pid.h"
 +};
 +
++const u8 rdesc_simulation[] = {
++	0x05, 0x02, 0x09, 0x02, 0xa1, 0x02, 0xc0,
++};
++
++static u32 ftec_rdesc_item_value(const u8 *item, u8 size)
++{
++	u32 value = 0;
++	u8 i;
++
++	for (i = 0; i < size; i++)
++		value |= (u32)item[i + 1] << (8 * i);
++
++	return value;
++}
++
 +static int ftec_client_rdesc_fixup(struct ftec_drv_data_client *client,
 +				   const u8 *dev_rdesc, size_t dev_rsize)
 +{
@@ -11791,21 +11812,38 @@ index 0000000..45281c0
 +	u8 *pos;
 +	unsigned depth = 0;
 +	u8 size, report_id = 255;
++	u32 usage_page = 0, usage = 0, top_usage = 0;
 +
 +	for (ref_pos = dev_rdesc, ref_end = dev_rdesc + dev_rsize,
 +	    pos = (u8 *)rdesc, end = rdesc + sizeof(client->rdesc);
 +	     ref_pos != ref_end && pos != end;
 +	     ref_pos += size + 1, pos += size + 1) {
-+		if (*ref_pos == 0xC0 && --depth == 0 && report_id == 1) {
-+			// inject the pid ffb collection
-+			if (pos + sizeof(rdesc_pid_ffb) > end) {
-+				hid_err(client->hdev,
-+					"Need %lu bytes to inject ffb\n",
-+					sizeof(rdesc_pid_ffb));
-+				return 1;
++		if (*ref_pos == 0xC0) {
++			if (depth == 1 && (top_usage == HID_GD_JOYSTICK ||
++					   top_usage == HID_GD_GAMEPAD)) {
++				if (pos + sizeof(rdesc_simulation) > end) {
++					hid_err(client->hdev,
++						"Need %lu bytes to inject simulation\n",
++						sizeof(rdesc_simulation));
++					return 1;
++				}
++				memcpy(pos, rdesc_simulation,
++				       sizeof(rdesc_simulation));
++				pos += sizeof(rdesc_simulation);
 +			}
-+			memcpy(pos, rdesc_pid_ffb, sizeof(rdesc_pid_ffb));
-+			pos += sizeof(rdesc_pid_ffb);
++
++			if (--depth == 0 && report_id == 1) {
++				// inject the pid ffb collection
++				if (pos + sizeof(rdesc_pid_ffb) > end) {
++					hid_err(client->hdev,
++						"Need %lu bytes to inject ffb\n",
++						sizeof(rdesc_pid_ffb));
++					return 1;
++				}
++				memcpy(pos, rdesc_pid_ffb,
++				       sizeof(rdesc_pid_ffb));
++				pos += sizeof(rdesc_pid_ffb);
++			}
 +		}
 +
 +		size = (*ref_pos & 0x03);
@@ -11819,10 +11857,18 @@ index 0000000..45281c0
 +
 +		memcpy(pos, ref_pos, size + 1);
 +
++		if ((*ref_pos & 0xfc) == 0x04)
++			usage_page = ftec_rdesc_item_value(ref_pos, size);
++		if ((*ref_pos & 0xfc) == 0x08)
++			usage = (usage_page << 16) |
++				ftec_rdesc_item_value(ref_pos, size);
 +		if (*ref_pos == 0x85)
-+			report_id = *(ref_pos + 1);
-+		if (*ref_pos == 0xA1)
++			report_id = ftec_rdesc_item_value(ref_pos, size);
++		if (*ref_pos == 0xA1) {
++			if (depth == 0)
++				top_usage = usage;
 +			++depth;
++		}
 +		if (false && *ref_pos == 0x09 && *(ref_pos + 1) == 0x31 &&
 +		    report_id == 1) {
 +			// skip logical/physical max in original descriptor
@@ -12293,15 +12339,25 @@ index 0000000..45281c0
 +				      int reqtype)
 +{
 +	struct ftec_drv_data *drv_data = hdev->driver_data;
-+	struct hid_input *hidinput =
-+		list_entry(drv_data->hid->inputs.next, struct hid_input, list);
-+	struct input_dev *inputdev = hidinput->input;
-+	struct ff_device *ff = hidinput->input->ff;
++	struct hid_input *hidinput;
++	struct input_dev *inputdev;
++	struct ff_device *ff;
++
++	if (!drv_data || !drv_data->hid)
++		return -ENODEV;
 +
 +	if (reportnum <= 2 || reportnum == 255) {
 +		// forward these reports directly to the device
 +		return hid_hw_output_report(drv_data->hid, buf, count);
 +	}
++
++	if (list_empty(&drv_data->hid->inputs))
++		return -ENODEV;
++
++	hidinput = list_first_entry(&drv_data->hid->inputs, struct hid_input,
++				    list);
++	inputdev = hidinput->input;
++	ff = inputdev->ff;
 +
 +	// DEBUG("ftec_client_ll_raw_request num %2u, count %2lu, rep type %#02x, req
 +	// type %#02x", reportnum, count, report_type, reqtype);
@@ -12370,6 +12426,11 @@ index 0000000..45281c0
 +        */
 +	client_hdev->group = HID_GROUP_STEAM;
 +	return client_hdev;
++}
++
++static bool ftec_hw_open_required(struct ftec_drv_data *drv_data)
++{
++	return drv_data->quirks & FTEC_TUNING_MENU || hidraw_pid;
 +}
 +
 +static int ftec_probe(struct hid_device *hdev, const struct hid_device_id *id)
@@ -12442,13 +12503,13 @@ index 0000000..45281c0
 +		goto err_stop;
 +	}
 +
-+	if (drv_data->quirks & FTEC_TUNING_MENU || hidraw_pid) {
++	if (ftec_hw_open_required(drv_data)) {
 +		/* Open the device to receive reports with tuning menu data and device state
 +         */
 +		ret = hid_hw_open(hdev);
 +		if (ret < 0) {
 +			hid_err(hdev, "hw open failed\n");
-+			goto err_client;
++			goto err_stop;
 +		}
 +	}
 +
@@ -12511,6 +12572,8 @@ index 0000000..45281c0
 +err_client:
 +	if (drv_data->client.hdev)
 +		hid_destroy_device(drv_data->client.hdev);
++	if (ftec_hw_open_required(drv_data))
++		hid_hw_close(hdev);
 +err_stop:
 +	hid_hw_stop(hdev);
 +err_free:
@@ -12525,6 +12588,10 @@ index 0000000..45281c0
 +	if (!drv_data || hdev->group == HID_GROUP_STEAM) {
 +		hid_hw_stop(hdev);
 +		return;
++	}
++
++	if (drv_data->quirks & FTEC_FF) {
++		ftecff_remove(hdev);
 +	}
 +
 +	if (drv_data->client.hdev) {
@@ -12542,11 +12609,8 @@ index 0000000..45281c0
 +		device_remove_file(&hdev->dev, &dev_attr_rumble);
 +	}
 +
-+	if (drv_data->quirks & FTEC_FF) {
-+		ftecff_remove(hdev);
-+	}
-+
-+	hid_hw_close(hdev);
++	if (ftec_hw_open_required(drv_data))
++		hid_hw_close(hdev);
 +	hid_hw_stop(hdev);
 +	kfree(drv_data);
 +}
@@ -12672,7 +12736,7 @@ index 0000000..45281c0
 +	{ HID_USB_DEVICE(FANATEC_VENDOR_ID, CLUBSPORT_V2_WHEELBASE_DEVICE_ID),
 +	  .driver_data = FTEC_FF },
 +	{ HID_USB_DEVICE(FANATEC_VENDOR_ID, CLUBSPORT_V25_WHEELBASE_DEVICE_ID),
-+	  .driver_data = FTEC_FF },
++	  .driver_data = FTEC_FF | FTEC_EVENT_DRIVEN },
 +	{ HID_USB_DEVICE(FANATEC_VENDOR_ID, CLUBSPORT_PEDALS_V3_DEVICE_ID),
 +	  .driver_data = FTEC_PEDALS },
 +	{ HID_USB_DEVICE(FANATEC_VENDOR_ID, CSL_ELITE_WHEELBASE_DEVICE_ID),
@@ -12680,7 +12744,7 @@ index 0000000..45281c0
 +			 FTEC_HIGHRES },
 +	{ HID_USB_DEVICE(FANATEC_VENDOR_ID, CSL_ELITE_PS4_WHEELBASE_DEVICE_ID),
 +	  .driver_data = FTEC_FF | FTEC_TUNING_MENU | FTEC_WHEELBASE_LEDS |
-+			 FTEC_HIGHRES },
++			 FTEC_HIGHRES | FTEC_EVENT_DRIVEN },
 +	{ HID_USB_DEVICE(FANATEC_VENDOR_ID, CSL_ELITE_PEDALS_DEVICE_ID),
 +	  .driver_data = FTEC_PEDALS },
 +	{ HID_USB_DEVICE(FANATEC_VENDOR_ID, CSL_LC_PEDALS_DEVICE_ID),
@@ -12688,11 +12752,14 @@ index 0000000..45281c0
 +	{ HID_USB_DEVICE(FANATEC_VENDOR_ID, CSL_LC_V2_PEDALS_DEVICE_ID),
 +	  .driver_data = FTEC_PEDALS },
 +	{ HID_USB_DEVICE(FANATEC_VENDOR_ID, PODIUM_WHEELBASE_DD1_DEVICE_ID),
-+	  .driver_data = FTEC_FF | FTEC_TUNING_MENU | FTEC_HIGHRES },
++	  .driver_data = FTEC_FF | FTEC_TUNING_MENU | FTEC_HIGHRES |
++			 FTEC_EVENT_DRIVEN },
 +	{ HID_USB_DEVICE(FANATEC_VENDOR_ID, PODIUM_WHEELBASE_DD2_DEVICE_ID),
-+	  .driver_data = FTEC_FF | FTEC_TUNING_MENU | FTEC_HIGHRES },
++	  .driver_data = FTEC_FF | FTEC_TUNING_MENU | FTEC_HIGHRES |
++			 FTEC_EVENT_DRIVEN },
 +	{ HID_USB_DEVICE(FANATEC_VENDOR_ID, CSL_DD_WHEELBASE_DEVICE_ID),
-+	  .driver_data = FTEC_FF | FTEC_TUNING_MENU | FTEC_HIGHRES },
++	  .driver_data = FTEC_FF | FTEC_TUNING_MENU | FTEC_HIGHRES |
++			 FTEC_EVENT_DRIVEN },
 +	{ HID_USB_DEVICE(FANATEC_VENDOR_ID, CSR_ELITE_WHEELBASE_DEVICE_ID),
 +	  .driver_data = FTEC_FF },
 +	{ HID_USB_DEVICE(FANATEC_VENDOR_ID, PORSCHE_911_WHEELBASE_DEVICE_ID),
@@ -12711,9 +12778,9 @@ index 0000000..45281c0
 +	.raw_event = ftec_raw_event,
 +};
 +
-+static struct class * _class_create(const char * name)
++static struct class *_class_create(const char *name)
 +{
-+	struct class* _class;
++	struct class *_class;
 +
 +#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
 +	_class = class_create(name);
@@ -12721,7 +12788,6 @@ index 0000000..45281c0
 +	ftec_wheel_class = class_create(THIS_MODULE, name);
 +#endif
 +	return _class;
-+
 +}
 +
 +static int __init fanatec_module_init(void)
@@ -12770,10 +12836,10 @@ index 0000000..45281c0
 +MODULE_DESCRIPTION("A driver for the Fanatec CSL Elite");
 diff --git a/drivers/custom/fanatecff/hid-ftec.h b/drivers/custom/fanatecff/hid-ftec.h
 new file mode 100644
-index 0000000..7096720
+index 0000000..255e982
 --- /dev/null
 +++ b/drivers/custom/fanatecff/hid-ftec.h
-@@ -0,0 +1,262 @@
+@@ -0,0 +1,268 @@
 +#ifndef __HID_FTEC_H
 +#define __HID_FTEC_H
 +
@@ -12858,6 +12924,7 @@ index 0000000..7096720
 +#define FTEC_WHEELBASE_LEDS 0x004
 +#define FTEC_HIGHRES 0x008
 +#define FTEC_TUNING_MENU 0x010
++#define FTEC_EVENT_DRIVEN 0x080
 +
 +// report sizes
 +#define FTEC_TUNING_REPORT_SIZE 64
@@ -12963,6 +13030,7 @@ index 0000000..7096720
 +	u16 fw_version;
 +	u8 fw_version_rim;
 +	struct work_struct wheel_work;
++	struct work_struct event_driven_init_work;
 +	struct ftec_tuning_classdev tuning;
 +	struct ftec_wheel_classdev wheel;
 +	u8 last_tuning_event[FTEC_TUNING_REPORT_SIZE];
@@ -12970,8 +13038,8 @@ index 0000000..7096720
 +};
 +
 +#define FTEC_TUNING_ATTRS                                                  \
-+	FTEC_TUNING_ATTR(SLOT, 0x02, "Slot", ftec_conv_noop_to,            \
-+			 ftec_conv_noop_from, 1, 5)                        \
++	FTEC_TUNING_ATTR(SLOT, 0x02, "Slot", ftec_conv_minus_one,          \
++			 ftec_conv_plus_one, 1, 5)                         \
 +	FTEC_TUNING_ATTR(SEN, 0x03, "Sensivity", ftec_conv_sens_to,        \
 +			 ftec_conv_sens_from, 90, 0)                       \
 +	FTEC_TUNING_ATTR(FF, 0x04, "Force Feedback Strength",              \
@@ -13024,6 +13092,10 @@ index 0000000..7096720
 +int ftec_tuning_classdev_register(struct device *,
 +				  struct ftec_tuning_classdev *);
 +void ftec_tuning_classdev_unregister(struct ftec_tuning_classdev *);
++int ftec_tuning_init(struct hid_device *);
++int ftec_tuning_request_data(struct hid_device *);
++int ftec_tuning_request_info(struct hid_device *);
++int ftec_tuning_request(struct hid_device *);
 +ssize_t _ftec_tuning_show(struct device *, enum ftec_tuning_attrs_enum, char *);
 +ssize_t _ftec_tuning_store(struct device *, enum ftec_tuning_attrs_enum,
 +			   const char *, size_t);
@@ -13038,10 +13110,10 @@ index 0000000..7096720
 +#endif
 diff --git a/drivers/custom/fanatecff/hid-ftecff-tuning.c b/drivers/custom/fanatecff/hid-ftecff-tuning.c
 new file mode 100644
-index 0000000..33563d0
+index 0000000..c0ad965
 --- /dev/null
 +++ b/drivers/custom/fanatecff/hid-ftecff-tuning.c
-@@ -0,0 +1,393 @@
+@@ -0,0 +1,470 @@
 +#include <linux/module.h>
 +#include <linux/hid.h>
 +
@@ -13103,6 +13175,16 @@ index 0000000..33563d0
 +	return (s8)val;
 +};
 +
++static int ftec_conv_minus_one(struct ftec_drv_data *drv_data, u8 val)
++{
++	return val - 1;
++};
++
++static u8 ftec_conv_plus_one(struct ftec_drv_data *drv_data, int val)
++{
++	return val + 1;
++};
++
 +static int ftec_conv_noop_to(struct ftec_drv_data *drv_data, u8 val)
 +{
 +	return val;
@@ -13119,6 +13201,61 @@ index 0000000..33563d0
 +	FTEC_TUNING_ATTRS
 +#undef FTEC_TUNING_ATTR
 +};
++
++static int ftec_tuning_send(struct hid_device *hid, u8 subcmd, u8 val)
++{
++	u8 *buf = kzalloc(8, GFP_KERNEL);
++	int ret;
++
++	if (!buf)
++		return -ENOMEM;
++
++	buf[0] = 0xff;
++	buf[1] = 0x08;
++	buf[2] = subcmd;
++	buf[3] = val;
++
++	ret = hid_hw_output_report(hid, buf, 8);
++	kfree(buf);
++	return ret;
++}
++
++int ftec_tuning_request_data(struct hid_device *hid)
++{
++	return ftec_tuning_send(hid, 0x01, 0xff);
++}
++
++int ftec_tuning_request_info(struct hid_device *hid)
++{
++	return ftec_tuning_send(hid, 0x02, 0x00);
++}
++
++int ftec_tuning_request(struct hid_device *hid)
++{
++	u8 *buf = kzalloc(FTEC_TUNING_REPORT_SIZE, GFP_KERNEL);
++	int ret;
++
++	if (!buf)
++		return -ENOMEM;
++
++	buf[0] = 0xff;
++	buf[1] = 0x03;
++	buf[2] = 0x02;
++
++	ret = hid_hw_output_report(hid, buf, FTEC_TUNING_REPORT_SIZE);
++	kfree(buf);
++	return ret;
++}
++
++int ftec_tuning_init(struct hid_device *hid)
++{
++	int ret = ftec_tuning_request_data(hid);
++
++	if (ret < 0)
++		return ret;
++
++	return ftec_tuning_request_info(hid);
++}
 +
 +static int ftec_tuning_write(struct hid_device *hid, int addr, int val)
 +{
@@ -13150,7 +13287,7 @@ index 0000000..33563d0
 +ftec_tuning_get_id(struct device_attribute *attr)
 +{
 +	int idx = 0;
-+	for (; idx < sizeof(ftec_tuning_attrs); idx++) {
++	for (; idx < ARRAY_SIZE(ftec_tuning_attrs); idx++) {
 +		if (strcmp(attr->attr.name, ftec_tuning_attrs[idx].name) == 0) {
 +			return ftec_tuning_attrs[idx].id;
 +		}
@@ -13165,12 +13302,15 @@ index 0000000..33563d0
 +	struct hid_device *hid = to_hid_device(dev->parent);
 +	struct ftec_drv_data *drv_data = hid_get_drvdata(hid);
 +	const struct ftec_tuning_attr_t *tuning_attr = &ftec_tuning_attrs[id];
-+	return scnprintf(
-+		buf, PAGE_SIZE, "%i\n",
-+		tuning_attr->conv_to(
-+			drv_data,
-+			drv_data->tuning
-+				.ftec_tuning_data[tuning_attr->addr + 1]));
++	const int val = tuning_attr->conv_to(
++		drv_data,
++		drv_data->tuning.ftec_tuning_data[tuning_attr->addr + 1]);
++
++	if (id == SLOT && val == 0) {
++		return scnprintf(buf, PAGE_SIZE, "auto\n");
++	}
++
++	return scnprintf(buf, PAGE_SIZE, "%i\n", val);
 +}
 +
 +static ssize_t ftec_tuning_show(struct device *dev,
@@ -13200,9 +13340,13 @@ index 0000000..33563d0
 +		return -EINVAL;
 +	}
 +
-+	if (kstrtos32(buf, 0, &val) != 0) {
-+		hid_err(hid, "Invalid value %s!\n", buf);
-+		return -EINVAL;
++	if (id == SLOT && sysfs_streq(buf, "auto")) {
++		val = 0;
++	} else {
++		if (kstrtos32(buf, 0, &val) != 0) {
++			hid_err(hid, "Invalid value %s!\n", buf);
++			return -EINVAL;
++		}
 +	}
 +
 +	/* special case for SEN, max value is device specific */
@@ -13216,9 +13360,11 @@ index 0000000..33563d0
 +
 +	/* check if value is in range */
 +	if (val < tuning_attr->min || val > _max) {
-+		hid_err(hid, "Value %i out of range [%i, %i]!\n", val,
-+			tuning_attr->min, _max);
-+		return -EINVAL;
++		if (id != SLOT || val != 0) {
++			hid_err(hid, "Value %i out of range [%i, %i]!\n", val,
++				tuning_attr->min, _max);
++			return -EINVAL;
++		}
 +	}
 +
 +	/* convert value to device specific value */
@@ -13387,10 +13533,12 @@ index 0000000..33563d0
 +void ftec_tuning_classdev_unregister(
 +	struct ftec_tuning_classdev *ftec_tuning_cdev)
 +{
-+	struct hid_device *hdev = to_hid_device(ftec_tuning_cdev->dev->parent);
++	struct hid_device *hdev;
 +
 +	if (IS_ERR_OR_NULL(ftec_tuning_cdev->dev))
 +		return;
++
++	hdev = to_hid_device(ftec_tuning_cdev->dev->parent);
 +
 +#define REMOVE_SYSFS_FILE(name) \
 +	device_remove_file(ftec_tuning_cdev->dev, &dev_attr_##name);
@@ -13434,6 +13582,7 @@ index 0000000..33563d0
 +	}
 +
 +	device_unregister(ftec_tuning_cdev->dev);
++	ftec_tuning_cdev->dev = NULL;
 +}
 diff --git a/drivers/custom/fanatecff/hid-ftecff-wheel.c b/drivers/custom/fanatecff/hid-ftecff-wheel.c
 new file mode 100644
@@ -13894,10 +14043,10 @@ index 0000000..a6b886d
 +}
 diff --git a/drivers/custom/fanatecff/hid-ftecff.c b/drivers/custom/fanatecff/hid-ftecff.c
 new file mode 100644
-index 0000000..d4afa9a
+index 0000000..baffc6b
 --- /dev/null
 +++ b/drivers/custom/fanatecff/hid-ftecff.c
-@@ -0,0 +1,1471 @@
+@@ -0,0 +1,1593 @@
 +#include <linux/module.h>
 +#include <linux/device.h>
 +#include <linux/hid.h>
@@ -13907,6 +14056,7 @@ index 0000000..d4afa9a
 +#include <linux/hrtimer.h>
 +#include <linux/fixp-arith.h>
 +#include <linux/version.h>
++#include <linux/delay.h>
 +
 +#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 12, 0)
 +#include <linux/unaligned.h>
@@ -13919,11 +14069,22 @@ index 0000000..d4afa9a
 +// parameter to set the initial range
 +// if unset, the wheels max range is used
 +int init_range = 0;
-+module_param(init_range, int, 0);
++module_param(init_range, int, 0660);
++MODULE_PARM_DESC(
++	init_range,
++	"Initial wheel range in degrees; 0 uses the wheelbase maximum/AUTO");
++
++// parameter to enable profile debug messages
++static int profile = 0;
++module_param(profile, int, 0660);
++MODULE_PARM_DESC(profile, "Enable profile debug messages.");
 +
 +// parameter to enable detailed raw-event logging
 +unsigned long debug_raw_event = 0;
-+module_param(debug_raw_event, ulong, 0);
++module_param(debug_raw_event, ulong, 0660);
++MODULE_PARM_DESC(
++	debug_raw_event,
++	"Bitmask for raw event logging (bit 0: wheel report, bit 1: tuning report)");
 +#define DEBUG_RAW_EVENT_WHEEL_REPORT 0
 +#define DEBUG_RAW_EVENT_TUNING_REPORT 1
 +
@@ -13955,10 +14116,6 @@ index 0000000..d4afa9a
 +#define JIFFIES2MS(jiffies) ((jiffies) * 1000 / HZ)
 +
 +static int timer_msecs = DEFAULT_TIMER_PERIOD;
-+
-+static int profile = 1;
-+module_param(profile, int, 0660);
-+MODULE_PARM_DESC(profile, "Enable profile debug messages.");
 +
 +static const signed short ftecff_wheel_effects[] = {
 +	FF_CONSTANT, FF_SPRING,	  FF_DAMPER,   FF_INERTIA,
@@ -14134,6 +14291,25 @@ index 0000000..d4afa9a
 +	spin_unlock_irqrestore(&drv_data->report_lock, flags);
 +}
 +
++static bool ftec_use_init_range(struct hid_device *hdev,
++				struct ftec_drv_data *drv_data)
++{
++	if (init_range <= 0)
++		return false;
++
++	if (init_range > drv_data->max_range ||
++	    init_range < drv_data->min_range) {
++		hid_warn(
++			hdev,
++			"Invalid init_range %i; ignoring it (valid range %u-%u)\n",
++			init_range, drv_data->min_range, drv_data->max_range);
++		init_range = -1;
++		return false;
++	}
++
++	return true;
++}
++
 +/* Export the currently set range of the wheel */
 +static ssize_t ftec_range_show(struct device *dev,
 +			       struct device_attribute *attr, char *buf)
@@ -14203,13 +14379,12 @@ index 0000000..d4afa9a
 +
 +/* Export the rim type (rim index byte as sent by the wheel-base) */
 +static ssize_t ftec_rim_id_show(struct device *dev,
-+				  struct device_attribute *attr, char *buf)
++				struct device_attribute *attr, char *buf)
 +{
 +	struct ftec_drv_data *drv_data = hid_get_drvdata(to_hid_device(dev));
 +	return scnprintf(buf, PAGE_SIZE, "%u\n", drv_data->rim_id);
 +}
-+static DEVICE_ATTR(rim_id, S_IRUSR | S_IRGRP | S_IROTH, ftec_rim_id_show,
-+		   NULL);
++static DEVICE_ATTR(rim_id, S_IRUSR | S_IRGRP | S_IROTH, ftec_rim_id_show, NULL);
 +
 +/* Export the wheel type (Fanatec SDK/Windows driver wheel-base-family id) */
 +static ssize_t ftec_wheel_type_show(struct device *dev,
@@ -14617,11 +14792,13 @@ index 0000000..d4afa9a
 +		if (enable_highres_dynamic_effects) {
 +			slot->current_cmd[2] = SCALE_COEFF(parameters->k1, 8);
 +			slot->current_cmd[4] = SCALE_COEFF(parameters->k2, 8);
-+			slot->current_cmd[6] = SCALE_VALUE_U16(parameters->clip, 8);
++			slot->current_cmd[6] =
++				SCALE_VALUE_U16(parameters->clip, 8);
 +		} else {
 +			slot->current_cmd[2] = SCALE_COEFF(parameters->k1, 4);
 +			slot->current_cmd[4] = SCALE_COEFF(parameters->k2, 4);
-+			slot->current_cmd[6] = SCALE_VALUE_U16(parameters->clip, 8);
++			slot->current_cmd[6] =
++				SCALE_VALUE_U16(parameters->clip, 8);
 +		}
 +		break;
 +	}
@@ -15093,6 +15270,101 @@ index 0000000..d4afa9a
 +	return FTEC_WHEELTYPE_UNKNOWN;
 +}
 +
++static void ftec_event_driven_init(struct ftec_drv_data *drv_data)
++{
++	struct hid_device *hdev = drv_data->hid;
++	unsigned long flags;
++	int ret;
++	s32 *value;
++
++	ret = ftec_tuning_init(hdev);
++	if (ret < 0)
++		hid_warn(hdev, "failed to initialize tuning menu: %d\n", ret);
++
++	spin_lock_irqsave(&drv_data->report_lock, flags);
++	value = drv_data->report->field[0]->value;
++	value[0] = 0xf8;
++	value[1] = 0x09;
++	value[2] = 0x01;
++	value[3] = 0x06;
++	value[4] = 0xff;
++	value[5] = 0x01;
++	value[6] = 0x00;
++	send_report_request_to_device(drv_data);
++	value[5] = 0x00;
++	send_report_request_to_device(drv_data);
++	value[5] = 0x04;
++	send_report_request_to_device(drv_data);
++	spin_unlock_irqrestore(&drv_data->report_lock, flags);
++
++	hid_hw_wait(hdev);
++
++	ret = ftec_tuning_request_data(hdev);
++	if (ret < 0)
++		hid_warn(hdev, "failed to request tuning data: %d\n", ret);
++
++	ret = ftec_tuning_request(hdev);
++	if (ret < 0)
++		hid_warn(hdev, "failed to request tuning menu: %d\n", ret);
++
++	spin_lock_irqsave(&drv_data->report_lock, flags);
++	value = drv_data->report->field[0]->value;
++	value[0] = 0xf5;
++	value[1] = 0x00;
++	value[2] = 0x00;
++	value[3] = 0x00;
++	value[4] = 0x00;
++	value[5] = 0x00;
++	value[6] = 0x00;
++	send_report_request_to_device(drv_data);
++	spin_unlock_irqrestore(&drv_data->report_lock, flags);
++
++	hid_hw_wait(hdev);
++
++	ret = ftec_tuning_request_info(hdev);
++	if (ret < 0)
++		hid_warn(hdev, "failed to request device info: %d\n", ret);
++
++	spin_lock_irqsave(&drv_data->report_lock, flags);
++	value = drv_data->report->field[0]->value;
++	value[0] = 0xf8;
++	value[1] = 0x09;
++	value[2] = 0x01;
++	value[3] = 0x05;
++	value[4] = 0x00;
++	value[5] = 0x00;
++	value[6] = 0x00;
++	send_report_request_to_device(drv_data);
++	spin_unlock_irqrestore(&drv_data->report_lock, flags);
++
++	hid_hw_wait(hdev);
++
++	if (ftec_use_init_range(hdev, drv_data)) {
++		ftec_set_range(hdev, init_range);
++		drv_data->range = init_range;
++		hid_hw_wait(hdev);
++
++		if ((drv_data->quirks & FTEC_TUNING_MENU) &&
++		    !IS_ERR_OR_NULL(drv_data->tuning.dev)) {
++			ret = ftec_tuning_request_data(hdev);
++			if (ret < 0)
++				hid_warn(hdev,
++					 "failed to refresh tuning data: %d\n",
++					 ret);
++			else
++				msleep(20);
++		}
++	}
++}
++
++static void ftec_event_driven_init_work(struct work_struct *work)
++{
++	struct ftec_drv_data *drv_data = container_of(
++		work, struct ftec_drv_data, event_driven_init_work);
++
++	ftec_event_driven_init(drv_data);
++}
++
 +int ftecff_init(struct hid_device *hdev)
 +{
 +	struct ftec_drv_data *drv_data = hid_get_drvdata(hdev);
@@ -15102,6 +15374,7 @@ index 0000000..d4afa9a
 +	struct ff_device *ff;
 +	unsigned long flags;
 +	int ret, j;
++	bool use_init_range;
 +	s32 *value;
 +
 +	dbg_hid(" ... setting FF bits");
@@ -15119,26 +15392,10 @@ index 0000000..d4afa9a
 +	ff->playback = ftecff_play_effect;
 +	ff->destroy = ftecff_destroy;
 +
-+	/* init sequence */
-+	{
-+		/* tuning menu initialization? */
-+		/*
-+		if (drv_data->quirks & FTEC_TUNING_MENU) {
-+			u8 buf[] = {
-+				0xff, 0x08, 0x01, 0xff, 0x0, 0x0, 0x0, 0x0
-+			};
-+			ret = hid_hw_output_report(hdev, &buf[0], 8);
-+			buf[2] = 0x2;
-+			buf[3] = 0x0;
-+			ret = hid_hw_output_report(hdev, &buf[0], 8);
-+			// FIXME: does this work to fetch current tuning menu values?
-+			buf[1] = 0x03;
-+			buf[2] = 0x02;
-+			ret = hid_hw_output_report(hdev, &buf[0], 8);
-+		}
-+		*/
-+
-+		/* common initialization? */
++	if (drv_data->quirks & FTEC_EVENT_DRIVEN) {
++		drv_data->range = drv_data->max_range;
++	} else {
++		/* Initialize subid state for device reports */
 +		spin_lock_irqsave(&drv_data->report_lock, flags);
 +		value = drv_data->report->field[0]->value;
 +		value[0] = 0xf8;
@@ -15149,24 +15406,18 @@ index 0000000..d4afa9a
 +		value[5] = 0x01;
 +		value[6] = 0x00;
 +		send_report_request_to_device(drv_data);
-+		value[5] = 0x0;
++		value[5] = 0x00;
 +		send_report_request_to_device(drv_data);
-+		value[5] = 0x4;
++		value[5] = 0x04;
 +		send_report_request_to_device(drv_data);
 +		spin_unlock_irqrestore(&drv_data->report_lock, flags);
-+	}
 +
-+	/* Set range so that centering spring gets disabled */
-+	if (init_range > 0 && (init_range > drv_data->max_range ||
-+			       init_range < drv_data->min_range)) {
-+		hid_warn(
-+			hdev,
-+			"Invalid init_range %i; using max range of %i instead\n",
-+			init_range, drv_data->max_range);
-+		init_range = -1;
++		/* Set range so that centering spring gets disabled */
++		use_init_range = ftec_use_init_range(hdev, drv_data);
++		drv_data->range = use_init_range ? init_range :
++						   drv_data->max_range;
++		ftec_set_range(hdev, drv_data->range);
 +	}
-+	drv_data->range = init_range > 0 ? init_range : drv_data->max_range;
-+	ftec_set_range(hdev, drv_data->range);
 +
 +	drv_data->wheel_type = ftec_wheel_type_from_pid(hdev->product);
 +
@@ -15213,6 +15464,10 @@ index 0000000..d4afa9a
 +	hid_info(hdev, "Hires timer: period = %d ms", timer_msecs);
 +
 +	INIT_WORK(&drv_data->wheel_work, ftec_register_wheel_handler);
++	INIT_WORK(&drv_data->event_driven_init_work,
++		  ftec_event_driven_init_work);
++	if (drv_data->quirks & FTEC_EVENT_DRIVEN)
++		schedule_work(&drv_data->event_driven_init_work);
 +
 +	return 0;
 +}
@@ -15221,6 +15476,7 @@ index 0000000..d4afa9a
 +{
 +	struct ftec_drv_data *drv_data = hid_get_drvdata(hdev);
 +
++	cancel_work_sync(&drv_data->event_driven_init_work);
 +	hrtimer_cancel(&drv_data->hrtimer);
 +	ftecff_stop_effects(drv_data);
 +
@@ -15281,6 +15537,7 @@ index 0000000..d4afa9a
 +		last = drv_data->last_wheel_event;
 +	} else {
 +		hid_err(hdev, "invalid size %i\n", size);
++		return;
 +	}
 +
 +	p = buf;
@@ -15306,6 +15563,23 @@ index 0000000..d4afa9a
 +	memcpy(last, data, size);
 +}
 +
++static void ftec_update_rim(struct ftec_drv_data *drv_data, u8 rim_id,
++			    u8 fw_version_rim)
++{
++	struct hid_device *hdev = drv_data->hid;
++
++	if (drv_data->rim_id != rim_id) {
++		hid_dbg(hdev, "Rim changed to rim_id %u (rim fw %u)\n", rim_id,
++			fw_version_rim);
++		drv_data->rim_id = rim_id;
++		drv_data->fw_version_rim = fw_version_rim;
++		schedule_work(&drv_data->wheel_work);
++	} else if (drv_data->fw_version_rim != fw_version_rim) {
++		hid_dbg(hdev, "Rim fw changed to %u\n", fw_version_rim);
++		drv_data->fw_version_rim = fw_version_rim;
++	}
++}
++
 +int ftecff_raw_event(struct hid_device *hdev, struct hid_report *report,
 +		     u8 *data, int size)
 +{
@@ -15325,10 +15599,18 @@ index 0000000..d4afa9a
 +		if (!(IS_ERR_OR_NULL(drv_data->tuning.dev)))
 +			kobject_uevent(&drv_data->tuning.dev->kobj,
 +				       KOBJ_CHANGE);
++	} else if (data[0] == 0xff && size == FTEC_TUNING_REPORT_SIZE &&
++		   data[1] == 0x08 && (data[2] == 0x0a || data[2] == 0x0b)) {
++		u8 rim_id = data[24];
++		u8 fw_version_rim = data[data[2] == 0x0b ? 26 : 25];
++
++		if (rim_id != 0 && rim_id != 0xff)
++			ftec_update_rim(drv_data, rim_id, fw_version_rim);
 +	} else if (data[0] == 0x01 && size == FTEC_WHEEL_REPORT_SIZE) {
 +		if (hdev->product == CSR_ELITE_WHEELBASE_DEVICE_ID ||
 +		    hdev->product == PORSCHE_911_WHEELBASE_DEVICE_ID) {
-+			u8 wheel_type = ftec_wheel_type_from_legacy_report(data);
++			u8 wheel_type =
++				ftec_wheel_type_from_legacy_report(data);
 +			if (wheel_type != FTEC_WHEELTYPE_UNKNOWN)
 +				drv_data->wheel_type = wheel_type;
 +		}
@@ -15353,25 +15635,14 @@ index 0000000..d4afa9a
 +				&data[FTEC_WHEEL_REPORT_SIZE - 2]);
 +			rim_id = data[FTEC_WHEEL_REPORT_SIZE - 4];
 +			fw_version_rim = data[FTEC_WHEEL_REPORT_SIZE - 3];
-+			if (drv_data->rim_id != rim_id) {
-+				hid_dbg(hdev,
-+					"Rim changed to rim_id %u (rim fw %u)\n",
-+					rim_id, fw_version_rim);
-+				drv_data->rim_id = rim_id;
-+				drv_data->fw_version_rim = fw_version_rim;
-+				schedule_work(&drv_data->wheel_work);
-+			} else if (drv_data->fw_version_rim != fw_version_rim) {
-+				hid_dbg(hdev, "Rim fw changed to %u\n",
-+					fw_version_rim);
-+				drv_data->fw_version_rim = fw_version_rim;
-+			}
++			ftec_update_rim(drv_data, rim_id, fw_version_rim);
 +		}
 +	}
 +	return 0;
 +}
 # ----------------------------------------
 # Module: hid-tmff2
-# Version: c5b9b79
+# Version: 7a1274d
 # ----------------------------------------
 diff --git a/drivers/custom/hid-tmff2/Kbuild b/drivers/custom/hid-tmff2/Kbuild
 new file mode 100644
@@ -15389,7 +15660,7 @@ index 0000000..8cabb2b
 +		src/tmtspc/hid-tmtspc.o
 diff --git a/drivers/custom/hid-tmff2/Makefile b/drivers/custom/hid-tmff2/Makefile
 new file mode 100644
-index 0000000..ad52621
+index 0000000..fe396de
 --- /dev/null
 +++ b/drivers/custom/hid-tmff2/Makefile
 @@ -0,0 +1,24 @@
@@ -15402,10 +15673,6 @@ index 0000000..ad52621
 +	$(MAKE) -C $(KDIR) M=$(shell pwd) modules_install
 +	depmod -A
 +
-+.PHONY: udev-rules
-+udev-rules:
-+	install -m 0644 udev/99-thrustmaster.rules /etc/udev/rules.d/
-+
 +.PHONY: steamdeck-rules
 +steamdeck-rules:
 +	install -m 0644 udev/71-thrustmaster-steamdeck.rules /etc/udev/rules.d/
@@ -15413,16 +15680,20 @@ index 0000000..ad52621
 +clean: deps/hid-tminit
 +	$(MAKE) -C $(KDIR) M=$(shell pwd) clean
 +
++.PHONY: tweaks
++tweaks:
++	install -m 0644 modprobe/hid-tmff2-xpad.conf /etc/modprobe.d/
++	install -m 0644 udev/99-t-lcm.rules /etc/udev/rules.d/
 +
 +.PHONY: deps/hid-tminit
 +deps/hid-tminit:
 +	$(MAKE) -C deps/hid-tminit KDIR="$(KDIR)" $(MAKECMDGOALS)
 diff --git a/drivers/custom/hid-tmff2/src/hid-tmff2.c b/drivers/custom/hid-tmff2/src/hid-tmff2.c
 new file mode 100644
-index 0000000..55e2173
+index 0000000..3ccd2b4
 --- /dev/null
 +++ b/drivers/custom/hid-tmff2/src/hid-tmff2.c
-@@ -0,0 +1,858 @@
+@@ -0,0 +1,859 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#include <linux/workqueue.h>
 +#include <linux/module.h>
@@ -15475,7 +15746,7 @@ index 0000000..55e2173
 +
 +static u16 tmff2_scale_gain(u16 value)
 +{
-+	return (u32)value * gain / GAIN_MAX;
++	return DIV_ROUND_CLOSEST((u32)value * gain, GAIN_MAX);
 +}
 +
 +static spinlock_t lock;
@@ -16280,18 +16551,20 @@ index 0000000..55e2173
 +};
 +module_hid_driver(tmff2_driver);
 +
++MODULE_DESCRIPTION("FFB for Thrustmaster wheels");
 +MODULE_LICENSE("GPL");
 diff --git a/drivers/custom/hid-tmff2/src/hid-tmff2.h b/drivers/custom/hid-tmff2/src/hid-tmff2.h
 new file mode 100644
-index 0000000..58ab8f3
+index 0000000..7be589a
 --- /dev/null
 +++ b/drivers/custom/hid-tmff2/src/hid-tmff2.h
-@@ -0,0 +1,154 @@
+@@ -0,0 +1,155 @@
 +/* SPDX-License-Identifier: GPL-2.0-or-later */
 +#ifndef __HID_TMFF2_H
 +#define __HID_TMFF2_H
 +
 +#include <linux/fixp-arith.h>
++#include <linux/math.h>
 +#include <linux/ktime.h>
 +#include <linux/input.h>
 +
@@ -16785,10 +17058,10 @@ index 0000000..9ac43d9
 +}
 diff --git a/drivers/custom/hid-tmff2/src/tmt300rs/hid-tmt300rs.c b/drivers/custom/hid-tmff2/src/tmt300rs/hid-tmt300rs.c
 new file mode 100644
-index 0000000..78e1939
+index 0000000..100f6a3
 --- /dev/null
 +++ b/drivers/custom/hid-tmff2/src/tmt300rs/hid-tmt300rs.c
-@@ -0,0 +1,1568 @@
+@@ -0,0 +1,1572 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#include <linux/usb.h>
 +#include <linux/hid.h>
@@ -17137,7 +17410,8 @@ index 0000000..78e1939
 +
 +static s32 t300rs_scale_direction(s16 level, u16 direction)
 +{
-+	return (s32)level * fixp_sin16(direction * 360 / 0x10000) / 0x7fff;
++	return DIV_S64_ROUND_CLOSEST((s64)level *
++		fixp_sin32_rad(direction, 0x10000), 0x7fffffff);
 +}
 +
 +static int16_t t300rs_calculate_constant_level(int16_t level, uint16_t direction)
@@ -17145,7 +17419,7 @@ index 0000000..78e1939
 +	s32 scaled_level = t300rs_scale_direction(level, direction);
 +
 +	/* the Windows driver uses the range [-16385;16381] */
-+	return scaled_level / 2;
++	return DIV_ROUND_CLOSEST(scaled_level, 2);
 +}
 +
 +static void t300rs_calculate_periodic_values(struct ff_effect *effect)
@@ -17166,7 +17440,8 @@ index 0000000..78e1939
 +	periodic->magnitude = min_t(s32, magnitude, S16_MAX);
 +
 +	/* the interval [0; 32677[ is used by the wheel for the [0; 360[ degree phase shift */
-+	periodic->phase = periodic->phase * 32677 / 0x10000;
++	periodic->phase = DIV_ROUND_CLOSEST((u32)periodic->phase * 32677,
++					    0x10000);
 +
 +	headroom = 0x7fff - periodic->magnitude;
 +	/* magnitude + offset cannot be outside the valid magnitude range, */
@@ -17210,7 +17485,7 @@ index 0000000..78e1939
 +		break;
 +	}
 +
-+	return coeff * input_level / 100;
++	return DIV_ROUND_CLOSEST((s32)coeff * input_level, 100);
 +}
 +
 +static uint16_t t300rs_calculate_saturation(uint16_t sat, uint16_t effect_type)
@@ -17220,7 +17495,7 @@ index 0000000..78e1939
 +	if(sat == 0)
 +		return max;
 +
-+	return sat * max / 0xffff;
++	return DIV_ROUND_CLOSEST((u32)sat * max, 0xffff);
 +}
 +
 +static void t300rs_calculate_deadband(int16_t *out_rband, int16_t *out_lband,
@@ -17228,8 +17503,10 @@ index 0000000..78e1939
 +{
 +	/* max deadband value is 0x7fff in either direction */
 +	/* deadband is the width of the deadzone, one direction is half of it */
-+	*out_rband = clamp(offset + (deadband / 2), -0x7fff, 0x7fff);
-+	*out_lband = clamp(offset - (deadband / 2), -0x7fff, 0x7fff);
++	*out_rband = clamp(offset + DIV_ROUND_CLOSEST(deadband, 2),
++				  -0x7fff, 0x7fff);
++	*out_lband = clamp(offset - DIV_ROUND_CLOSEST(deadband, 2),
++				  -0x7fff, 0x7fff);
 +}
 +
 +static void t300rs_calculate_ramp_parameters(uint16_t *out_slope,
@@ -17246,8 +17523,8 @@ index 0000000..78e1939
 +	end_level = t300rs_scale_direction(ramp->end_level,
 +					   effect->direction);
 +
-+	*out_slope = abs(start_level - end_level) / 2;
-+	*out_center = clamp_t(s32, (start_level + end_level) / 2,
++	*out_slope = DIV_ROUND_CLOSEST(abs(start_level - end_level), 2);
++	*out_center = clamp_t(s32, DIV_ROUND_CLOSEST(start_level + end_level, 2),
 +			      S16_MIN, S16_MAX);
 +
 +	*out_invert = (start_level < end_level) ? 0x04 : 0x05;
@@ -52737,7 +53014,7 @@ index 0000000..c85654a
 +static int t150_setup_task(struct t150 *t150);
 # ----------------------------------------
 # Module: v4l2loopback
-# Version: e27cd86
+# Version: 442d720
 # ----------------------------------------
 diff --git a/drivers/custom/v4l2loopback/Kbuild b/drivers/custom/v4l2loopback/Kbuild
 new file mode 100644
@@ -57120,10 +57397,10 @@ index 0000000..ba99602
 +}
 diff --git a/drivers/custom/v4l2loopback/v4l2loopback.c b/drivers/custom/v4l2loopback/v4l2loopback.c
 new file mode 100644
-index 0000000..af9ec3e
+index 0000000..ec2ec94
 --- /dev/null
 +++ b/drivers/custom/v4l2loopback/v4l2loopback.c
-@@ -0,0 +1,3375 @@
+@@ -0,0 +1,3399 @@
 +/* -*- c-file-style: "linux" -*- */
 +/*
 + * v4l2loopback.c  --  video4linux2 loopback driver
@@ -58018,6 +58295,7 @@ index 0000000..af9ec3e
 +static void check_timers(struct v4l2_loopback_device *dev);
 +static const struct v4l2_file_operations v4l2_loopback_fops;
 +static const struct v4l2_ioctl_ops v4l2_loopback_ioctl_ops;
++static void notify_mode_change(struct v4l2_loopback_device *dev, int mode);
 +
 +/* V4L2 ioctl caps and params calls */
 +/* returns device capabilities
@@ -59188,6 +59466,7 @@ index 0000000..af9ec3e
 +	struct v4l2_loopback_device *dev = v4l2loopback_getdevice(file);
 +	struct v4l2_loopback_opener *opener = v4l2l_f_to_opener(file, fh);
 +	u32 token = token_from_type(type);
++	u32 streamtoken = dev->stream_tokens;
 +
 +	/* short-circuit when using timeout buffer set */
 +	if (opener->format_token & V4L2L_TOKEN_TIMEOUT)
@@ -59208,6 +59487,8 @@ index 0000000..af9ec3e
 +	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
 +		if (dev->stream_tokens & token)
 +			acquire_token(dev, opener, stream, token);
++		if (streamtoken != dev->stream_tokens)
++			notify_mode_change(dev, V4L2_BUF_TYPE_VIDEO_CAPTURE);
 +		return 0;
 +	default:
 +		return -EINVAL;
@@ -59223,6 +59504,7 @@ index 0000000..af9ec3e
 +	struct v4l2_loopback_device *dev = v4l2loopback_getdevice(file);
 +	struct v4l2_loopback_opener *opener = v4l2l_f_to_opener(file, fh);
 +	u32 token = token_from_type(type);
++	u32 streamtoken = dev->stream_tokens;
 +
 +	/* short-circuit when using timeout buffer set */
 +	if (opener->format_token & V4L2L_TOKEN_TIMEOUT)
@@ -59243,6 +59525,8 @@ index 0000000..af9ec3e
 +		/* reset output queue */
 +		if (dev->used_buffer_count > 0)
 +			prepare_buffer_queue(dev, dev->used_buffer_count);
++		if (streamtoken != dev->stream_tokens)
++			notify_mode_change(dev, V4L2_BUF_TYPE_VIDEO_OUTPUT);
 +		return 0;
 +	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
 +		if (opener->stream_token & token) {
@@ -59665,6 +59949,23 @@ index 0000000..af9ec3e
 +	wake_up_all(&dev->read_event);
 +
 +	return count;
++}
++
++/* notify the user when the device is ready for capture (or not)
++ * via udev
++ */
++static void notify_mode_change(struct v4l2_loopback_device *dev, int mode)
++{
++	int ret = 0;
++	char *envdata = (mode == V4L2_BUF_TYPE_VIDEO_CAPTURE) ?
++				"ID_V4L2LOOPBACK_CAPABILITIES=:capture:" :
++				"ID_V4L2LOOPBACK_CAPABILITIES=:video_output:";
++	char *envp[] = { envdata, NULL };
++	ret = kobject_uevent_env(&dev->vdev->dev.kobj, KOBJ_CHANGE, envp);
++
++	if (ret)
++		dev_warn(&dev->vdev->dev,
++			 "failed to emit mode-change uevent: %d\n", ret);
 +}
 +
 +/* init functions */
