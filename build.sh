@@ -70,10 +70,6 @@ printf 'ZFS_RELEASE is %s\n' "${ZFS_RELEASE}"
 
 command -v podman >/dev/null 2>&1 || die "podman is required"
 
-IMAGE_REPOSITORY="${IMAGE_REF%:*}"
-KERNEL_IMAGE_REF="${IMAGE_REPOSITORY}:f${FEDORA_VERSION}-${ARCH}-${TARFILE_RELEASE}"
-printf 'Tagging kernel version image %s\n' "${KERNEL_IMAGE_REF}"
-
 mkdir -p ./cache
 
 secret_opts=()
@@ -147,17 +143,12 @@ podman build \
     -t "${IMAGE_REF}" \
     .
 
-podman tag "${IMAGE_REF}" "${KERNEL_IMAGE_REF}"
-
 if [ "${PUSH_IMAGE}" = 1 ]; then
     digest_file=$(mktemp)
     trap 'rm -f "${digest_file:-}"' EXIT
 
     printf 'Pushing kernel artifact image %s\n' "${IMAGE_REF}"
     podman push --digestfile "${digest_file}" "${IMAGE_REF}"
-
-    printf 'Pushing kernel artifact image %s\n' "${KERNEL_IMAGE_REF}"
-    podman push "${KERNEL_IMAGE_REF}"
 
     digest=$(cat "${digest_file}")
     printf 'digest=%s\n' "${digest}"

@@ -73,7 +73,7 @@ jobs:
           GCP_KMS_KEY: ${{ secrets.GCP_KMS_KEY }}
           GCP_KMS_CERT: anatase-m002.crt
           GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.auth.outputs.credentials_file_path }}
-          IMAGE_REF: ghcr.io/anatase-org/kernel:f${{ matrix.fedora_version }}-${{ matrix.arch }}
+          IMAGE_REF: ghcr.io/anatase-org/kernel:f${{ matrix.fedora_version }}-${{ matrix.arch }}${{ github.ref_type == 'tag' && contains(github.ref_name, '-rc') && '-rc' || '' }}
           PUSH_IMAGE: "1"
         run: ./build.sh
 
@@ -97,9 +97,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-        run: gh release edit "$GITHUB_REF_NAME" --draft=false --prerelease=false
+          PRERELEASE: ${{ github.ref_type == 'tag' && contains(github.ref_name, '-rc') }}
+        run: gh release edit "$GITHUB_REF_NAME" --draft=false --prerelease="$PRERELEASE"
 
       - name: Trigger Anatase build
+        if: ${{ github.ref_type != 'tag' || !contains(github.ref_name, '-rc') }}
         env:
           ANATASE_TRIGGER: ${{ secrets.ANATASE_TRIGGER }}
         run: |
