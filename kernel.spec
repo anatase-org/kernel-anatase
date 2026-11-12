@@ -172,13 +172,13 @@ Summary: The Linux kernel
 %define specrpmversion 7.3.4
 %define specversion 7.3.4
 %define patchversion 7.3
-%define pkgrelease an01
+%define pkgrelease an02
 %define kversion 7
 %define tarfile_release 7.3.4
 # This is needed to do merge window version magic
 %define patchlevel 3
 # This allows pkg_release to have configurable %%{?dist} tag
-%define specrelease an01%{?buildid}%{?dist}
+%define specrelease an02%{?buildid}%{?dist}
 # This defines the kabi tarball version
 %define kabiversion 7.3.4
 
@@ -3193,6 +3193,10 @@ BuildKernel() {
         create_module_file_list "internal" ../modules-internal.list ../kernel${Variant:+-${Variant}}-modules-internal.list 0 1
         create_module_file_list "kernel" ../modules-extra.list ../kernel${Variant:+-${Variant}}-modules-extra.list 0 1
         create_module_file_list "kernel" ../modules-akmods.list ../kernel${Variant:+-${Variant}}-modules-akmods.list 0 1
+        # RPM requires a nonempty manifest even when no custom modules are built.
+        if [ ! -s ../kernel${Variant:+-${Variant}}-modules-akmods.list ]; then
+            echo '%%defattr(-,-,-)' > ../kernel${Variant:+-${Variant}}-modules-akmods.list
+        fi
 %if 0%{!?fedora:1}
         create_module_file_list "partner" ../modules-partner.list ../kernel${Variant:+-${Variant}}-modules-partner.list 1 1
 %endif
@@ -4936,7 +4940,7 @@ fi\
 #
 #
 %changelog
-* Wed Nov 11 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.3.4-an01]
+* Thu Nov 12 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.3.4-an02]
 - config: add new arm options (Antheas Kapenekakis)
 - arm64: dts: qcom: add Retroid Pocket Duo (Teguh Sobirin)
 - arm64: dts: qcom: add common dtsi for Eliza Retroid Pocket devices (Teguh Sobirin)
@@ -5196,7 +5200,6 @@ fi\
 - CI: add ZFS module (Antheas Kapenekakis)
 - CI: add Nvidia LTS and Production modules (Antheas Kapenekakis)
 - CI: add akmod modules (Antheas Kapenekakis)
-- cleanup (Antheas Kapenekakis)
 - [NA] add dev tools (Antheas Kapenekakis)
 
 * Tue Nov 10 2026 Augusto Caringi <acaringi@redhat.com> [7.3.4-0]
