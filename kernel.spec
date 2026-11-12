@@ -172,13 +172,13 @@ Summary: The Linux kernel
 %define specrpmversion 7.3.4
 %define specversion 7.3.4
 %define patchversion 7.3
-%define pkgrelease an02
+%define pkgrelease an03
 %define kversion 7
 %define tarfile_release 7.3.4
 # This is needed to do merge window version magic
 %define patchlevel 3
 # This allows pkg_release to have configurable %%{?dist} tag
-%define specrelease an02%{?buildid}%{?dist}
+%define specrelease an03%{?buildid}%{?dist}
 # This defines the kabi tarball version
 %define kabiversion 7.3.4
 
@@ -3047,14 +3047,20 @@ BuildKernel() {
     if [[ -z "$Variant" || "$Variant" == "debug" ]]; then
 	%{log_msg "Setup the DTB-loader kernel"}
 	DtbloaderImage="$RPM_BUILD_ROOT/lib/modules/$KernelVer/$InstallName-dtbloader.efi"
-	DtbPath=$RPM_BUILD_ROOT/%{image_install_path}/dtb-$KernelVer/qcom
+	DtbPath=$RPM_BUILD_ROOT/%{image_install_path}/dtb-$KernelVer
 
 	pushd $DtbPath
 	Dtbs=""
-	for i in x1 sc8?80x; do
+	for i in qcom/x1 qcom/sc8?80x; do
 	    Dtbs="$Dtbs $(ls $i*.dtb | grep -v -E 'el2|devkit|crd|qcp|primus')"
 	done
 	popd
+
+	# Match Pi boards against the compatible string in the firmware DTB.
+	Dtbs="$Dtbs broadcom/bcm2711-rpi-4-b.dtb"
+	Dtbs="$Dtbs broadcom/bcm2712-rpi-5-b.dtb"
+	Dtbs="$Dtbs broadcom/bcm2712-d-rpi-5-b.dtb"
+	Dtbs="$Dtbs broadcom/bcm2712-rpi-500.dtb"
 
 	DevicetreeAuto=""
 	for i in $Dtbs; do
@@ -4940,7 +4946,9 @@ fi\
 #
 #
 %changelog
-* Thu Nov 12 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.3.4-an02]
+* Thu Nov 12 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.3.4-an03]
+- add dts for rpis to uki (Antheas Kapenekakis)
+- add raspberry pi 500 board (Antheas Kapenekakis)
 - config: add new arm options (Antheas Kapenekakis)
 - arm64: dts: qcom: add Retroid Pocket Duo (Teguh Sobirin)
 - arm64: dts: qcom: add common dtsi for Eliza Retroid Pocket devices (Teguh Sobirin)
@@ -5046,6 +5054,7 @@ fi\
 - drm/amd/display: Add HDMI 2.1 VRR support from HF-VSDB (Fangzhi Zuo)
 - drm/edid: parse HDMI 2.1 gaming (ALLM/VRR) capabilities from HF-VSDB (Tomasz Pakuła)
 - drm/amd/display: Add 2.1 FreeSync support for AMD VSDB EDID Block (Fangzhi Zuo)
+- drm/amd/display: Allow ASUS ROG Bulwark DG310 in FreeSync PCON whitelist (Antheas Kapenekakis)
 - platform/x86: oxpec: Add OneXPlayer 3 quirk (Antheas Kapenekakis)
 - platform/x86: thinkpad_acpi: Enable fan control by default (Antheas Kapenekakis)
 - add new 8bitdo kernel driver (Antheas Kapenekakis)
