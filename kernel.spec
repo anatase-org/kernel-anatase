@@ -172,13 +172,13 @@ Summary: The Linux kernel
 %define specrpmversion 7.3.4
 %define specversion 7.3.4
 %define patchversion 7.3
-%define pkgrelease an03
+%define pkgrelease an04
 %define kversion 7
 %define tarfile_release 7.3.4
 # This is needed to do merge window version magic
 %define patchlevel 3
 # This allows pkg_release to have configurable %%{?dist} tag
-%define specrelease an03%{?buildid}%{?dist}
+%define specrelease an04%{?buildid}%{?dist}
 # This defines the kabi tarball version
 %define kabiversion 7.3.4
 
@@ -4946,7 +4946,8 @@ fi\
 #
 #
 %changelog
-* Thu Nov 12 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.3.4-an03]
+* Fri Nov 13 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.3.4-an04]
+- add icm42607 ACPI match (Antheas Kapenekakis)
 - add dts for rpis to uki (Antheas Kapenekakis)
 - add raspberry pi 500 board (Antheas Kapenekakis)
 - config: add new arm options (Antheas Kapenekakis)
