@@ -172,13 +172,13 @@ Summary: The Linux kernel
 %define specrpmversion 7.3.4
 %define specversion 7.3.4
 %define patchversion 7.3
-%define pkgrelease an04
+%define pkgrelease an05
 %define kversion 7
 %define tarfile_release 7.3.4
 # This is needed to do merge window version magic
 %define patchlevel 3
 # This allows pkg_release to have configurable %%{?dist} tag
-%define specrelease an04%{?buildid}%{?dist}
+%define specrelease an05%{?buildid}%{?dist}
 # This defines the kabi tarball version
 %define kabiversion 7.3.4
 
@@ -4946,7 +4946,12 @@ fi\
 #
 #
 %changelog
-* Fri Nov 13 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.3.4-an04]
+* Sun Nov 15 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.3.4-an05]
+- drm/msm/dp: Read eDP link capabilities before setting the mode (Antheas Kapenekakis)
+- sync-arm: Seed the build config from .config-arm (Antheas Kapenekakis)
+- scsi: ufs: Fix RPMB bus registration and region device lifetime (Antheas Kapenekakis)
+- platform: arm64: acer-aspire1-ec: Add atomic bridge state callbacks (Antheas Kapenekakis)
+- usb: typec: samsung-emuec: Add atomic bridge state callbacks (Antheas Kapenekakis)
 - add icm42607 ACPI match (Antheas Kapenekakis)
 - add dts for rpis to uki (Antheas Kapenekakis)
 - add raspberry pi 500 board (Antheas Kapenekakis)

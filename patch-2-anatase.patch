@@ -67683,3 +67683,414 @@ index e903106af84a83a0a5e40ed31d1dad527252c9d7..db07640a282ee73b6828898f0a36b002
 -- 
 2.56.0
 
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Sun, 15 Nov 2026 18:42:37 +0100
+Subject: usb: typec: samsung-emuec: Add atomic bridge state callbacks
+
+The DRM bridge core initializes private atomic state for every attached
+bridge. The Samsung EmuEC bridge only supplies attach and HPD callbacks,
+so attaching it calls a NULL atomic_create_state callback. On the Galaxy
+Book4 Edge this oopses during MSM display initialization.
+
+Use the standard bridge state helpers and select DRM_KMS_HELPER to make
+them available independently of the display driver configuration.
+
+Fixes: 686b85b28994 ("usb: typec: add Samsung EmuEC TypeC driver")
+Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
+---
+ drivers/usb/typec/Kconfig         | 1 +
+ drivers/usb/typec/samsung-emuec.c | 4 ++++
+ 2 files changed, 5 insertions(+)
+
+diff --git a/drivers/usb/typec/Kconfig b/drivers/usb/typec/Kconfig
+index 2d26c7e37c1100506f57e4ea96d2610462b1a908..b77183a8f070779f6549dcd6d41e793749d4fd43 100644
+--- a/drivers/usb/typec/Kconfig
++++ b/drivers/usb/typec/Kconfig
+@@ -92,6 +92,7 @@ config TYPEC_SAMSUNG_EMUEC
+ 	tristate "Samsung EmuEC Type-C controller"
+ 	depends on I2C && OF && POWER_SUPPLY && USB_ROLE_SWITCH
+ 	depends on DRM
++	select DRM_KMS_HELPER
+ 	help
+ 	  Support the S2MM006 USB Type-C controllers managed by Samsung's EmuEC
+ 	  software on the Galaxy Book4 Edge NP750XQB. The driver reports Type-C
+diff --git a/drivers/usb/typec/samsung-emuec.c b/drivers/usb/typec/samsung-emuec.c
+index caf94d65ebd0a8e06d5f03fc6110c9ab79be5204..3bc95f4a1885b6bf5293ddae52fa3b3b9742ac2f 100644
+--- a/drivers/usb/typec/samsung-emuec.c
++++ b/drivers/usb/typec/samsung-emuec.c
+@@ -29,6 +29,7 @@
+ #include <linux/usb/typec_retimer.h>
+ #include <linux/workqueue.h>
+ 
++#include <drm/drm_atomic_helper.h>
+ #include <drm/drm_bridge.h>
+ 
+ #define S2MM006_IRQ_FIRST		0x02
+@@ -708,6 +709,9 @@ static int samsung_emuec_bridge_attach(struct drm_bridge *bridge,
+ }
+ 
+ static const struct drm_bridge_funcs samsung_emuec_bridge_funcs = {
++	.atomic_create_state = drm_atomic_helper_bridge_create_state,
++	.atomic_duplicate_state = drm_atomic_helper_bridge_duplicate_state,
++	.atomic_destroy_state = drm_atomic_helper_bridge_destroy_state,
+ 	.attach = samsung_emuec_bridge_attach,
+ 	.hpd_enable = samsung_emuec_bridge_hpd_enable,
+ };
+-- 
+2.56.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Sun, 15 Nov 2026 18:42:38 +0100
+Subject: platform: arm64: acer-aspire1-ec: Add atomic bridge state callbacks
+
+Removing legacy bridge support made atomic state initialization mandatory
+for every bridge. The Acer EC HPD bridge was left without state callbacks,
+so attaching it can call a NULL atomic_create_state callback.
+
+Add the standard bridge state helpers and select DRM_KMS_HELPER to provide
+them when this driver is enabled.
+
+Fixes: 3e32e6672fa3 ("drm/bridge: Remove legacy bridge callback support")
+Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
+---
+ drivers/platform/arm64/Kconfig           | 1 +
+ drivers/platform/arm64/acer-aspire1-ec.c | 4 ++++
+ 2 files changed, 5 insertions(+)
+
+diff --git a/drivers/platform/arm64/Kconfig b/drivers/platform/arm64/Kconfig
+index 9582f0ebd61173e066f013f82a86ebc7e75c7e01..eb86031de8fbe17b372d601132f663f5cafb1bdb 100644
+--- a/drivers/platform/arm64/Kconfig
++++ b/drivers/platform/arm64/Kconfig
+@@ -23,6 +23,7 @@ config EC_ACER_ASPIRE1
+ 	depends on DRM
+ 	depends on POWER_SUPPLY
+ 	depends on INPUT
++	select DRM_KMS_HELPER
+ 	help
+ 	  Say Y here to enable the EC driver for the (Snapdragon-based)
+ 	  Acer Aspire 1 laptop. The EC handles battery and charging
+diff --git a/drivers/platform/arm64/acer-aspire1-ec.c b/drivers/platform/arm64/acer-aspire1-ec.c
+index 08d0b155a197afde50ef17a5a364ed7ecd80849c..d2a450a6e60db1fa6d641c1cb29b8eeff074278b 100644
+--- a/drivers/platform/arm64/acer-aspire1-ec.c
++++ b/drivers/platform/arm64/acer-aspire1-ec.c
+@@ -2,6 +2,7 @@
+ /* Copyright (c) 2024, Nikita Travkin <nikita@trvn.ru> */
+ 
+ #include <linux/unaligned.h>
++#include <drm/drm_atomic_helper.h>
+ #include <drm/drm_bridge.h>
+ #include <linux/bits.h>
+ #include <linux/delay.h>
+@@ -392,6 +393,9 @@ static void aspire_ec_bridge_hpd_enable(struct drm_bridge *bridge)
+ }
+ 
+ static const struct drm_bridge_funcs aspire_ec_bridge_funcs = {
++	.atomic_create_state = drm_atomic_helper_bridge_create_state,
++	.atomic_duplicate_state = drm_atomic_helper_bridge_duplicate_state,
++	.atomic_destroy_state = drm_atomic_helper_bridge_destroy_state,
+ 	.hpd_enable = aspire_ec_bridge_hpd_enable,
+ 	.attach = aspire_ec_bridge_attach,
+ };
+-- 
+2.56.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Sun, 15 Nov 2026 18:42:38 +0100
+Subject: scsi: ufs: Fix RPMB bus registration and region device lifetime
+
+The UFS RPMB driver assigns region devices to ufs_rpmb_bus_type without
+registering the bus. Consequently, device_register() fails with
+"cannot add device 'ufs_rpmb0' to unregistered bus 'ufs_rpmb'" and no RPMB
+regions become available.
+
+Register the bus during UFS core initialization, unwind it on failure and
+unregister it on exit. Provide no-op hooks when RPMB support is disabled.
+
+Unregister each RPMB child before unregistering its region parent. Doing
+this in the parent's release callback cannot work because the child holds
+a reference to the parent. Allocate regions independently of the host's
+devres and free them in their device release callback so outstanding device
+references control their lifetime, including registration failure paths.
+
+Initialize the region ID before publishing the RPMB child, whose consumers
+can immediately submit requests using that ID.
+
+Fixes: b06b8c421485 ("scsi: ufs: core: Add OP-TEE based RPMB driver for UFS devices")
+Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
+---
+ drivers/ufs/core/ufs-rpmb.c    | 25 +++++++++++++++++++++----
+ drivers/ufs/core/ufshcd-priv.h |  9 +++++++++
+ drivers/ufs/core/ufshcd.c      | 14 +++++++++++++-
+ 3 files changed, 43 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/ufs/core/ufs-rpmb.c b/drivers/ufs/core/ufs-rpmb.c
+index aa925cbb07e869aeb5f9013f1d4083250c56ec76..7a7c2997f075b727ac1939337d306438e36de668 100644
+--- a/drivers/ufs/core/ufs-rpmb.c
++++ b/drivers/ufs/core/ufs-rpmb.c
+@@ -28,6 +28,16 @@ static const struct bus_type ufs_rpmb_bus_type = {
+ 	.name = "ufs_rpmb",
+ };
+ 
++int ufs_rpmb_init(void)
++{
++	return bus_register(&ufs_rpmb_bus_type);
++}
++
++void ufs_rpmb_exit(void)
++{
++	bus_unregister(&ufs_rpmb_bus_type);
++}
++
+ /* UFS RPMB device structure */
+ struct ufs_rpmb_dev {
+ 	u8 region_id;
+@@ -132,7 +142,14 @@ static void ufs_rpmb_device_release(struct device *dev)
+ {
+ 	struct ufs_rpmb_dev *ufs_rpmb = dev_get_drvdata(dev);
+ 
++	kfree(ufs_rpmb);
++}
++
++static void ufs_rpmb_unregister(struct ufs_rpmb_dev *ufs_rpmb)
++{
++	/* The RPMB child holds a reference to the region device. */
+ 	rpmb_dev_unregister(ufs_rpmb->rdev);
++	device_unregister(&ufs_rpmb->dev);
+ }
+ 
+ /* UFS RPMB device registration */
+@@ -167,13 +184,14 @@ int ufs_rpmb_probe(struct ufs_hba *hba)
+ 		if (!cap)
+ 			continue;
+ 
+-		ufs_rpmb = devm_kzalloc(hba->dev, sizeof(*ufs_rpmb), GFP_KERNEL);
++		ufs_rpmb = kzalloc_obj(*ufs_rpmb);
+ 		if (!ufs_rpmb) {
+ 			ret = -ENOMEM;
+ 			goto err_out;
+ 		}
+ 
+ 		ufs_rpmb->hba = hba;
++		ufs_rpmb->region_id = region;
+ 		ufs_rpmb->dev.parent = &hba->ufs_rpmb_wlun->sdev_gendev;
+ 		ufs_rpmb->dev.bus = &ufs_rpmb_bus_type;
+ 		ufs_rpmb->dev.release = ufs_rpmb_device_release;
+@@ -214,7 +232,6 @@ int ufs_rpmb_probe(struct ufs_hba *hba)
+ 		cid = NULL;
+ 
+ 		ufs_rpmb->rdev = rdev;
+-		ufs_rpmb->region_id = region;
+ 
+ 		list_add_tail(&ufs_rpmb->node, &hba->rpmbs);
+ 
+@@ -226,7 +243,7 @@ int ufs_rpmb_probe(struct ufs_hba *hba)
+ 	kfree(cid);
+ 	list_for_each_entry_safe(it, tmp, &hba->rpmbs, node) {
+ 		list_del(&it->node);
+-		device_unregister(&it->dev);
++		ufs_rpmb_unregister(it);
+ 	}
+ 
+ 	return ret;
+@@ -246,7 +263,7 @@ void ufs_rpmb_remove(struct ufs_hba *hba)
+ 		/* Remove from list first */
+ 		list_del(&ufs_rpmb->node);
+ 		/* Unregister device */
+-		device_unregister(&ufs_rpmb->dev);
++		ufs_rpmb_unregister(ufs_rpmb);
+ 	}
+ 
+ 	dev_info(hba->dev, "All UFS RPMB devices unregistered\n");
+diff --git a/drivers/ufs/core/ufshcd-priv.h b/drivers/ufs/core/ufshcd-priv.h
+index e55c2a02c1f506bafd1d7b9bbe0ab6c93f2982a4..9e7183522abc955cb1eee6d85804c14a54fce7a5 100644
+--- a/drivers/ufs/core/ufshcd-priv.h
++++ b/drivers/ufs/core/ufshcd-priv.h
+@@ -494,9 +494,18 @@ static inline u32 ufshcd_mcq_get_sq_head_slot(struct ufs_hw_queue *q)
+ }
+ 
+ #if IS_ENABLED(CONFIG_RPMB)
++int ufs_rpmb_init(void);
++void ufs_rpmb_exit(void);
+ int ufs_rpmb_probe(struct ufs_hba *hba);
+ void ufs_rpmb_remove(struct ufs_hba *hba);
+ #else
++static inline int ufs_rpmb_init(void)
++{
++	return 0;
++}
++static inline void ufs_rpmb_exit(void)
++{
++}
+ static inline int ufs_rpmb_probe(struct ufs_hba *hba)
+ {
+ 	return 0;
+diff --git a/drivers/ufs/core/ufshcd.c b/drivers/ufs/core/ufshcd.c
+index 753bb432d8d0cf7e79bd525fb80890cd888a1386..a0f60b4d51777afada37f937f50860c2a3f94dc4 100644
+--- a/drivers/ufs/core/ufshcd.c
++++ b/drivers/ufs/core/ufshcd.c
+@@ -11607,9 +11607,20 @@ static int __init ufshcd_core_init(void)
+ 
+ 	ufs_debugfs_init();
+ 
++	ret = ufs_rpmb_init();
++	if (ret)
++		goto err_debugfs;
++
+ 	ret = scsi_register_driver(&ufs_dev_wlun_template);
+ 	if (ret)
+-		ufs_debugfs_exit();
++		goto err_rpmb;
++
++	return 0;
++
++err_rpmb:
++	ufs_rpmb_exit();
++err_debugfs:
++	ufs_debugfs_exit();
+ 	return ret;
+ }
+ 
+@@ -11617,6 +11628,7 @@ static void __exit ufshcd_core_exit(void)
+ {
+ 	ufs_debugfs_exit();
+ 	scsi_unregister_driver(&ufs_dev_wlun_template);
++	ufs_rpmb_exit();
+ }
+ 
+ module_init(ufshcd_core_init);
+-- 
+2.56.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Sun, 15 Nov 2026 18:42:39 +0100
+Subject: sync-arm: Seed the build config from .config-arm
+
+The script validates .config-arm but runs olddefconfig against the existing
+.config without copying the input. A stale config can therefore disable
+Qualcomm support and fail the CONFIG_ARCH_QCOM check even though the
+provided .config-arm enables it.
+
+Copy .config-arm into .config before adjusting LOCALVERSION and resolving
+configuration defaults. Validate the resulting build configuration before
+preparing the remote overlay or rebooting the target.
+
+Fixes: aeda9ef12cd4 ("[NA] add dev tools")
+Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
+---
+ sync-arm.sh | 22 ++++++++++++----------
+ 1 file changed, 12 insertions(+), 10 deletions(-)
+
+diff --git a/sync-arm.sh b/sync-arm.sh
+index e59d5a22de0b26e3c94c4efaa08ed62d058ac38f..4f6419b546759947a47868a9c2a9083f37d2e6a3 100755
+--- a/sync-arm.sh
++++ b/sync-arm.sh
+@@ -116,6 +116,18 @@ if command -v ccache >/dev/null; then
+     MAKE_ARGS+=("CC=ccache ${CROSS_COMPILE}gcc" "HOSTCC=ccache gcc" "HOSTCXX=ccache g++")
+ fi
+ 
++cp "$ROOT/.config-arm" "$ROOT/.config"
++
++# Give a stock config a distinct module directory without modifying the input.
++if grep -qx 'CONFIG_LOCALVERSION=""' "$ROOT/.config"; then
++    "$ROOT/scripts/config" --file "$ROOT/.config" --set-str LOCALVERSION '-custom-arm'
++fi
++
++make -s "${MAKE_ARGS[@]}" olddefconfig
++for setting in CONFIG_ARM64 CONFIG_EFI CONFIG_EFI_STUB CONFIG_OF CONFIG_ARCH_QCOM CONFIG_MODULES; do
++    grep -qx "$setting=y" "$ROOT/.config" || die "$setting=y is required in the arm64 build config"
++done
++
+ # Prepare the bootc overlay before building, so the device can reboot while
+ # the local kernel build runs.
+ ssh "$HOST" /bin/bash -s <<'REMOTE_OVERLAY'
+@@ -130,16 +142,6 @@ REMOTE_OVERLAY
+ 
+ mkdir -p "$ROOT/.sync-arm"
+ 
+-# Give a stock config a distinct module directory without modifying the input.
+-if grep -qx 'CONFIG_LOCALVERSION=""' "$ROOT/.config"; then
+-    "$ROOT/scripts/config" --file "$ROOT/.config" --set-str LOCALVERSION '-custom-arm'
+-fi
+-
+-make -s "${MAKE_ARGS[@]}" olddefconfig
+-for setting in CONFIG_ARM64 CONFIG_EFI CONFIG_EFI_STUB CONFIG_OF CONFIG_ARCH_QCOM CONFIG_MODULES; do
+-    grep -qx "$setting=y" "$ROOT/.config" || die "$setting=y is required in the arm64 build config"
+-done
+-
+ echo "Building arm64 kernel, modules, and DTBs with $JOBS jobs"
+ time make -s -j "$JOBS" "${MAKE_ARGS[@]}" all dtbs
+ 
+-- 
+2.56.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Sun, 15 Nov 2026 19:37:44 +0100
+Subject: drm/msm/dp: Read eDP link capabilities before setting the mode
+
+Moving mode setup into atomic_pre_enable() left eDP sink discovery in
+atomic_enable(). On the first enable, msm_dp_panel_init_panel_info() thus
+selects the stream depth before the link rate and lane count are known.
+The bandwidth calculation sees zero capacity and falls back to 18 bpp,
+even when the panel and link support a higher depth.
+
+On a Galaxy Book4 Edge with a 10-bpc ATNA40CU07-0 panel, the 655130 kHz
+2880x1800@120 mode should select 24 bpp over four HBR2 lanes, but instead
+starts at 18 bpp.
+
+Move eDP HPD handling into atomic_pre_enable(), after the downstream panel
+has been prepared and before mode setup. Keep the mode setup ahead of the
+DPU encoder's enable callback as required for YUV420 and wide-bus state.
+Skip this work when returning from panel self refresh, matching the eDP
+enable callback and avoiding another discovery power reference.
+
+Fixes: cd07d6358840 ("drm/msm/dp: drop deprecated .mode_set() and use .atomic_pre_enable")
+Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
+---
+ drivers/gpu/drm/msm/dp/dp_display.c | 14 +++++++++++---
+ 1 file changed, 11 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/msm/dp/dp_display.c b/drivers/gpu/drm/msm/dp/dp_display.c
+index 4dcbd9b99d06b8b3ef9082bbc440163853547f98..91dd6d28209666767396c27ae5ffc908f868d4be 100644
+--- a/drivers/gpu/drm/msm/dp/dp_display.c
++++ b/drivers/gpu/drm/msm/dp/dp_display.c
+@@ -625,9 +625,6 @@ static int msm_dp_display_prepare_link(struct msm_dp_display_private *dp)
+ 
+ 	drm_dbg_dp(dp->drm_dev, "sink_count=%d\n", dp->link->sink_count);
+ 
+-	if (msm_dp_display->is_edp)
+-		msm_dp_hpd_plug_handle(dp);
+-
+ 	rc = pm_runtime_resume_and_get(&msm_dp_display->pdev->dev);
+ 	if (rc) {
+ 		DRM_ERROR("failed to pm_runtime_resume\n");
+@@ -1420,6 +1417,17 @@ void msm_dp_display_atomic_pre_enable(struct msm_dp *msm_dp_display,
+ 		return;
+ 	crtc_state = drm_atomic_get_new_crtc_state(state, crtc);
+ 
++	if (msm_dp_display->is_edp) {
++		struct drm_crtc_state *old_crtc_state;
++
++		old_crtc_state = drm_atomic_get_old_crtc_state(state, crtc);
++		if (old_crtc_state && old_crtc_state->self_refresh_active)
++			return;
++
++		/* The panel is prepared; read link limits before selecting bpp. */
++		msm_dp_hpd_plug_handle(dp);
++	}
++
+ 	/*
+ 	 * The DPU encoder's .atomic_enable() reads the mode's YUV420 / wide bus
+ 	 * state and runs before the bridge's .atomic_enable(), so the mode must
+-- 
+2.56.0
+
