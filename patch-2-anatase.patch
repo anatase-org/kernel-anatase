@@ -68094,3 +68094,424 @@ index 4dcbd9b99d06b8b3ef9082bbc440163853547f98..91dd6d28209666767396c27ae5ffc908
 -- 
 2.56.0
 
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Sun, 15 Nov 2026 20:43:45 +0100
+Subject: dt-bindings: arm: psci: Describe platforms preferring CPU_SUSPEND
+
+Platforms may support SYSTEM_SUSPEND while preferring CPU_SUSPEND with
+system-level idle states for normal system sleep. The latter can retain
+wakeup sources unavailable through SYSTEM_SUSPEND.
+
+Add arm,prefer-cpu-suspend to describe this preference independently of
+whether firmware implements SYSTEM_SUSPEND.
+
+Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
+---
+ Documentation/devicetree/bindings/arm/psci.yaml | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/Documentation/devicetree/bindings/arm/psci.yaml b/Documentation/devicetree/bindings/arm/psci.yaml
+index 0d04389c81faa1d407b059a99505816c4ff74d17..9676707567c9040d3aab3085b57ed141444cd646 100644
+--- a/Documentation/devicetree/bindings/arm/psci.yaml
++++ b/Documentation/devicetree/bindings/arm/psci.yaml
+@@ -70,6 +70,14 @@ properties:
+       # HVC #0, with the register assignments specified in this binding.
+       - hvc
+ 
++  arm,prefer-cpu-suspend:
++    type: boolean
++    description: |
++      The platform prefers CPU_SUSPEND with its system-level idle states for
++      normal system sleep, even when firmware also supports SYSTEM_SUSPEND.
++      CPU_SUSPEND may preserve wakeup sources unavailable with SYSTEM_SUSPEND.
++      An operating system should default to suspend-to-idle on such platforms.
++
+   cpu_suspend:
+     $ref: /schemas/types.yaml#/definitions/uint32
+     description: Function ID for CPU_SUSPEND operation
+-- 
+2.56.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Sun, 15 Nov 2026 20:43:46 +0100
+Subject: firmware: psci: Honor the DT preference for CPU_SUSPEND
+
+Registering SYSTEM_SUSPEND selects deep sleep by default even on platforms
+that prefer CPU_SUSPEND for everyday system sleep.
+
+After successful PSCI DT initialization, select suspend-to-idle when the
+PSCI node declares arm,prefer-cpu-suspend. Set both default and current
+state so subsequent suspend operation registration preserves the choice.
+Explicit mem_sleep_default= command-line options retain precedence.
+
+Leave SYSTEM_SUSPEND available for explicit selection and preserve the
+existing behavior for ACPI and DT platforms without the property.
+
+Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
+---
+ drivers/firmware/psci/psci.c | 14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
+
+diff --git a/drivers/firmware/psci/psci.c b/drivers/firmware/psci/psci.c
+index e73bae6cb23a3bfa6441503f667b0ffdfcd72536..9cd3d631bc35e2e46347eb1c03754390a78b686e 100644
+--- a/drivers/firmware/psci/psci.c
++++ b/drivers/firmware/psci/psci.c
+@@ -805,6 +805,18 @@ static const struct of_device_id psci_of_match[] __initconst = {
+ 	{},
+ };
+ 
++static void __init psci_dt_init_suspend_default(const struct device_node *np)
++{
++#ifdef CONFIG_SUSPEND
++	if (mem_sleep_default == PM_SUSPEND_MAX &&
++	    of_property_read_bool(np, "arm,prefer-cpu-suspend")) {
++		/* A later mem_sleep_default= command-line option takes precedence. */
++		mem_sleep_default = PM_SUSPEND_TO_IDLE;
++		mem_sleep_current = PM_SUSPEND_TO_IDLE;
++	}
++#endif
++}
++
+ int __init psci_dt_init(void)
+ {
+ 	struct device_node *np;
+@@ -821,6 +833,8 @@ int __init psci_dt_init(void)
+ 
+ 	init_fn = (psci_initcall_t)matched_np->data;
+ 	ret = init_fn(np);
++	if (!ret)
++		psci_dt_init_suspend_default(np);
+ 
+ 	of_node_put(np);
+ 	return ret;
+-- 
+2.56.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Sun, 15 Nov 2026 20:43:46 +0100
+Subject: arm64: dts: qcom: Prefer suspend-to-idle on Snapdragon X platforms
+
+Qualcomm recommends suspend-to-idle for normal system sleep, including on
+platforms whose firmware also advertises SYSTEM_SUSPEND. In particular,
+deep sleep can disable interrupt sources needed to wake the system.
+
+Declare the CPU_SUSPEND preference in the Hamoa and Glymur PSCI nodes.
+Purwa and Mahua inherit it, covering the Snapdragon X1 and X2 families
+without board-specific policy or a required kernel command-line option.
+
+Link: https://github.com/qualcomm-linux/meta-qcom/issues/1577
+Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
+---
+ arch/arm64/boot/dts/qcom/glymur.dtsi | 1 +
+ arch/arm64/boot/dts/qcom/hamoa.dtsi  | 1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/qcom/glymur.dtsi b/arch/arm64/boot/dts/qcom/glymur.dtsi
+index f04058d2e08911de0bbf898d683473b8d98efb79..ad227d39e5882c8a607b39d290739b515f90db06 100644
+--- a/arch/arm64/boot/dts/qcom/glymur.dtsi
++++ b/arch/arm64/boot/dts/qcom/glymur.dtsi
+@@ -442,6 +442,7 @@ pmu {
+ 	psci {
+ 		compatible = "arm,psci-1.0";
+ 		method = "smc";
++		arm,prefer-cpu-suspend;
+ 
+ 		cpu_pd0: power-domain-cpu0 {
+ 			#power-domain-cells = <0>;
+diff --git a/arch/arm64/boot/dts/qcom/hamoa.dtsi b/arch/arm64/boot/dts/qcom/hamoa.dtsi
+index 8a96ea1bdb9c4c409b2af997680d8c13fed0643e..6e643507d7f79754e4be1ac5313253409d9b5b86 100644
+--- a/arch/arm64/boot/dts/qcom/hamoa.dtsi
++++ b/arch/arm64/boot/dts/qcom/hamoa.dtsi
+@@ -377,6 +377,7 @@ pmu {
+ 	psci {
+ 		compatible = "arm,psci-1.0";
+ 		method = "smc";
++		arm,prefer-cpu-suspend;
+ 
+ 		cpu_pd0: power-domain-cpu0 {
+ 			#power-domain-cells = <0>;
+-- 
+2.56.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Yiyu Zhou <yiyu@yiyuzhou.io>
+Date: Thu, 29 Oct 2026 22:43:24 +0200
+Subject: xhci: give back TDs and clean up ep0 after disconnect
+
+Fix a regression in v7.3 introduced by the commits in the Fixes tags.
+Those patches avoid endpoint recovery and rapid state changes after
+the root port link is lost.
+
+This caused a regression in device enumeration.
+
+It turns out that a subset of USB HID devices briefly disconnect during
+enumeration. USB core manages to resuscitate these devices without
+reallocating them, and thus continue using the same udev, xhci vdev and
+default control endpoint (ep0) of the device.
+xhci didn't give back or clean up halted TDs behind disconnected ports
+as it assumed that the disconnect cancels all URBs, and drops and frees
+all endpoints.
+
+This is not the case, so cancel and give back TDs on halted endpoint
+behind disconnected ports, make sure ep0 is cleared and in a proper state
+to continue working even after a link error or disconnect is detected.
+Also prevent new URBs until device is reset.
+
+One issue related to the TDs not being given back was seen on a PFU
+HHKB Professional HYBRID Type-S keyboard (04fe:0021).
+It drops off the bus about 300 ms after its first enumeration, while
+usbhid is still probing its third interface. The probe runs in hub_wq,
+so the disconnect is not handled until the probe returns.
+On a root port the HID descriptor request and its four retries in
+hid_get_class_descriptor() each wait for the full 5 second
+USB_CTRL_GET_TIMEOUT:
+
+  [57685.006036] usb 3-2: new full-speed USB device number 24 using xhci_hcd
+  ...
+  [57685.291304] hid-generic 0003:04FE:0021.0017: input,hidraw1: USB HID v1.11 Keyboard [PFU Limited HHKB-Hybrid] on usb-0000:00:14.0-2/input1
+  [57711.221083] usbhid 3-2:1.2: can't add hid device: -110
+  [57711.221613] usbhid 3-2:1.2: probe with driver usbhid failed with error -110
+  [57711.221842] usb 3-2: USB disconnect, device number 24
+
+[mn: merge EP_DROP_PENDING and link_inactive checks in xhci_urb_enqueue(),
+ return TDs and clean up ep0 on disconnect, rewrite commit message]
+
+[Backport: resolve a spelling difference in the replaced comment.]
+
+Fixes: 042aad8d0db6 ("xhci: prevent endpoint recovery after roothub disconnect")
+Fixes: 7e0ef4332ed9 ("xhci: avoid xHC endpoint changes after disconnect or link error.")
+Cc: stable <stable@kernel.org>
+Closes: https://lore.kernel.org/all/20261010071811.20483-1-yiyu@yiyuzhou.io/
+Closes: https://lore.kernel.org/linux-usb/4MjB9K-2SoiA85WbI9iEig@dsine.de/
+Tested-by: Yiyu Zhou <yiyu@yiyuzhou.io>
+Tested-by: Dennis Wissel <dennis@dsine.de>
+Signed-off-by: Yiyu Zhou <yiyu@yiyuzhou.io>
+Co-developed-by: Mathias Nyman <mathias.nyman@linux.intel.com>
+Signed-off-by: Mathias Nyman <mathias.nyman@linux.intel.com>
+Link: https://patch.msgid.link/20261029204324.658845-2-mathias.nyman@linux.intel.com
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 6895dbdc19d927a2872bd4f111e1911874d5dce4)
+---
+ drivers/usb/host/xhci-ring.c | 73 ++++++++++++++++++++++++++++++------
+ drivers/usb/host/xhci.c      | 13 ++++---
+ 2 files changed, 69 insertions(+), 17 deletions(-)
+
+diff --git a/drivers/usb/host/xhci-ring.c b/drivers/usb/host/xhci-ring.c
+index fffd901b59e7f80a9d00886225e3975750cd3196..8f2dfcac0fb801a7e5b43c76c2520960b07b6635 100644
+--- a/drivers/usb/host/xhci-ring.c
++++ b/drivers/usb/host/xhci-ring.c
+@@ -65,6 +65,7 @@
+ static int queue_command(struct xhci_hcd *xhci, struct xhci_command *cmd,
+ 			 u32 field1, u32 field2,
+ 			 u32 field3, u32 field4, bool command_must_succeed);
++static void xhci_kill_endpoint_urbs(struct xhci_hcd *xhci, int slot_id, int ep_index);
+ 
+ /*
+  * Returns zero if the TRB isn't in this segment, otherwise it returns the DMA
+@@ -955,6 +956,24 @@ static void xhci_giveback_invalidated_tds(struct xhci_hcd *xhci, struct xhci_vir
+ 	}
+ }
+ 
++static void xhci_cancel_ring_tds(struct xhci_hcd *xhci, struct xhci_virt_ep *ep,
++				 struct xhci_ring *ring, int td_status)
++{
++	struct xhci_td *tmp_td;
++	struct xhci_td *td;
++
++	/* Add all TDs on ring to cancelled td list */
++	list_for_each_entry_safe(td, tmp_td, &ring->td_list, td_list) {
++		if (list_empty(&td->cancelled_td_list)) {
++			list_add_tail(&td->cancelled_td_list,
++				      &ep->cancelled_td_list);
++			td->cancel_status = TD_DIRTY;
++			if (!td->status)
++				td->status = td_status;
++		}
++	}
++}
++
+ static int xhci_reset_halted_ep(struct xhci_hcd *xhci, unsigned int slot_id,
+ 				unsigned int ep_index, enum xhci_ep_reset_type reset_type)
+ {
+@@ -986,25 +1005,53 @@ static int xhci_handle_halted_endpoint(struct xhci_hcd *xhci,
+ {
+ 	struct xhci_port *rhub_port = ep->vdev->rhub_port;
+ 	unsigned int slot_id = ep->vdev->slot_id;
++	bool disconnected = false;
++	struct xhci_ring *ring;
+ 	int err;
+ 
+-	/*
+-	 * Avoid resetting endpoint if link is inactive or device disonnected.
+-	 * Can cause host hang.
+-	 * Device will be reset to recover an inactive link, so don't do anything
+-	 */
++	/* link is inactive or device disconnected */
+ 	if (rhub_port->link_inactive || !rhub_port->connected) {
+ 		ep->ep_state |= EP_DROP_PENDING;
+-		return -ENODEV;
++		disconnected = true;
++		if (!td && ep->ep_index != 0) {
++			xhci_kill_endpoint_urbs(xhci, slot_id, ep->ep_index);
++			return -ENODEV;
++		}
+ 	}
+ 
+-	/* add td to cancelled list and let reset ep handler take care of it */
+-	if (reset_type == EP_HARD_RESET) {
+-		ep->ep_state |= EP_HARD_CLEAR_TOGGLE;
++	/* Add halted td to cancelled list and let reset ep handler take care of it */
++	if (reset_type == EP_HARD_RESET || disconnected) {
+ 		if (td && list_empty(&td->cancelled_td_list)) {
+ 			list_add_tail(&td->cancelled_td_list, &ep->cancelled_td_list);
+ 			td->cancel_status = TD_HALTED;
++			if (disconnected && !td->status)
++				td->status = -EPROTO;
++		}
++	}
++
++	/*
++	 * Avoid resetting non-ep0 endpoints if link is inactive or device
++	 * disconnected. Can cause host hang.
++	 * Endpoints other than ep0 won't restart before the device is reset or
++	 * the endpoint is dropped, so cancel all TDs, and give back non-ep0 TDs
++	 * now instead of letting them time out. Ep0 can survive a short device
++	 * disconnect during enumeration so reset ep0 normally and clean it up.
++	 */
++	if (disconnected) {
++		ring = td ? xhci_urb_to_transfer_ring(xhci, td->urb) : ep->ring;
++		xhci_cancel_ring_tds(xhci, ep, ring, -ESHUTDOWN);
++		if (ep->ep_index != 0) {
++			xhci_dbg(xhci, "Not resetting ep %u slot %u after disconnect\n",
++				 ep->ep_index, slot_id);
++
++			xhci_process_cancelled_tds(xhci, ep);
++			xhci_kill_endpoint_urbs(xhci, slot_id, ep->ep_index);
++			return -ENODEV;
+ 		}
++		/* hard-reset a halted disconnected ep0 */
++		xhci_dbg(xhci, "Reset and clean up ep0 slot %u after disconnect\n",
++			 slot_id);
++		reset_type = EP_HARD_RESET;
+ 	}
+ 
+ 	if (ep->ep_state & EP_HALTED) {
+@@ -1013,6 +1060,9 @@ static int xhci_handle_halted_endpoint(struct xhci_hcd *xhci,
+ 		return 0;
+ 	}
+ 
++	if (reset_type == EP_HARD_RESET)
++		ep->ep_state |= EP_HARD_CLEAR_TOGGLE;
++
+ 	err = xhci_reset_halted_ep(xhci, slot_id, ep->ep_index, reset_type);
+ 	if (err)
+ 		return err;
+@@ -1063,8 +1113,9 @@ static int xhci_invalidate_cancelled_tds(struct xhci_hcd *xhci, struct xhci_virt
+ 			continue;
+ 		}
+ 
+-		/* device disconnected or link error, ep will be dropped */
+-		if (ep->ep_state & EP_DROP_PENDING) {
++		/* device disconnected or link error, non-ep0 endpoints will be dropped */
++		if (ep->ep_state & EP_DROP_PENDING && ep->ep_index != 0) {
++			td_to_noop(xhci, ep, td, false);
+ 			td->cancel_status = TD_CLEARED;
+ 			continue;
+ 		}
+diff --git a/drivers/usb/host/xhci.c b/drivers/usb/host/xhci.c
+index 28bfe5fd0b6f49c8901cde26c874bd0662aa8d62..81dd7919c0c1a9bd9065046d52842f7e90bf12ed 100644
+--- a/drivers/usb/host/xhci.c
++++ b/drivers/usb/host/xhci.c
+@@ -1665,12 +1665,6 @@ static int xhci_urb_enqueue(struct usb_hcd *hcd, struct urb *urb, gfp_t mem_flag
+ 		goto free_priv;
+ 	}
+ 
+-	if (xhci->devs[slot_id]->rhub_port->link_inactive) {
+-		xhci_dbg(xhci, "Can't queue urb, port error, link inactive\n");
+-		ret = -ENODEV;
+-		goto free_priv;
+-	}
+-
+ 	if (xhci->xhc_state & XHCI_STATE_DYING) {
+ 		xhci_dbg(xhci, "Ep 0x%x: URB %p submitted for non-responsive xHCI host.\n",
+ 			 urb->ep->desc.bEndpointAddress, urb);
+@@ -1680,6 +1674,13 @@ static int xhci_urb_enqueue(struct usb_hcd *hcd, struct urb *urb, gfp_t mem_flag
+ 
+ 	ep_state = &xhci->devs[slot_id]->eps[ep_index].ep_state;
+ 
++	if (xhci->devs[slot_id]->rhub_port->link_inactive ||
++	    *ep_state & EP_DROP_PENDING) {
++		xhci_dbg(xhci, "Can't queue urb, port disconnect or link inactive\n");
++		ret = -ENODEV;
++		goto free_priv;
++	}
++
+ 	if (*ep_state & (EP_GETTING_STREAMS | EP_GETTING_NO_STREAMS)) {
+ 		xhci_warn(xhci, "WARN: Can't enqueue URB, ep in streams transition state %x\n",
+ 			  *ep_state);
+-- 
+2.56.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Mathias Nyman <mathias.nyman@linux.intel.com>
+Date: Thu, 5 Nov 2026 19:51:02 +0200
+Subject: xhci: keep port link_inactive and connected flags in sync when polled
+
+Update port 'link_inactive' and 'connected' flags even if xHC isn't
+generating port change events.
+
+xHC only generates port change events on port changes after old port
+change bits are cleared. Hub driver is often kept up to date
+by polling the port status.
+
+Sashiko reported a possible case where all port changes after a port
+reset take place before hub driver clears the reset change bit.
+This way the port can end up connected and fully running with link
+in u0 without a port event clearing the 'link_inactive' or setting
+the 'connected' flags.
+
+A protocol STALL in this state would set EP_DROP_PENDING, and
+prevent all future URBs for the endpoint.
+
+Fix this by also updating the flags during get_port_status(), when
+hub driver is polling the port state.
+
+Fixes: 6895dbdc19d9 ("xhci: give back TDs and clean up ep0 after disconnect")
+Link: https://lore.kernel.org/linux-usb/sashiko-outbox-190046@kernel.org/
+Cc: stable <stable@kernel.org>
+Signed-off-by: Mathias Nyman <mathias.nyman@linux.intel.com>
+Link: https://patch.msgid.link/20261105175106.241182-2-mathias.nyman@linux.intel.com
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit bb261776d1a29768b8fd84eb4f42d99dafa29c93)
+---
+ drivers/usb/host/xhci-hub.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/drivers/usb/host/xhci-hub.c b/drivers/usb/host/xhci-hub.c
+index 470bafe1802be5bd2d0321703732d53d536a8cc2..55430b673f1e94ba0b30108c57bd6d21ccf5798f 100644
+--- a/drivers/usb/host/xhci-hub.c
++++ b/drivers/usb/host/xhci-hub.c
+@@ -1166,6 +1166,12 @@ static u32 xhci_get_port_status(struct usb_hcd *hcd, struct xhci_bus_state *bus_
+ 	if (portsc & PORT_RESET)
+ 		status |= USB_PORT_STAT_RESET;
+ 
++	/* track connect and link error status when hub is polling */
++	if (!(portsc & PORT_RESET)) {
++		port->link_inactive = (portsc & PORT_PLS_MASK) == XDEV_INACTIVE;
++		port->connected = !!(portsc & PORT_CONNECT);
++	}
++
+ 	/* USB2 and USB3 specific bits, including Port Link State */
+ 	if (hcd->speed >= HCD_USB3)
+ 		xhci_get_usb3_port_status(port, &status, portsc);
+-- 
+2.56.0
+

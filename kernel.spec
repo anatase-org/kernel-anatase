@@ -172,13 +172,13 @@ Summary: The Linux kernel
 %define specrpmversion 7.3.4
 %define specversion 7.3.4
 %define patchversion 7.3
-%define pkgrelease an05
+%define pkgrelease an06
 %define kversion 7
 %define tarfile_release 7.3.4
 # This is needed to do merge window version magic
 %define patchlevel 3
 # This allows pkg_release to have configurable %%{?dist} tag
-%define specrelease an05%{?buildid}%{?dist}
+%define specrelease an06%{?buildid}%{?dist}
 # This defines the kabi tarball version
 %define kabiversion 7.3.4
 
@@ -4946,7 +4946,12 @@ fi\
 #
 #
 %changelog
-* Sun Nov 15 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.3.4-an05]
+* Sun Nov 15 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.3.4-an06]
+- xhci: keep port link_inactive and connected flags in sync when polled (Mathias Nyman)
+- xhci: give back TDs and clean up ep0 after disconnect (Yiyu Zhou)
+- arm64: dts: qcom: Prefer suspend-to-idle on Snapdragon X platforms (Antheas Kapenekakis)
+- firmware: psci: Honor the DT preference for CPU_SUSPEND (Antheas Kapenekakis)
+- dt-bindings: arm: psci: Describe platforms preferring CPU_SUSPEND (Antheas Kapenekakis)
 - drm/msm/dp: Read eDP link capabilities before setting the mode (Antheas Kapenekakis)
 - sync-arm: Seed the build config from .config-arm (Antheas Kapenekakis)
 - scsi: ufs: Fix RPMB bus registration and region device lifetime (Antheas Kapenekakis)
