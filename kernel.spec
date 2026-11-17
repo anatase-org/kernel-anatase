@@ -172,13 +172,13 @@ Summary: The Linux kernel
 %define specrpmversion 7.3.4
 %define specversion 7.3.4
 %define patchversion 7.3
-%define pkgrelease an06
+%define pkgrelease an07
 %define kversion 7
 %define tarfile_release 7.3.4
 # This is needed to do merge window version magic
 %define patchlevel 3
 # This allows pkg_release to have configurable %%{?dist} tag
-%define specrelease an06%{?buildid}%{?dist}
+%define specrelease an07%{?buildid}%{?dist}
 # This defines the kabi tarball version
 %define kabiversion 7.3.4
 
@@ -4946,7 +4946,22 @@ fi\
 #
 #
 %changelog
-* Sun Nov 15 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.3.4-an06]
+* Tue Nov 17 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.3.4-an07]
+- redhat: enable core GLINK for arm64 SPSS configs (Antheas Kapenekakis)
+- tpm: qcom-spss: Close the SPSS session on shutdown (Antheas Kapenekakis)
+- tpm: qcom-spss: Order shared buffer ownership handoffs (Antheas Kapenekakis)
+- redhat: Enable Qualcomm SPSS TPM in ARM config overrides (Antheas Kapenekakis)
+- arm64: dts: qcom: Enable SPSS TPM storage on Galaxy Book4 Edge (Antheas Kapenekakis)
+- arm64: dts: qcom: hamoa: Add SPSS GLINK transport (Antheas Kapenekakis)
+- tpm: Add Qualcomm SPSS TPM driver (Antheas Kapenekakis)
+- firmware: qcom: Add SPSS secure NVM backing service (Antheas Kapenekakis)
+- rpmsg: qcom: Add GLINK transport for firmware-started SPSS (Antheas Kapenekakis)
+- firmware: qcom: scm: Add SPI NOR storage access helpers (Antheas Kapenekakis)
+- firmware: qcom: scm: Preserve VMIDs above 31 in memory assignments (Antheas Kapenekakis)
+- add iomem relaxed to debug kernels (Antheas Kapenekakis)
+- mirror windows closer and initiate power negotiation during irq, finishing it during delayed work (Antheas Kapenekakis)
+- notify the EC of port state, use centralized ec writes (Antheas Kapenekakis)
+- fix arm rounding (Antheas Kapenekakis)
 - xhci: keep port link_inactive and connected flags in sync when polled (Mathias Nyman)
 - xhci: give back TDs and clean up ep0 after disconnect (Yiyu Zhou)
 - arm64: dts: qcom: Prefer suspend-to-idle on Snapdragon X platforms (Antheas Kapenekakis)

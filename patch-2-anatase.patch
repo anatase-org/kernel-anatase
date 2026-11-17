@@ -68515,3 +68515,3147 @@ index 470bafe1802be5bd2d0321703732d53d536a8cc2..55430b673f1e94ba0b30108c57bd6d21
 -- 
 2.56.0
 
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Mon, 16 Nov 2026 14:20:58 +0100
+Subject: fix arm rounding
+
+---
+ drivers/usb/typec/samsung-emuec.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/usb/typec/samsung-emuec.c b/drivers/usb/typec/samsung-emuec.c
+index 3bc95f4a1885b6bf5293ddae52fa3b3b9742ac2f..3be9d6775520a6f198e5020b338888f5faffb42a 100644
+--- a/drivers/usb/typec/samsung-emuec.c
++++ b/drivers/usb/typec/samsung-emuec.c
+@@ -13,6 +13,7 @@
+ #include <linux/errno.h>
+ #include <linux/i2c.h>
+ #include <linux/interrupt.h>
++#include <linux/math.h>
+ #include <linux/module.h>
+ #include <linux/mutex.h>
+ #include <linux/of.h>
+@@ -323,7 +324,7 @@ static int samsung_emuec_choose_pdo(const u32 *pdos, int count,
+ 			continue;
+ 		current_ma = min(pdo_max_current(pdos[i]),
+ 				  S2MM006_MAX_CHARGE_MW * 1000U / voltage);
+-		current_ma = round_down(current_ma, 10);
++		current_ma = rounddown(current_ma, 10);
+ 		power = voltage * current_ma / 1000;
+ 		if (power > best_power) {
+ 			best_power = power;
+-- 
+2.56.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Mon, 16 Nov 2026 14:43:49 +0100
+Subject: notify the EC of port state, use centralized ec writes
+
+---
+ .../samsung,galaxybook4-edge-ec.yaml          |  11 +
+ .../qcom/x1-samsung-galaxy-book4-edge.dtsi    |   1 +
+ .../qcom/x1e-samsung-galaxy-book4-edge.dtsi   |   4 +-
+ .../x1p42100-samsung-galaxy-book4-edge-15.dts |   4 +-
+ .../platform/arm64/samsung-galaxybook-ec.c    | 214 ++++++++++++------
+ drivers/usb/typec/samsung-emuec.c             |   2 +-
+ 6 files changed, 166 insertions(+), 70 deletions(-)
+
+diff --git a/Documentation/devicetree/bindings/embedded-controller/samsung,galaxybook4-edge-ec.yaml b/Documentation/devicetree/bindings/embedded-controller/samsung,galaxybook4-edge-ec.yaml
+index 3888b3c3f911d2a543043bbcbf2d398ecb965089..52db5bfccf145b1fb714421967da0d09cda88d79 100644
+--- a/Documentation/devicetree/bindings/embedded-controller/samsung,galaxybook4-edge-ec.yaml
++++ b/Documentation/devicetree/bindings/embedded-controller/samsung,galaxybook4-edge-ec.yaml
+@@ -25,6 +25,16 @@ properties:
+   reg:
+     maxItems: 1
+ 
++  power-supplies:
++    $ref: /schemas/types.yaml#/definitions/phandle-array
++    minItems: 1
++    maxItems: 2
++    items:
++      maxItems: 1
++    description:
++      USB-C controller power supplies reporting the negotiated input contracts
++      used to configure the EC charger input budget.
++
+   samsung,event-interface:
+     $ref: /schemas/types.yaml#/definitions/phandle
+     description:
+@@ -56,6 +66,7 @@ allOf:
+           const: disabled
+         interrupts: false
+         samsung,event-interface: false
++        power-supplies: false
+ 
+ additionalProperties: false
+ 
+diff --git a/arch/arm64/boot/dts/qcom/x1-samsung-galaxy-book4-edge.dtsi b/arch/arm64/boot/dts/qcom/x1-samsung-galaxy-book4-edge.dtsi
+index dc396ec73b60711e20361ae15d6bc9499458b35a..27d6f6ff25fe12826f5960434031f0b08c8c247d 100644
+--- a/arch/arm64/boot/dts/qcom/x1-samsung-galaxy-book4-edge.dtsi
++++ b/arch/arm64/boot/dts/qcom/x1-samsung-galaxy-book4-edge.dtsi
+@@ -661,6 +661,7 @@ &i2c0 {
+ 	embedded-controller@64 {
+ 		compatible = "samsung,galaxybook4-edge-ec";
+ 		reg = <0x64>;
++		power-supplies = <&pdic0>, <&pdic1>;
+ 		samsung,event-interface = <&ec_events>;
+ 		interrupts-extended = <&tlmm 66 IRQ_TYPE_EDGE_FALLING>;
+ 	};
+diff --git a/arch/arm64/boot/dts/qcom/x1e-samsung-galaxy-book4-edge.dtsi b/arch/arm64/boot/dts/qcom/x1e-samsung-galaxy-book4-edge.dtsi
+index 34feba350bd7ee16d20ca1fb575d15a433e54f6d..15f2c8d7ce0217b1a41845c46074035a44034299 100644
+--- a/arch/arm64/boot/dts/qcom/x1e-samsung-galaxy-book4-edge.dtsi
++++ b/arch/arm64/boot/dts/qcom/x1e-samsung-galaxy-book4-edge.dtsi
+@@ -172,7 +172,7 @@ &i2c9 {
+ 
+ 	status = "okay";
+ 
+-	pdic@33 {
++	pdic0: pdic@33 {
+ 		compatible = "samsung,s2mm006";
+ 		reg = <0x33>;
+ 		interrupts-extended = <&tlmm 38 IRQ_TYPE_LEVEL_LOW>;
+@@ -225,7 +225,7 @@ &i2c15 {
+ 
+ 	status = "okay";
+ 
+-	pdic@33 {
++	pdic1: pdic@33 {
+ 		compatible = "samsung,s2mm006";
+ 		reg = <0x33>;
+ 		interrupts-extended = <&tlmm 93 IRQ_TYPE_LEVEL_LOW>;
+diff --git a/arch/arm64/boot/dts/qcom/x1p42100-samsung-galaxy-book4-edge-15.dts b/arch/arm64/boot/dts/qcom/x1p42100-samsung-galaxy-book4-edge-15.dts
+index 24b70461743989b9d04f56ddf70260fe5f8cfe91..94d3c0e6ee77f9f6cfa2f9bddf0ae8d2e4b23d8a 100644
+--- a/arch/arm64/boot/dts/qcom/x1p42100-samsung-galaxy-book4-edge-15.dts
++++ b/arch/arm64/boot/dts/qcom/x1p42100-samsung-galaxy-book4-edge-15.dts
+@@ -422,7 +422,7 @@ &i2c9 {
+ 	clock-frequency = <400000>;
+ 	status = "okay";
+ 
+-	pdic@33 {
++	pdic0: pdic@33 {
+ 		compatible = "samsung,s2mm006";
+ 		reg = <0x33>;
+ 		interrupts-extended = <&tlmm 38 IRQ_TYPE_LEVEL_LOW>;
+@@ -469,7 +469,7 @@ &i2c15 {
+ 	clock-frequency = <400000>;
+ 	status = "okay";
+ 
+-	pdic@33 {
++	pdic1: pdic@33 {
+ 		compatible = "samsung,s2mm006";
+ 		reg = <0x33>;
+ 		interrupts-extended = <&tlmm 93 IRQ_TYPE_LEVEL_LOW>;
+diff --git a/drivers/platform/arm64/samsung-galaxybook-ec.c b/drivers/platform/arm64/samsung-galaxybook-ec.c
+index 6bf9057e6ab01df15ab6e5dc7159044123046e97..50292b649a9f06410de7a30f1d833ce8ab47ba53 100644
+--- a/drivers/platform/arm64/samsung-galaxybook-ec.c
++++ b/drivers/platform/arm64/samsung-galaxybook-ec.c
+@@ -15,6 +15,7 @@
+ #include <linux/i2c.h>
+ #include <linux/interrupt.h>
+ #include <linux/leds.h>
++#include <linux/math.h>
+ #include <linux/module.h>
+ #include <linux/mutex.h>
+ #include <linux/of.h>
+@@ -31,6 +32,11 @@
+ #define GALAXYBOOK_EC_DESIGN_VOLTAGE	0xb4
+ #define GALAXYBOOK_EC_CYCLES		0xd0
+ 
++#define GALAXYBOOK_EC_SET_INPUT_CURRENT	0x90
++#define GALAXYBOOK_EC_SET_ADAPTER_INFO	0x91
++#define GALAXYBOOK_EC_MAX_INPUT_MW	65000
++#define GALAXYBOOK_EC_MAX_INPUT_MV	20000
++
+ #define GALAXYBOOK_EC_BAT_PRESENT	BIT(0)
+ #define GALAXYBOOK_EC_AC_PRESENT	BIT(2)
+ #define GALAXYBOOK_EC_BAT_DISCHARGING	BIT(0)
+@@ -104,26 +110,27 @@ static int galaxybook_ec_wait_ready(struct i2c_client *client)
+ 	return -ETIMEDOUT;
+ }
+ 
+-static int galaxybook_kbd_backlight_set(struct led_classdev *led,
+-				      enum led_brightness brightness)
++/* Caller holds ec->lock across staging the payload and executing the command. */
++static int galaxybook_ec_write_command(struct samsung_galaxybook_ec *ec,
++				      u8 command, const u8 *data, size_t len)
+ {
+-	struct samsung_galaxybook_ec *ec =
+-		container_of(led, struct samsung_galaxybook_ec, kbd_backlight);
+-	u8 select[] = { 0x40, 0x00, 0xf4, 0x80, brightness };
+-	u8 execute[] = { 0x40, 0x00, 0xff, 0x10, 0xfd };
++	u8 request[] = { 0x40, 0x00, 0xf4, 0x80, 0 };
++	u8 execute[] = { 0x40, 0x00, 0xff, 0x10, command };
++	size_t i;
+ 	int ret;
+ 
+-	guard(mutex)(&ec->lock);
+-
+ 	ret = galaxybook_ec_wait_ready(ec->client);
+ 	if (ret)
+ 		return ret;
+ 
+-	ret = i2c_master_send(ec->client, select, sizeof(select));
+-	if (ret != sizeof(select))
+-		return ret < 0 ? ret : -EIO;
+-
+-	usleep_range(5000, 6000);
++	for (i = 0; i < len; i++) {
++		request[3] = 0x80 + i;
++		request[4] = data[i];
++		ret = i2c_master_send(ec->client, request, sizeof(request));
++		if (ret != sizeof(request))
++			return ret < 0 ? ret : -EIO;
++		usleep_range(5000, 6000);
++	}
+ 
+ 	ret = i2c_master_send(ec->client, execute, sizeof(execute));
+ 	if (ret != sizeof(execute))
+@@ -132,39 +139,86 @@ static int galaxybook_kbd_backlight_set(struct led_classdev *led,
+ 	return galaxybook_ec_wait_ready(ec->client);
+ }
+ 
+-static int galaxybook_kbd_backlight_read(struct samsung_galaxybook_ec *ec,
+-				       enum led_brightness *brightness)
++static int galaxybook_charger_contract(struct power_supply *psy,
++				      unsigned int *mv, unsigned int *ma)
+ {
+-	u8 select[] = { 0x40, 0x00, 0xf4, 0x80, 0x00 };
+-	u8 execute[] = { 0x40, 0x00, 0xff, 0x10, 0xfc };
+-	u8 level;
+-	int ret;
++	union power_supply_propval online, voltage, current_max;
++	struct power_supply *supplier;
++	unsigned int active = 0;
++	int i, ret;
++
++	if (!psy->num_supplies)
++		return -ENODEV;
++
++	*mv = 0;
++	*ma = 0;
++	for (i = 0; i < psy->num_supplies; i++) {
++		supplier = power_supply_get_by_name(psy->supplied_from[i]);
++		if (!supplier)
++			return -ENODEV;
++
++		ret = power_supply_get_property(supplier, POWER_SUPPLY_PROP_ONLINE,
++						&online);
++		if (!ret && online.intval) {
++			ret = power_supply_get_property(supplier,
++					POWER_SUPPLY_PROP_VOLTAGE_NOW, &voltage);
++			if (!ret)
++				ret = power_supply_get_property(supplier,
++					POWER_SUPPLY_PROP_CURRENT_MAX, &current_max);
++			if (!ret) {
++				/* Attachment can precede availability of the PD contract. */
++				if (voltage.intval <= 0 || current_max.intval <= 0)
++					ret = -EAGAIN;
++				else if (voltage.intval < 5000000 ||
++					 voltage.intval > GALAXYBOOK_EC_MAX_INPUT_MV * 1000 ||
++					 current_max.intval > 5000000)
++					ret = -ERANGE;
++				else {
++					*mv = voltage.intval / 1000;
++					*ma = current_max.intval / 1000;
++					active++;
++				}
++			}
++		}
++		power_supply_put(supplier);
++		if (ret)
++			return ret;
++	}
+ 
+-	guard(mutex)(&ec->lock);
++	if (active > 1)
++		return -EBUSY;
++	if (active) {
++		*ma = min(*ma, GALAXYBOOK_EC_MAX_INPUT_MW * 1000U / *mv);
++		/* Match EmuEC's five percent input-current margin. */
++		*ma = *ma * 95 / 100;
++	}
+ 
+-	ret = galaxybook_ec_wait_ready(ec->client);
+-	if (ret)
+-		return ret;
++	return 0;
++}
+ 
+-	/* Stage two zero bytes before executing the read command. */
+-	ret = i2c_master_send(ec->client, select, sizeof(select));
+-	if (ret != sizeof(select))
+-		return ret < 0 ? ret : -EIO;
++static int galaxybook_kbd_backlight_set(struct led_classdev *led,
++				      enum led_brightness brightness)
++{
++	struct samsung_galaxybook_ec *ec =
++		container_of(led, struct samsung_galaxybook_ec, kbd_backlight);
++	u8 level = brightness;
+ 
+-	usleep_range(5000, 6000);
++	guard(mutex)(&ec->lock);
+ 
+-	select[3] = 0x81;
+-	ret = i2c_master_send(ec->client, select, sizeof(select));
+-	if (ret != sizeof(select))
+-		return ret < 0 ? ret : -EIO;
++	return galaxybook_ec_write_command(ec, 0xfd, &level, sizeof(level));
++}
+ 
+-	usleep_range(5000, 6000);
++static int galaxybook_kbd_backlight_read(struct samsung_galaxybook_ec *ec,
++				       enum led_brightness *brightness)
++{
++	u8 data[2] = {};
++	u8 level;
++	int ret;
+ 
+-	ret = i2c_master_send(ec->client, execute, sizeof(execute));
+-	if (ret != sizeof(execute))
+-		return ret < 0 ? ret : -EIO;
++	guard(mutex)(&ec->lock);
+ 
+-	ret = galaxybook_ec_wait_ready(ec->client);
++	/* Stage two zero bytes before executing the read command. */
++	ret = galaxybook_ec_write_command(ec, 0xfc, data, sizeof(data));
+ 	if (ret)
+ 		return ret;
+ 
+@@ -433,6 +487,41 @@ static enum power_supply_property galaxybook_ac_properties[] = {
+ 	POWER_SUPPLY_PROP_MODEL_NAME,
+ };
+ 
++static void galaxybook_external_power_changed(struct power_supply *psy)
++{
++	struct samsung_galaxybook_ec *ec = power_supply_get_drvdata(psy);
++	unsigned int mv, ma;
++	u8 input[2], adapter[2];
++	int ret;
++
++	guard(mutex)(&ec->lock);
++
++	ret = galaxybook_charger_contract(psy, &mv, &ma);
++	if (ret == -EBUSY) {
++		/* Power-path arbitration must precede using either contract. */
++		dev_warn_ratelimited(&ec->client->dev,
++				     "multiple charging paths active, clearing EC input budget\n");
++		mv = 0;
++		ma = 0;
++	} else if (ret) {
++		return;
++	}
++
++	/* EmuEC sends the input limit in mA, then watts and 100 mV units. */
++	input[0] = ma & 0xff;
++	input[1] = ma >> 8;
++	adapter[0] = mv * ma / 1000000;
++	adapter[1] = mv / 100;
++	ret = galaxybook_ec_write_command(ec, GALAXYBOOK_EC_SET_INPUT_CURRENT,
++					 input, sizeof(input));
++	if (!ret)
++		ret = galaxybook_ec_write_command(ec, GALAXYBOOK_EC_SET_ADAPTER_INFO,
++						 adapter, sizeof(adapter));
++	if (ret)
++		dev_warn_ratelimited(&ec->client->dev,
++				     "failed to update EC input budget: %d\n", ret);
++}
++
+ static const struct power_supply_desc galaxybook_battery_desc = {
+ 	.name = "samsung-galaxybook-battery",
+ 	.type = POWER_SUPPLY_TYPE_BATTERY,
+@@ -447,27 +536,26 @@ static const struct power_supply_desc galaxybook_ac_desc = {
+ 	.properties = galaxybook_ac_properties,
+ 	.num_properties = ARRAY_SIZE(galaxybook_ac_properties),
+ 	.get_property = galaxybook_ac_get_property,
++	.external_power_changed = galaxybook_external_power_changed,
+ };
+ 
+ static int galaxybook_profile_set(struct device *dev,
+ 				 enum platform_profile_option profile)
+ {
+ 	struct samsung_galaxybook_ec *ec = dev_get_drvdata(dev);
+-	u8 select[] = { 0x40, 0x00, 0xf4, 0x80, 0x80 };
+-	u8 execute[] = { 0x40, 0x00, 0xff, 0x10, 0xee };
+-	u8 mode;
++	u8 data[] = { 0x80, 0 };
+ 	int ret;
+ 
+ 	/* The Galaxy Book4 Edge ACPI PRF3 method maps Optimized to EC auto mode (0). */
+ 	switch (profile) {
+ 	case PLATFORM_PROFILE_QUIET:
+-		mode = 0x0a;
++		data[1] = 0x0a;
+ 		break;
+ 	case PLATFORM_PROFILE_BALANCED:
+-		mode = 0x00;
++		data[1] = 0x00;
+ 		break;
+ 	case PLATFORM_PROFILE_PERFORMANCE:
+-		mode = 0x15;
++		data[1] = 0x15;
+ 		break;
+ 	default:
+ 		return -EINVAL;
+@@ -475,28 +563,8 @@ static int galaxybook_profile_set(struct device *dev,
+ 
+ 	guard(mutex)(&ec->lock);
+ 
+-	ret = galaxybook_ec_wait_ready(ec->client);
+-	if (ret)
+-		return ret;
+-
+ 	/* PRF3 issues extended command 0xee with payload [0x80, mode]. */
+-	ret = i2c_master_send(ec->client, select, sizeof(select));
+-	if (ret != sizeof(select))
+-		return ret < 0 ? ret : -EIO;
+-	usleep_range(5000, 6000);
+-
+-	select[3] = 0x81;
+-	select[4] = mode;
+-	ret = i2c_master_send(ec->client, select, sizeof(select));
+-	if (ret != sizeof(select))
+-		return ret < 0 ? ret : -EIO;
+-	usleep_range(5000, 6000);
+-
+-	ret = i2c_master_send(ec->client, execute, sizeof(execute));
+-	if (ret != sizeof(execute))
+-		return ret < 0 ? ret : -EIO;
+-
+-	ret = galaxybook_ec_wait_ready(ec->client);
++	ret = galaxybook_ec_write_command(ec, 0xee, data, sizeof(data));
+ 	if (!ret)
+ 		ec->profile = profile;
+ 	return ret;
+@@ -705,11 +773,26 @@ static int samsung_galaxybook_ec_probe(struct i2c_client *client)
+ 	} else {
+ 		dev_warn(&client->dev, "platform profiles unavailable: %d\n", ret);
+ 	}
+-	return devm_request_threaded_irq(&client->dev, client->irq, NULL,
++	ret = devm_request_threaded_irq(&client->dev, client->irq, NULL,
+ 					 galaxybook_ec_irq_thread, IRQF_ONESHOT,
+ 					 dev_name(&client->dev), ec);
++	if (ret)
++		return ret;
++
++	galaxybook_external_power_changed(ec->ac);
++	return 0;
+ }
+ 
++static int galaxybook_ec_resume(struct device *dev)
++{
++	struct samsung_galaxybook_ec *ec = dev_get_drvdata(dev);
++
++	galaxybook_external_power_changed(ec->ac);
++	return 0;
++}
++
++static DEFINE_SIMPLE_DEV_PM_OPS(galaxybook_ec_pm_ops, NULL, galaxybook_ec_resume);
++
+ static const struct of_device_id samsung_galaxybook_ec_of_match[] = {
+ 	{ .compatible = "samsung,galaxybook4-edge-ec" },
+ 	{}
+@@ -720,6 +803,7 @@ static struct i2c_driver samsung_galaxybook_ec_driver = {
+ 	.driver = {
+ 		.name = "samsung-galaxybook-ec",
+ 		.of_match_table = samsung_galaxybook_ec_of_match,
++		.pm = pm_sleep_ptr(&galaxybook_ec_pm_ops),
+ 	},
+ 	.probe = samsung_galaxybook_ec_probe,
+ };
+diff --git a/drivers/usb/typec/samsung-emuec.c b/drivers/usb/typec/samsung-emuec.c
+index 3be9d6775520a6f198e5020b338888f5faffb42a..0174702709705881f7e85ac4d671c3ab5c912943 100644
+--- a/drivers/usb/typec/samsung-emuec.c
++++ b/drivers/usb/typec/samsung-emuec.c
+@@ -1036,7 +1036,7 @@ static int samsung_emuec_probe(struct i2c_client *client)
+ 	pdic->psy_desc.num_properties = ARRAY_SIZE(samsung_emuec_properties);
+ 	pdic->psy_desc.get_property = samsung_emuec_get_property;
+ 	psy_config.drv_data = pdic;
+-	psy_config.fwnode = of_fwnode_handle(pdic->connector);
++	psy_config.fwnode = dev_fwnode(dev);
+ 
+ 	pdic->psy = devm_power_supply_register(dev, &pdic->psy_desc, &psy_config);
+ 	if (IS_ERR(pdic->psy)) {
+-- 
+2.56.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Mon, 16 Nov 2026 15:25:27 +0100
+Subject: mirror windows closer and initiate power negotiation during irq,
+ finishing it during delayed work
+
+---
+ drivers/usb/typec/samsung-emuec.c | 158 ++++++++++++++++++++----------
+ 1 file changed, 107 insertions(+), 51 deletions(-)
+
+diff --git a/drivers/usb/typec/samsung-emuec.c b/drivers/usb/typec/samsung-emuec.c
+index 0174702709705881f7e85ac4d671c3ab5c912943..269e9b4b485b233d9cd7e77e623ac92d49f681ea 100644
+--- a/drivers/usb/typec/samsung-emuec.c
++++ b/drivers/usb/typec/samsung-emuec.c
+@@ -13,10 +13,12 @@
+ #include <linux/errno.h>
+ #include <linux/i2c.h>
+ #include <linux/interrupt.h>
++#include <linux/iopoll.h>
+ #include <linux/math.h>
+ #include <linux/module.h>
+ #include <linux/mutex.h>
+ #include <linux/of.h>
++#include <linux/pm.h>
+ #include <linux/power_supply.h>
+ #include <linux/slab.h>
+ #include <linux/unaligned.h>
+@@ -64,7 +66,6 @@
+ #define S2MM006_DP_CONFIG_RECEIVED	BIT(6)
+ #define S2MM006_DP_ATTENTION_RECEIVED	BIT(7)
+ #define S2MM006_ENTER_USB_SUCCESS	(2 << 2)
+-#define S2MM006_MAX_CHARGE_MW		65000
+ #define S2MM006_MAX_CHARGE_MV		20000
+ 
+ enum samsung_emuec_mode {
+@@ -105,8 +106,8 @@ struct samsung_emuec {
+ 	bool dp_enter_requested;
+ 	bool dp_hpd;
+ 	u8 dp_pin;
+-	bool pd_attempted;
+-	u8 caps_retries;
++	u32 requested_rdo;
++	u32 requested_pdo;
+ };
+ 
+ static int samsung_emuec_read(struct samsung_emuec *pdic, u16 reg,
+@@ -164,6 +165,8 @@ static int samsung_emuec_clear_irqs(struct samsung_emuec *pdic)
+ 		if (ret)
+ 			return ret;
+ 	}
++	dev_dbg(&pdic->client->dev, "interrupts: %*ph\n",
++		(int)sizeof(pending), pending);
+ 
+ 	/* The Windows driver acknowledges each interrupt byte by writing it back. */
+ 	for (reg = S2MM006_IRQ_FIRST; reg <= S2MM006_IRQ_LAST; reg++) {
+@@ -269,9 +272,9 @@ static void samsung_emuec_detach(struct samsung_emuec *pdic)
+ 		schedule_work(&pdic->hpd_work);
+ 	}
+ 	pdic->dp_pin = 0;
+-	pdic->pd_attempted = false;
++	pdic->requested_rdo = 0;
++	pdic->requested_pdo = 0;
+ 	pdic->usb_mode = USB_MODE_NONE;
+-	pdic->caps_retries = 0;
+ 	pdic->attempted_mode = SAMSUNG_EMUEC_MODE_NONE;
+ 	pdic->voltage_uv = 0;
+ 	pdic->current_ua = 0;
+@@ -308,6 +311,29 @@ static int samsung_emuec_read_source_caps(struct samsung_emuec *pdic,
+ 	return 0;
+ }
+ 
++static unsigned int samsung_emuec_limit_current(u32 pdo)
++{
++	u32 voltage = pdo_fixed_voltage(pdo);
++	u32 power;
++
++	/* Galaxy Book input limits from Windows Policy_limit_MaxCurrent. */
++	if (!voltage || voltage > S2MM006_MAX_CHARGE_MV)
++		return 0;
++	if (voltage <= 5000)
++		power = 15000;
++	else if (voltage <= 9000)
++		power = 25000;
++	else if (voltage <= 12000)
++		power = 36000;
++	else if (voltage <= 15000)
++		power = 45000;
++	else
++		power = 65000;
++
++	return rounddown(min3(pdo_max_current(pdo), 5000U,
++			      power * 1000 / voltage), 10);
++}
++
+ static int samsung_emuec_choose_pdo(const u32 *pdos, int count,
+ 				    unsigned int *mv, unsigned int *ma)
+ {
+@@ -322,9 +348,7 @@ static int samsung_emuec_choose_pdo(const u32 *pdos, int count,
+ 		voltage = pdo_fixed_voltage(pdos[i]);
+ 		if (!voltage || voltage > S2MM006_MAX_CHARGE_MV)
+ 			continue;
+-		current_ma = min(pdo_max_current(pdos[i]),
+-				  S2MM006_MAX_CHARGE_MW * 1000U / voltage);
+-		current_ma = rounddown(current_ma, 10);
++		current_ma = samsung_emuec_limit_current(pdos[i]);
+ 		power = voltage * current_ma / 1000;
+ 		if (power > best_power) {
+ 			best_power = power;
+@@ -354,15 +378,17 @@ static int samsung_emuec_active_rdo(struct samsung_emuec *pdic, u32 *rdo)
+ static int samsung_emuec_request_pdo(struct samsung_emuec *pdic, u32 rdo)
+ {
+ 	u8 request[8], status;
+-	u32 active;
+-	int ret, i;
++	int ret, err;
+ 
+-	ret = samsung_emuec_read(pdic, S2MM006_REG_TX_STATUS,
+-				&status, sizeof(status));
++	/* Windows waits up to ten 30 ms intervals for the transmit mailbox. */
++	ret = read_poll_timeout(samsung_emuec_read, err,
++				err || !(status & S2MM006_TX_REQUEST),
++				30000, 300000, false, pdic,
++				S2MM006_REG_TX_STATUS, &status, sizeof(status));
+ 	if (ret)
+ 		return ret;
+-	if (status & S2MM006_TX_REQUEST)
+-		return -EBUSY;
++	if (err)
++		return err;
+ 
+ 	/* The EC mailbox expects a PD Request header and a reserved halfword. */
+ 	put_unaligned_le16(0x1002, request);
+@@ -374,22 +400,9 @@ static int samsung_emuec_request_pdo(struct samsung_emuec *pdic, u32 rdo)
+ 		return ret;
+ 
+ 	status |= S2MM006_TX_REQUEST;
+-	ret = samsung_emuec_write(pdic, S2MM006_REG_TX_STATUS,
+-				  &status, sizeof(status));
+-	if (ret)
+-		return ret;
+-
+-	for (i = 0; i < 20; i++) {
+-		msleep(100);
+-		ret = samsung_emuec_active_rdo(pdic, &active);
+-		if (ret)
+-			return ret;
+-		if (rdo_index(active) == rdo_index(rdo) &&
+-		    rdo_op_current(active) == rdo_op_current(rdo))
+-			return 0;
+-	}
+-
+-	return -ETIMEDOUT;
++	/* Contract completion is reported by the controller's interrupts. */
++	return samsung_emuec_write(pdic, S2MM006_REG_TX_STATUS,
++				    &status, sizeof(status));
+ }
+ 
+ static void samsung_emuec_update_pd(struct samsung_emuec *pdic)
+@@ -398,16 +411,13 @@ static void samsung_emuec_update_pd(struct samsung_emuec *pdic)
+ 	struct usb_power_delivery_desc desc;
+ 	u32 pdos[PDO_MAX_OBJECTS] = {}, active, requested;
+ 	unsigned int mv = 0, ma = 0;
++	u8 status;
+ 	u16 revision;
+ 	int count, selected, actual, ret;
+ 
+ 	ret = samsung_emuec_read_source_caps(pdic, pdos, &count, &revision);
+-	if (ret) {
+-		if (ret == -ENODATA && pdic->caps_retries++ < 5)
+-			mod_delayed_work(system_dfl_wq, &pdic->work,
+-					 msecs_to_jiffies(200));
++	if (ret)
+ 		return;
+-	}
+ 
+ 	if (!pdic->partner_pd) {
+ 		desc.revision = revision;
+@@ -440,28 +450,43 @@ static void samsung_emuec_update_pd(struct samsung_emuec *pdic)
+ 	ret = samsung_emuec_active_rdo(pdic, &active);
+ 	if (ret)
+ 		return;
++	ret = samsung_emuec_read(pdic, S2MM006_REG_TX_STATUS,
++				&status, sizeof(status));
++	if (ret)
++		return;
+ 
+ 	requested = RDO_FIXED(selected, ma, ma, RDO_USB_COMM | RDO_NO_SUSPEND);
+ 	actual = rdo_index(active);
+-	/* Firmware may already hold a stronger contract. Do not renegotiate it. */
+-	if (actual < 1 || actual > count ||
+-		pdo_type(pdos[actual - 1]) != PDO_TYPE_FIXED ||
+-		rdo_op_current(active) > pdo_max_current(pdos[actual - 1]) ||
+-		pdo_fixed_voltage(pdos[actual - 1]) *
+-		rdo_op_current(active) < mv * ma) {
+-		if (!pdic->pd_attempted) {
+-			pdic->pd_attempted = true;
+-			ret = samsung_emuec_request_pdo(pdic, requested);
+-			if (ret)
+-				dev_warn(&pdic->client->dev,
+-						"PD contract request failed: %d\n", ret);
+-			ret = samsung_emuec_active_rdo(pdic, &active);
+-			if (ret)
+-				return;
++	/* Do not mistake the outgoing RDO for a completed power transition. */
++	if (!(status & S2MM006_TX_REQUEST) &&
++	    actual >= 1 && actual <= count &&
++	    pdo_type(pdos[actual - 1]) == PDO_TYPE_FIXED &&
++	    rdo_op_current(active) <= samsung_emuec_limit_current(pdos[actual - 1]) &&
++	    pdo_fixed_voltage(pdos[actual - 1]) * rdo_op_current(active) >= mv * ma) {
++		/* A later contract loss must be allowed to request this PDO again. */
++		pdic->requested_rdo = 0;
++		pdic->requested_pdo = 0;
++		goto report;
++	}
++
++	/* Suppress duplicates, but re-evaluate changed source limits. */
++	if (pdic->requested_rdo != requested ||
++	    pdic->requested_pdo != pdos[selected - 1]) {
++		ret = samsung_emuec_request_pdo(pdic, requested);
++		if (ret)
++			dev_warn(&pdic->client->dev,
++				 "failed to submit PD request %#x: %d\n", requested, ret);
++		else {
++			pdic->requested_rdo = requested;
++			pdic->requested_pdo = pdos[selected - 1];
+ 		}
+ 	}
++	dev_dbg(&pdic->client->dev, "PD requested %#x, active %#x, TX %#x\n",
++		 requested, active, status);
+ 
+-	actual = rdo_index(active);
++report:
++	if (status & S2MM006_TX_REQUEST)
++		return;
+ 	if (actual < 1 || actual > count ||
+ 	    pdo_type(pdos[actual - 1]) != PDO_TYPE_FIXED)
+ 		return;
+@@ -1097,6 +1122,36 @@ static void samsung_emuec_remove(struct i2c_client *client)
+ 	of_node_put(pdic->connector);
+ }
+ 
++static int samsung_emuec_suspend(struct device *dev)
++{
++	struct samsung_emuec *pdic = dev_get_drvdata(dev);
++
++	/* Leave controller events latched until its I2C bus has resumed. */
++	disable_irq(pdic->client->irq);
++	cancel_delayed_work_sync(&pdic->work);
++	flush_work(&pdic->hpd_work);
++
++	return 0;
++}
++
++static int samsung_emuec_resume(struct device *dev)
++{
++	struct samsung_emuec *pdic = dev_get_drvdata(dev);
++
++	scoped_guard(mutex, &pdic->lock) {
++		pdic->requested_rdo = 0;
++		pdic->requested_pdo = 0;
++		pdic->attempted_mode = SAMSUNG_EMUEC_MODE_NONE;
++	}
++	enable_irq(pdic->client->irq);
++	mod_delayed_work(system_dfl_wq, &pdic->work, 0);
++
++	return 0;
++}
++
++static DEFINE_SIMPLE_DEV_PM_OPS(samsung_emuec_pm_ops, samsung_emuec_suspend,
++			      samsung_emuec_resume);
++
+ static const struct of_device_id samsung_emuec_of_match[] = {
+ 	{ .compatible = "samsung,s2mm006" },
+ 	{ }
+@@ -1107,6 +1162,7 @@ static struct i2c_driver samsung_emuec_driver = {
+ 	.driver = {
+ 		.name = "samsung-emuec",
+ 		.of_match_table = samsung_emuec_of_match,
++		.pm = pm_sleep_ptr(&samsung_emuec_pm_ops),
+ 	},
+ 	.probe = samsung_emuec_probe,
+ 	.remove = samsung_emuec_remove,
+-- 
+2.56.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Mon, 16 Nov 2026 19:33:39 +0100
+Subject: add iomem relaxed to debug kernels
+
+---
+ sync-arm.sh | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/sync-arm.sh b/sync-arm.sh
+index 4f6419b546759947a47868a9c2a9083f37d2e6a3..7b44d9fbd0b02f86d3ef93395a881bd66e2fbca9 100755
+--- a/sync-arm.sh
++++ b/sync-arm.sh
+@@ -207,6 +207,7 @@ awk '/^options[[:space:]]+/ { sub(/^options[[:space:]]+/, ""); cmdline=$0 }
+ REMOTE_CMDLINE
+ ) || die "failed to read the remote ostree kernel command line"
+ [[ -n $CMDLINE ]] || die "remote ostree kernel command line is empty"
++CMDLINE+=" iomem=relaxed"
+ echo "Using cmdline: $CMDLINE"
+ 
+ UKIFY_ARGS=(build --efi-arch=aa64 "--stub=$EFI_STUB" \
+-- 
+2.56.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Mon, 16 Nov 2026 22:12:56 +0100
+Subject: firmware: qcom: scm: Preserve VMIDs above 31 in memory assignments
+
+The destination VMID mask is returned through an int, truncating VMID 36
+used for memory shared with SPSS. Subsequent attempts to revoke access then
+fail because the source VMID list is incomplete.
+
+Keep the accumulated mask in a u64 and use BIT_ULL() when constructing and
+reading VMID masks.
+
+Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
+---
+ drivers/firmware/qcom/qcom_scm.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/firmware/qcom/qcom_scm.c b/drivers/firmware/qcom/qcom_scm.c
+index b378d04722da90d8637db78ac20e9efc51ed8b08..cbc67ae7e7b0959db8c5bd0684c0dbe11ee8a0b9 100644
+--- a/drivers/firmware/qcom/qcom_scm.c
++++ b/drivers/firmware/qcom/qcom_scm.c
+@@ -1356,7 +1356,7 @@ int qcom_scm_assign_mem(phys_addr_t mem_addr, size_t mem_sz,
+ 	size_t dest_sz;
+ 	size_t src_sz;
+ 	size_t ptr_sz;
+-	int next_vm;
++	u64 next_vm;
+ 	__le32 *src;
+ 	int ret, i, b;
+ 	u64 srcvm_bits = *srcvm;
+@@ -1378,7 +1378,7 @@ int qcom_scm_assign_mem(phys_addr_t mem_addr, size_t mem_sz,
+ 	src = ptr;
+ 	i = 0;
+ 	for (b = 0; b < BITS_PER_TYPE(u64); b++) {
+-		if (srcvm_bits & BIT(b))
++		if (srcvm_bits & BIT_ULL(b))
+ 			src[i++] = cpu_to_le32(b);
+ 	}
+ 
+@@ -1397,7 +1397,7 @@ int qcom_scm_assign_mem(phys_addr_t mem_addr, size_t mem_sz,
+ 		destvm->perm = cpu_to_le32(newvm->perm);
+ 		destvm->ctx = 0;
+ 		destvm->ctx_size = 0;
+-		next_vm |= BIT(newvm->vmid);
++		next_vm |= BIT_ULL(newvm->vmid);
+ 	}
+ 
+ 	ret = __qcom_scm_assign_mem(__scm->dev, mem_to_map_phys, mem_to_map_sz,
+-- 
+2.56.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Mon, 16 Nov 2026 22:12:56 +0100
+Subject: firmware: qcom: scm: Add SPI NOR storage access helpers
+
+Expose geometry queries and sector reads and writes through the SCM
+storage service. Allocate request and transfer buffers from TZMem and map
+firmware errors to Linux error codes for the SPSS secure NVM service.
+
+Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
+---
+ drivers/firmware/qcom/qcom_scm.c       | 116 +++++++++++++++++++++++++
+ drivers/firmware/qcom/qcom_scm.h       |   3 +
+ include/linux/firmware/qcom/qcom_scm.h |   4 +
+ 3 files changed, 123 insertions(+)
+
+diff --git a/drivers/firmware/qcom/qcom_scm.c b/drivers/firmware/qcom/qcom_scm.c
+index cbc67ae7e7b0959db8c5bd0684c0dbe11ee8a0b9..c709a1f5f81eaed692c8229a2a889a0897cf1df4 100644
+--- a/drivers/firmware/qcom/qcom_scm.c
++++ b/drivers/firmware/qcom/qcom_scm.c
+@@ -31,6 +31,7 @@
+ #include <linux/remoteproc.h>
+ #include <linux/sizes.h>
+ #include <linux/types.h>
++#include <linux/unaligned.h>
+ 
+ #include <dt-bindings/interrupt-controller/arm-gic.h>
+ 
+@@ -2569,6 +2570,121 @@ static void qcom_scm_qtee_init(struct qcom_scm *scm)
+ 	devm_add_action_or_reset(scm->dev, qcom_scm_qtee_free, qtee_dev);
+ }
+ 
++struct qcom_scm_storage_request {
++	__le64 type;
++	__le64 slot;
++	__le64 lun;
++	__le64 partition;
++	__le64 command;
++};
++
++struct qcom_scm_storage_details {
++	__le64 lba;
++	__le64 length;
++	__le64 address;
++	__le64 size;
++};
++
++static int qcom_scm_storage_access(u64 command, u64 lba, void *data, size_t size)
++{
++	struct qcom_scm_storage_request *request;
++	struct qcom_scm_storage_details *details;
++	struct qcom_scm_desc desc = {
++		.svc = QCOM_SCM_SVC_STORAGE,
++		.cmd = QCOM_SCM_STORAGE_ACCESS,
++		.owner = ARM_SMCCC_OWNER_SIP,
++		.arginfo = QCOM_SCM_ARGS(4, QCOM_SCM_RO, QCOM_SCM_VAL,
++					 QCOM_SCM_RW, QCOM_SCM_VAL),
++	};
++	void *buffer __free(qcom_tzmem) = NULL;
++	struct qcom_scm_res res = {};
++	void *payload;
++	int ret;
++
++	if (!size || size > SZ_4K)
++		return -EINVAL;
++
++	buffer = qcom_tzmem_alloc(__scm->mempool, SZ_4K + size, GFP_KERNEL);
++	if (!buffer)
++		return -ENOMEM;
++
++	memset(buffer, 0, SZ_4K + size);
++	request = buffer;
++	details = buffer + sizeof(*request);
++	payload = buffer + SZ_4K;
++	request->type = cpu_to_le64(1); /* SPI NOR */
++	request->command = cpu_to_le64(command);
++	details->lba = cpu_to_le64(lba);
++	details->length = cpu_to_le64(size);
++	details->address = cpu_to_le64(qcom_tzmem_to_phys(payload));
++	if (command == 2)
++		memcpy(payload, data, size);
++
++	desc.args[0] = qcom_tzmem_to_phys(request);
++	desc.args[1] = sizeof(*request);
++	desc.args[2] = qcom_tzmem_to_phys(details);
++	desc.args[3] = sizeof(*details);
++	ret = qcom_scm_call(__scm->dev, &desc, &res);
++	if (ret)
++		return ret;
++
++	switch (res.result[0]) {
++	case 0:
++		if (command != 2)
++			memcpy(data, payload, size);
++		return 0;
++	case 1:
++		return -ENOMEM;
++	case 2:
++		return -EINVAL;
++	case 4:
++		return -EACCES;
++	case 5:
++		return -EOPNOTSUPP;
++	case 6:
++		return -EBADMSG;
++	case 7:
++		return -EBUSY;
++	case 8:
++		return -ENOENT;
++	case 9:
++		return -EROFS;
++	default:
++		return -EIO;
++	}
++}
++
++int qcom_scm_storage_get_geometry(u64 *blocks, u32 *block_size)
++{
++	u8 info[105];
++	int ret;
++
++	if (!__qcom_scm_is_call_available(__scm->dev, QCOM_SCM_SVC_STORAGE,
++					QCOM_SCM_STORAGE_ACCESS))
++		return -EOPNOTSUPP;
++
++	ret = qcom_scm_storage_access(4, 0, info, sizeof(info));
++	if (ret)
++		return ret;
++
++	*blocks = get_unaligned_le64(info);
++	*block_size = get_unaligned_le32(info + 8);
++	return 0;
++}
++EXPORT_SYMBOL_GPL(qcom_scm_storage_get_geometry);
++
++int qcom_scm_storage_read(u64 lba, void *data, size_t size)
++{
++	return qcom_scm_storage_access(1, lba, data, size);
++}
++EXPORT_SYMBOL_GPL(qcom_scm_storage_read);
++
++int qcom_scm_storage_write(u64 lba, const void *data, size_t size)
++{
++	return qcom_scm_storage_access(2, lba, (void *)data, size);
++}
++EXPORT_SYMBOL_GPL(qcom_scm_storage_write);
++
+ /**
+  * qcom_scm_is_available() - Checks if SCM is available
+  */
+diff --git a/drivers/firmware/qcom/qcom_scm.h b/drivers/firmware/qcom/qcom_scm.h
+index cf90a565fdfbd7a4229bf8dad4d06c53cf8dea7c..0fad3dd1a45efe438f954ebf4e6ee7fc6d86faa0 100644
+--- a/drivers/firmware/qcom/qcom_scm.h
++++ b/drivers/firmware/qcom/qcom_scm.h
+@@ -150,6 +150,9 @@ int qcom_scm_shm_bridge_enable(struct device *scm_dev);
+ #define QCOM_SCM_SMMU_CONFIG_ERRATA1		0x03
+ #define QCOM_SCM_SMMU_CONFIG_ERRATA1_CLIENT_ALL	0x02
+ 
++#define QCOM_SCM_SVC_STORAGE		0x1a
++#define QCOM_SCM_STORAGE_ACCESS		0x01
++
+ #define QCOM_SCM_SVC_WAITQ			0x24
+ #define QCOM_SCM_WAITQ_RESUME			0x02
+ #define QCOM_SCM_WAITQ_GET_WQ_CTX		0x03
+diff --git a/include/linux/firmware/qcom/qcom_scm.h b/include/linux/firmware/qcom/qcom_scm.h
+index 5747bd191bf15e61ad826bebdcaa44345605d177..3fa8b37c9ad6d61a16dbe2a5cba4a9cebfc4480b 100644
+--- a/include/linux/firmware/qcom/qcom_scm.h
++++ b/include/linux/firmware/qcom/qcom_scm.h
+@@ -195,4 +195,8 @@ int qcom_scm_qtee_invoke_smc(phys_addr_t inbuf, size_t inbuf_size,
+ int qcom_scm_qtee_callback_response(phys_addr_t buf, size_t buf_size,
+ 				    u64 *result, u64 *response_type);
+ 
++int qcom_scm_storage_get_geometry(u64 *blocks, u32 *block_size);
++int qcom_scm_storage_read(u64 lba, void *data, size_t size);
++int qcom_scm_storage_write(u64 lba, const void *data, size_t size);
++
+ #endif
+-- 
+2.56.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Mon, 16 Nov 2026 22:12:56 +0100
+Subject: rpmsg: qcom: Add GLINK transport for firmware-started SPSS
+
+Allocate the SPSS GLINK descriptor and FIFOs in a single SMEM item and
+publish its address through the handoff registers. Use the IPCC mailbox
+for notifications and the native GLINK core for channel management.
+
+Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
+---
+ drivers/rpmsg/Kconfig           |   8 +
+ drivers/rpmsg/Makefile          |   1 +
+ drivers/rpmsg/qcom_glink_spss.c | 325 ++++++++++++++++++++++++++++++++
+ 3 files changed, 334 insertions(+)
+ create mode 100644 drivers/rpmsg/qcom_glink_spss.c
+
+diff --git a/drivers/rpmsg/Kconfig b/drivers/rpmsg/Kconfig
+index d3795860f5c080d36c8ea71691dfff90df7c889c..e056c9df9a7af8b2a695dee639d4105c5631548f 100644
+--- a/drivers/rpmsg/Kconfig
++++ b/drivers/rpmsg/Kconfig
+@@ -64,6 +64,14 @@ config RPMSG_QCOM_GLINK_SMEM
+ 	  which provides support for using the GLINK communication protocol
+ 	  over SMEM.
+ 
++config RPMSG_QCOM_GLINK_SPSS
++	tristate "Qualcomm SPSS Glink driver"
++	depends on OF && HAS_IOMEM && MAILBOX && QCOM_SMEM
++	select RPMSG_QCOM_GLINK
++	help
++	  Enable GLINK communication with a firmware-started Qualcomm Secure
++	  Processor Subsystem, including its TPM and secure storage services.
++
+ config RPMSG_QCOM_SMD
+ 	tristate "Qualcomm Shared Memory Driver (SMD)"
+ 	depends on MAILBOX
+diff --git a/drivers/rpmsg/Makefile b/drivers/rpmsg/Makefile
+index 1e02b58ff61fe12a0ab92d45355b47704b9fda41..e4a5362977516a75cd029b8f6ef69775264212d7 100644
+--- a/drivers/rpmsg/Makefile
++++ b/drivers/rpmsg/Makefile
+@@ -9,5 +9,6 @@ qcom_glink-objs			:= qcom_glink_native.o qcom_glink_ssr.o
+ obj-$(CONFIG_RPMSG_QCOM_GLINK) += qcom_glink.o
+ obj-$(CONFIG_RPMSG_QCOM_GLINK_RPM) += qcom_glink_rpm.o
+ obj-$(CONFIG_RPMSG_QCOM_GLINK_SMEM) += qcom_glink_smem.o
++obj-$(CONFIG_RPMSG_QCOM_GLINK_SPSS) += qcom_glink_spss.o
+ obj-$(CONFIG_RPMSG_QCOM_SMD)	+= qcom_smd.o
+ obj-$(CONFIG_RPMSG_VIRTIO)	+= virtio_rpmsg_bus.o
+diff --git a/drivers/rpmsg/qcom_glink_spss.c b/drivers/rpmsg/qcom_glink_spss.c
+new file mode 100644
+index 0000000000000000000000000000000000000000..9e8dc9f7ee22f02d2052b7c4e94101a133b2390e
+--- /dev/null
++++ b/drivers/rpmsg/qcom_glink_spss.c
+@@ -0,0 +1,325 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * Qualcomm SPSS GLINK transport
++ * Copyright (c) 2018 The Linux Foundation. All rights reserved.
++ * Copyright (c) 2026 Antheas Kapenekakis <lkml@antheas.dev>
++ *
++ * The SPSS expects the AP to allocate the GLINK descriptor and FIFOs as one
++ * SMEM item, then publish that item's physical address and size in the SPSS
++ * handoff registers. This differs from the three-item GLINK SMEM transport.
++ */
++
++#include <linux/interrupt.h>
++#include <linux/io.h>
++#include <linux/mailbox_client.h>
++#include <linux/module.h>
++#include <linux/of.h>
++#include <linux/platform_device.h>
++#include <linux/sizes.h>
++#include <linux/slab.h>
++#include <linux/soc/qcom/smem.h>
++
++#include "qcom_glink_native.h"
++
++#define SPSS_GLINK_DESC_ITEM	478
++#define SPSS_GLINK_FIFO_SIZE	SZ_2K
++#define SPSS_GLINK_FIFO_RESERVE	16
++
++struct spss_glink_config {
++	__le32 tx_tail;
++	__le32 tx_head;
++	__le32 tx_fifo_size;
++	__le32 rx_tail;
++	__le32 rx_head;
++	__le32 rx_fifo_size;
++};
++
++struct spss_glink;
++
++struct spss_glink_pipe {
++	struct qcom_glink_pipe native;
++	struct spss_glink *edge;
++	__le32 *head;
++	__le32 *tail;
++	u8 *fifo;
++};
++
++struct spss_glink {
++	struct device *dev;
++	struct device *glink_dev;
++	struct qcom_glink *glink;
++	struct spss_glink_pipe rx;
++	struct spss_glink_pipe tx;
++	struct mbox_client mbox_client;
++	struct mbox_chan *mbox_chan;
++	void __iomem *handoff_addr;
++	void __iomem *handoff_size;
++	int irq;
++};
++
++static void spss_glink_dev_release(struct device *dev)
++{
++	kfree(dev);
++}
++
++static struct spss_glink_pipe *to_spss_pipe(struct qcom_glink_pipe *pipe)
++{
++	return container_of(pipe, struct spss_glink_pipe, native);
++}
++
++static size_t spss_rx_avail(struct qcom_glink_pipe *native)
++{
++	struct spss_glink_pipe *pipe = to_spss_pipe(native);
++	u32 head = le32_to_cpu(READ_ONCE(*pipe->head));
++	u32 tail = le32_to_cpu(READ_ONCE(*pipe->tail));
++
++	if (head >= native->length || tail >= native->length)
++		return 0;
++
++	return (head + native->length - tail) % native->length;
++}
++
++static void spss_rx_peek(struct qcom_glink_pipe *native, void *data,
++			 unsigned int offset, size_t count)
++{
++	struct spss_glink_pipe *pipe = to_spss_pipe(native);
++	u32 tail = le32_to_cpu(READ_ONCE(*pipe->tail));
++	size_t first;
++
++	/* Pair the head read in spss_rx_avail() with the peer's FIFO writes. */
++	rmb();
++	tail = (tail + offset) % native->length;
++	first = min(count, native->length - tail);
++	memcpy(data, pipe->fifo + tail, first);
++	memcpy((u8 *)data + first, pipe->fifo, count - first);
++}
++
++static void spss_rx_advance(struct qcom_glink_pipe *native, size_t count)
++{
++	struct spss_glink_pipe *pipe = to_spss_pipe(native);
++	u32 tail = le32_to_cpu(READ_ONCE(*pipe->tail));
++
++	tail = (tail + count) % native->length;
++	WRITE_ONCE(*pipe->tail, cpu_to_le32(tail));
++}
++
++static size_t spss_tx_avail(struct qcom_glink_pipe *native)
++{
++	struct spss_glink_pipe *pipe = to_spss_pipe(native);
++	u32 head = le32_to_cpu(READ_ONCE(*pipe->head));
++	u32 tail = le32_to_cpu(READ_ONCE(*pipe->tail));
++	size_t avail;
++
++	if (head >= native->length || tail >= native->length)
++		return 0;
++
++	if (tail <= head)
++		avail = native->length - head + tail;
++	else
++		avail = tail - head;
++
++	return avail > SPSS_GLINK_FIFO_RESERVE ?
++		avail - SPSS_GLINK_FIFO_RESERVE : 0;
++}
++
++static u32 spss_tx_copy(struct spss_glink_pipe *pipe, u32 head,
++			const void *data, size_t count)
++{
++	size_t first = min(count, pipe->native.length - head);
++
++	if (first)
++		memcpy(pipe->fifo + head, data, first);
++	if (count > first)
++		memcpy(pipe->fifo, (const u8 *)data + first, count - first);
++	return (head + count) % pipe->native.length;
++}
++
++static void spss_tx_write(struct qcom_glink_pipe *native, const void *hdr,
++			  size_t hlen, const void *data, size_t dlen)
++{
++	struct spss_glink_pipe *pipe = to_spss_pipe(native);
++	u32 head = le32_to_cpu(READ_ONCE(*pipe->head));
++
++	head = spss_tx_copy(pipe, head, hdr, hlen);
++	head = spss_tx_copy(pipe, head, data, dlen);
++	head = ALIGN(head, 8) % native->length;
++	/* Publish the FIFO contents before making the new head visible. */
++	wmb();
++	WRITE_ONCE(*pipe->head, cpu_to_le32(head));
++}
++
++static void spss_tx_kick(struct qcom_glink_pipe *native)
++{
++	struct spss_glink *edge = to_spss_pipe(native)->edge;
++
++	mbox_send_message(edge->mbox_chan, NULL);
++	mbox_client_txdone(edge->mbox_chan, 0);
++}
++
++static irqreturn_t spss_glink_irq(int irq, void *data)
++{
++	struct spss_glink *edge = data;
++
++	qcom_glink_native_rx(edge->glink);
++	return IRQ_HANDLED;
++}
++
++static int spss_glink_probe(struct platform_device *pdev)
++{
++	struct device *dev = &pdev->dev;
++	struct spss_glink_config *cfg;
++	struct spss_glink *edge;
++	phys_addr_t phys;
++	size_t size;
++	u32 host;
++	int ret;
++
++	ret = of_property_read_u32(dev->of_node, "qcom,remote-pid", &host);
++	if (ret)
++		return ret;
++
++	edge = devm_kzalloc(dev, sizeof(*edge), GFP_KERNEL);
++	if (!edge)
++		return -ENOMEM;
++	edge->dev = dev;
++
++	edge->handoff_addr = devm_platform_ioremap_resource_byname(pdev,
++							      "handoff-address");
++	if (IS_ERR(edge->handoff_addr))
++		return PTR_ERR(edge->handoff_addr);
++	edge->handoff_size = devm_platform_ioremap_resource_byname(pdev,
++							      "handoff-size");
++	if (IS_ERR(edge->handoff_size))
++		return PTR_ERR(edge->handoff_size);
++
++	edge->irq = platform_get_irq(pdev, 0);
++	if (edge->irq < 0)
++		return edge->irq;
++	ret = devm_request_irq(dev, edge->irq, spss_glink_irq,
++			       IRQF_NO_AUTOEN | IRQF_NO_SUSPEND, dev_name(dev), edge);
++	if (ret)
++		return ret;
++
++	edge->mbox_client.dev = dev;
++	edge->mbox_client.knows_txdone = true;
++	edge->mbox_chan = mbox_request_channel(&edge->mbox_client, 0);
++	if (IS_ERR(edge->mbox_chan))
++		return dev_err_probe(dev, PTR_ERR(edge->mbox_chan),
++				     "failed to acquire SPSS mailbox\n");
++
++	size = sizeof(*cfg) + 2 * SPSS_GLINK_FIFO_SIZE;
++	ret = qcom_smem_alloc(host, SPSS_GLINK_DESC_ITEM, size);
++	if (ret && ret != -EEXIST)
++		goto err_mbox;
++	cfg = qcom_smem_get(host, SPSS_GLINK_DESC_ITEM, &size);
++	if (IS_ERR(cfg)) {
++		ret = PTR_ERR(cfg);
++		goto err_mbox;
++	}
++	if (size != sizeof(*cfg) + 2 * SPSS_GLINK_FIFO_SIZE) {
++		ret = -EINVAL;
++		goto err_mbox;
++	}
++	phys = qcom_smem_virt_to_phys(cfg);
++	if (!phys) {
++		ret = -EINVAL;
++		goto err_mbox;
++	}
++
++	cfg->tx_head = 0;
++	cfg->tx_fifo_size = cpu_to_le32(SPSS_GLINK_FIFO_SIZE);
++	cfg->rx_tail = 0;
++	cfg->rx_fifo_size = cpu_to_le32(SPSS_GLINK_FIFO_SIZE);
++
++	edge->tx.edge = edge;
++	edge->tx.head = &cfg->tx_head;
++	edge->tx.tail = &cfg->tx_tail;
++	edge->tx.fifo = (u8 *)(cfg + 1);
++	edge->tx.native.length = SPSS_GLINK_FIFO_SIZE;
++	edge->tx.native.avail = spss_tx_avail;
++	edge->tx.native.write = spss_tx_write;
++	edge->tx.native.kick = spss_tx_kick;
++
++	edge->rx.edge = edge;
++	edge->rx.head = &cfg->rx_head;
++	edge->rx.tail = &cfg->rx_tail;
++	edge->rx.fifo = edge->tx.fifo + SPSS_GLINK_FIFO_SIZE;
++	edge->rx.native.length = SPSS_GLINK_FIFO_SIZE;
++	edge->rx.native.avail = spss_rx_avail;
++	edge->rx.native.peek = spss_rx_peek;
++	edge->rx.native.advance = spss_rx_advance;
++
++	/* Publish the initialized descriptor before giving SPSS its address. */
++	wmb();
++	writel(lower_32_bits(phys), edge->handoff_addr);
++	writel(upper_32_bits(phys), edge->handoff_addr + sizeof(u32));
++	writel(size, edge->handoff_size);
++
++	edge->glink_dev = kzalloc_obj(*edge->glink_dev);
++	if (!edge->glink_dev) {
++		ret = -ENOMEM;
++		goto err_mbox;
++	}
++	edge->glink_dev->parent = dev;
++	edge->glink_dev->of_node = dev->of_node;
++	edge->glink_dev->release = spss_glink_dev_release;
++	device_initialize(edge->glink_dev);
++	ret = dev_set_name(edge->glink_dev, "%s:glink", dev_name(dev));
++	if (ret)
++		goto err_put_device;
++	ret = device_add(edge->glink_dev);
++	if (ret)
++		goto err_put_device;
++
++	edge->glink = qcom_glink_native_probe(edge->glink_dev,
++					    GLINK_FEATURE_INTENT_REUSE,
++					    &edge->rx.native, &edge->tx.native,
++					    false);
++	if (IS_ERR(edge->glink)) {
++		ret = PTR_ERR(edge->glink);
++		goto err_device;
++	}
++
++	platform_set_drvdata(pdev, edge);
++	enable_irq(edge->irq);
++	return 0;
++
++err_device:
++	device_unregister(edge->glink_dev);
++	goto err_mbox;
++err_put_device:
++	put_device(edge->glink_dev);
++err_mbox:
++	mbox_free_channel(edge->mbox_chan);
++	return ret;
++}
++
++static void spss_glink_remove(struct platform_device *pdev)
++{
++	struct spss_glink *edge = platform_get_drvdata(pdev);
++
++	disable_irq(edge->irq);
++	qcom_glink_native_remove(edge->glink);
++	device_unregister(edge->glink_dev);
++	mbox_free_channel(edge->mbox_chan);
++}
++
++static const struct of_device_id spss_glink_of_match[] = {
++	{ .compatible = "qcom,hamoa-spss-glink" },
++	{}
++};
++MODULE_DEVICE_TABLE(of, spss_glink_of_match);
++
++static struct platform_driver spss_glink_driver = {
++	.probe = spss_glink_probe,
++	.remove = spss_glink_remove,
++	.driver = {
++		.name = "qcom-glink-spss",
++		.of_match_table = spss_glink_of_match,
++	},
++};
++module_platform_driver(spss_glink_driver);
++
++MODULE_DESCRIPTION("Qualcomm SPSS GLINK transport");
++MODULE_AUTHOR("Antheas Kapenekakis <lkml@antheas.dev>");
++MODULE_LICENSE("GPL");
+-- 
+2.56.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Mon, 16 Nov 2026 22:12:56 +0100
+Subject: firmware: qcom: Add SPSS secure NVM backing service
+
+Back firmware-started SPSS applications with their existing SPI NOR
+secure NVM partition. Validate GPT and backup checksums, select the copy
+matching the firmware marker, and verify writes before acknowledging a
+commit. Process storage requests on an ordered workqueue.
+
+Keep the TPM RPMSG channel alive independently of the TPM frontend and
+provide an auxiliary device once its secure storage service is available.
+
+Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
+---
+ drivers/firmware/qcom/Kconfig         |  10 +
+ drivers/firmware/qcom/Makefile        |   1 +
+ drivers/firmware/qcom/qcom_spss_nvm.c | 810 ++++++++++++++++++++++++++
+ include/linux/firmware/qcom/spss.h    |  12 +
+ 4 files changed, 833 insertions(+)
+ create mode 100644 drivers/firmware/qcom/qcom_spss_nvm.c
+ create mode 100644 include/linux/firmware/qcom/spss.h
+
+diff --git a/drivers/firmware/qcom/Kconfig b/drivers/firmware/qcom/Kconfig
+index c7f8413ab996cf1214bb4ef971de8c750c7541d9..12c5026ba249343e9c4b6e403c2666ba3f5f10a5 100644
+--- a/drivers/firmware/qcom/Kconfig
++++ b/drivers/firmware/qcom/Kconfig
+@@ -94,4 +94,14 @@ config QCOM_QSEECOM_UEFISECAPP
+ 	  Select Y here to provide access to EFI variables on the aforementioned
+ 	  platforms.
+ 
++config QCOM_SPSS_NVM
++	tristate "Qualcomm SPSS secure NVM backing service"
++	depends on QCOM_SCM && RPMSG && OF && HAS_IOMEM
++	select AUXILIARY_BUS
++	select CRYPTO_LIB_SHA256
++	select CRC32
++	help
++	  Provide persistent storage for firmware-started SPSS applications,
++	  including the TPM, using the existing secure NVM partition in SPI NOR.
++
+ endmenu
+diff --git a/drivers/firmware/qcom/Makefile b/drivers/firmware/qcom/Makefile
+index 88ce74d74c3e2009a35f947c97cad46e6dc5e863..10bd404b50253b448277d8f23ac1bbe63271addd 100644
+--- a/drivers/firmware/qcom/Makefile
++++ b/drivers/firmware/qcom/Makefile
+@@ -11,3 +11,4 @@ obj-$(CONFIG_QCOM_QSEECOM)	+= qcom_qseecom.o
+ obj-$(CONFIG_QCOM_QSEECOM_UEFISECAPP) += qcom_qseecom_uefisecapp.o
+ obj-$(CONFIG_QCOM_PAS)		+= qcom_pas.o
+ obj-$(CONFIG_QCOM_PAS_TEE)	+= qcom_pas_tee.o
++obj-$(CONFIG_QCOM_SPSS_NVM)	+= qcom_spss_nvm.o
+diff --git a/drivers/firmware/qcom/qcom_spss_nvm.c b/drivers/firmware/qcom/qcom_spss_nvm.c
+new file mode 100644
+index 0000000000000000000000000000000000000000..18845bd0aecf2422953038c2e6830ac1f9bf6c08
+--- /dev/null
++++ b/drivers/firmware/qcom/qcom_spss_nvm.c
+@@ -0,0 +1,810 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/* Secure NVM backing service for firmware-started Qualcomm SPSS applications. */
++#include <crypto/sha2.h>
++#include <linux/auxiliary_bus.h>
++#include <linux/cleanup.h>
++#include <linux/crc32.h>
++#include <linux/firmware/qcom/qcom_scm.h>
++#include <linux/firmware/qcom/spss.h>
++#include <linux/io.h>
++#include <linux/module.h>
++#include <linux/mutex.h>
++#include <linux/of_address.h>
++#include <linux/rpmsg.h>
++#include <linux/sizes.h>
++#include <linux/skbuff.h>
++#include <linux/unaligned.h>
++#include <linux/workqueue.h>
++
++#define NVM_SECTOR_SIZE		SZ_4K
++#define NVM_SLOT_SIZE		(9 * SZ_4K)
++#define NVM_MAX_BLOCKS		32
++#define NVM_REQUEST_SIZE		0x87
++#define NVM_FRAME_SIZE		8
++#define NVM_ERROR_INVALID	4
++#define NVM_ERROR_STORAGE	9
++
++struct spss_nvm_app {
++	const char *channel;
++	u32 shared_offset;
++	u32 store_offset;
++};
++
++static const struct spss_nvm_app nvm_apps[] = {
++	{ "sec_nvm_sp_nvm", 0, 0 },
++	{ "sec_nvm_stpm_lite_msft", 0x9000, 0xb000 },
++	{ "sec_nvm_ksp_msft", 0x1a000, 0x1d000 },
++};
++
++struct spss_nvm_layout {
++	u32 blocks;
++	u32 data_size;
++	u32 l2_size;
++	u32 root_offset;
++	u32 bitmap_offset;
++	u32 counter_offset;
++	u32 digest_offset;
++};
++
++struct spss_nvm {
++	struct rpmsg_device *rpdev;
++	struct auxiliary_device *tpm;
++	const struct spss_nvm_app *app;
++	struct spss_nvm_layout layout;
++	struct workqueue_struct *workqueue;
++	struct work_struct work;
++	struct sk_buff_head requests;
++	void __iomem *shared;
++	phys_addr_t shared_address;
++	u64 partition_lba;
++	u64 partition_blocks;
++	u8 *slots[2];
++	u8 *snapshot;
++	u8 uuid[16];
++	u8 async_response[18];
++	bool have_uuid;
++	bool async_done;
++	bool stopping;
++	unsigned int index;
++};
++
++static DEFINE_MUTEX(nvm_devices_lock);
++static struct device *nvm_devices[ARRAY_SIZE(nvm_apps)];
++static struct rpmsg_device *tpm_channel;
++static DEFINE_SPINLOCK(tpm_callback_lock);
++static rpmsg_rx_cb_t tpm_callback;
++static void *tpm_callback_priv;
++
++struct rpmsg_endpoint *qcom_spss_tpm_attach(struct device *consumer,
++					 rpmsg_rx_cb_t callback, void *priv)
++{
++	unsigned long flags;
++
++	guard(mutex)(&nvm_devices_lock);
++	if (!tpm_channel)
++		return ERR_PTR(-EPROBE_DEFER);
++
++	if (!device_link_add(consumer, &tpm_channel->dev, DL_FLAG_AUTOREMOVE_CONSUMER))
++		return ERR_PTR(-ENOMEM);
++
++	spin_lock_irqsave(&tpm_callback_lock, flags);
++	if (tpm_callback) {
++		spin_unlock_irqrestore(&tpm_callback_lock, flags);
++		return ERR_PTR(-EBUSY);
++	}
++
++	tpm_callback = callback;
++	tpm_callback_priv = priv;
++	spin_unlock_irqrestore(&tpm_callback_lock, flags);
++	return tpm_channel->ept;
++}
++EXPORT_SYMBOL_GPL(qcom_spss_tpm_attach);
++
++void qcom_spss_tpm_detach(void *priv)
++{
++	unsigned long flags;
++
++	spin_lock_irqsave(&tpm_callback_lock, flags);
++	if (tpm_callback_priv == priv) {
++		tpm_callback = NULL;
++		tpm_callback_priv = NULL;
++	}
++	spin_unlock_irqrestore(&tpm_callback_lock, flags);
++}
++EXPORT_SYMBOL_GPL(qcom_spss_tpm_detach);
++
++static int tpm_channel_callback(struct rpmsg_device *rpdev, void *data, int length,
++				void *priv, u32 source)
++{
++	unsigned long flags;
++	int ret = 0;
++
++	spin_lock_irqsave(&tpm_callback_lock, flags);
++	if (tpm_callback)
++		ret = tpm_callback(rpdev, data, length, tpm_callback_priv, source);
++	spin_unlock_irqrestore(&tpm_callback_lock, flags);
++	return ret;
++}
++
++static int tpm_channel_probe(struct rpmsg_device *rpdev)
++{
++	guard(mutex)(&nvm_devices_lock);
++	if (tpm_channel)
++		return -EBUSY;
++
++	tpm_channel = rpdev;
++	return 0;
++}
++
++static void tpm_channel_remove(struct rpmsg_device *rpdev)
++{
++	guard(mutex)(&nvm_devices_lock);
++	tpm_channel = NULL;
++}
++
++static const struct rpmsg_device_id tpm_channel_id_table[] = {
++	{ .name = "stpm_lite_msft" },
++	{}
++};
++MODULE_DEVICE_TABLE(rpmsg, tpm_channel_id_table);
++
++static struct rpmsg_driver tpm_channel_driver = {
++	.drv.name = "qcom_spss_tpm_channel",
++	.id_table = tpm_channel_id_table,
++	.probe = tpm_channel_probe,
++	.callback = tpm_channel_callback,
++	.remove = tpm_channel_remove,
++};
++
++int qcom_spss_nvm_link(struct device *consumer)
++{
++	unsigned int i;
++
++	guard(mutex)(&nvm_devices_lock);
++	for (i = 0; i < 2; i++) {
++		if (!nvm_devices[i])
++			return -EPROBE_DEFER;
++	}
++
++	for (i = 0; i < 2; i++) {
++		if (nvm_devices[i] == consumer->parent)
++			continue;
++
++		if (!device_link_add(consumer, nvm_devices[i], DL_FLAG_AUTOREMOVE_CONSUMER))
++			return -ENOMEM;
++	}
++
++	return 0;
++}
++EXPORT_SYMBOL_GPL(qcom_spss_nvm_link);
++
++static u32 nvm_crc(const void *data, size_t size)
++{
++	return crc32_le(~0, data, size) ^ ~0;
++}
++
++static int nvm_find_partition(struct spss_nvm *nvm)
++{
++	static const u8 type_guid[16] = {
++		0x4c, 0x2b, 0x2e, 0xe4, 0xb0, 0x33, 0x9b, 0x42,
++		0xb1, 0xef, 0xd3, 0x41, 0xc5, 0x47, 0x02, 0x2c,
++	};
++	u8 *header __free(kfree) = kzalloc(NVM_SECTOR_SIZE, GFP_KERNEL);
++	u8 *entries __free(kfree) = NULL;
++	u64 blocks, entry_lba, first, last;
++	u32 block_size, crc, count, bytes, i;
++	int ret;
++
++	if (!header)
++		return -ENOMEM;
++
++	ret = qcom_scm_storage_get_geometry(&blocks, &block_size);
++	if (ret)
++		return ret;
++
++	if (block_size != NVM_SECTOR_SIZE || blocks < 2)
++		return -EOPNOTSUPP;
++
++	ret = qcom_scm_storage_read(1, header, NVM_SECTOR_SIZE);
++	if (ret)
++		return ret;
++
++	if (memcmp(header, "EFI PART", 8) || get_unaligned_le32(header + 12) != 92)
++		return -EINVAL;
++
++	crc = get_unaligned_le32(header + 16);
++	put_unaligned_le32(0, header + 16);
++	if (nvm_crc(header, 92) != crc)
++		return -EBADMSG;
++
++	entry_lba = get_unaligned_le64(header + 72);
++	count = get_unaligned_le32(header + 80);
++	if (!count || count > 128 || get_unaligned_le32(header + 84) != 128)
++		return -EINVAL;
++
++	bytes = ALIGN(count * 128, NVM_SECTOR_SIZE);
++	if (entry_lba >= blocks || bytes / NVM_SECTOR_SIZE > blocks - entry_lba)
++		return -EINVAL;
++
++	entries = kmalloc(bytes, GFP_KERNEL);
++	if (!entries)
++		return -ENOMEM;
++
++	for (i = 0; i < bytes; i += NVM_SECTOR_SIZE) {
++		ret = qcom_scm_storage_read(entry_lba + i / NVM_SECTOR_SIZE,
++					    entries + i, NVM_SECTOR_SIZE);
++		if (ret)
++			return ret;
++	}
++
++	if (nvm_crc(entries, count * 128) != get_unaligned_le32(header + 88))
++		return -EBADMSG;
++
++	for (i = 0; i < count; i++) {
++		const u8 *entry = entries + i * 128;
++
++		if (memcmp(entry, type_guid, sizeof(type_guid)))
++			continue;
++
++		first = get_unaligned_le64(entry + 32);
++		last = get_unaligned_le64(entry + 40);
++		if (first > last || last >= blocks || first < 6)
++			return -EINVAL;
++
++		nvm->partition_lba = first;
++		nvm->partition_blocks = last - first + 1;
++		return 0;
++	}
++
++	return -ENOENT;
++}
++
++/* The SP NVM backup shares its seven middle sectors with the primary. */
++static u32 nvm_sector_offset(struct spss_nvm *nvm, unsigned int slot, u32 offset)
++{
++	if (!nvm->index && slot) {
++		if (!offset)
++			return 0x9000;
++		if (offset == 0x8000)
++			return 0xa000;
++		return offset;
++	}
++
++	return nvm->app->store_offset + slot * NVM_SLOT_SIZE + offset;
++}
++
++static int nvm_read_slot(struct spss_nvm *nvm, unsigned int slot, u8 *data)
++{
++	u32 offset;
++	int ret;
++
++	for (offset = 0; offset < NVM_SLOT_SIZE; offset += NVM_SECTOR_SIZE) {
++		u64 sector = nvm_sector_offset(nvm, slot, offset) / NVM_SECTOR_SIZE;
++
++		if (sector >= nvm->partition_blocks)
++			return -EINVAL;
++
++		ret = qcom_scm_storage_read(nvm->partition_lba + sector,
++					    data + offset, NVM_SECTOR_SIZE);
++		if (ret)
++			return ret;
++	}
++
++	return 0;
++}
++
++static struct spss_nvm_layout nvm_layout(u32 blocks)
++{
++	struct spss_nvm_layout layout = {
++		.blocks = blocks,
++		.data_size = blocks * SZ_1K,
++		.l2_size = blocks / 32 * 0x600,
++	};
++
++	layout.root_offset = layout.data_size + layout.l2_size + blocks / 32 * 32 + 0x30;
++	layout.bitmap_offset = layout.root_offset + 16;
++	layout.counter_offset = layout.bitmap_offset + blocks;
++	layout.digest_offset = layout.counter_offset + 4;
++	return layout;
++}
++
++static bool nvm_valid_slot(const struct spss_nvm_layout *layout, const u8 *data)
++{
++	u8 digest[SHA256_DIGEST_SIZE];
++
++	sha256(data, layout->digest_offset, digest);
++	return !memcmp(digest, data + layout->digest_offset, sizeof(digest));
++}
++
++static int nvm_select_slot(struct spss_nvm *nvm, const u8 *marker, bool skp)
++{
++	unsigned int i, marker_offset = nvm->layout.root_offset;
++	size_t marker_size = 16;
++	u32 counter = 0;
++	int selected = -EBADMSG;
++
++	if (skp) {
++		marker_offset -= 32;
++		marker_size = 32;
++	}
++
++	for (i = 0; i < 2; i++) {
++		u32 slot_counter = get_unaligned_le32(nvm->slots[i] + nvm->layout.counter_offset);
++
++		if (nvm_valid_slot(&nvm->layout, nvm->slots[i]) &&
++		    !memcmp(nvm->slots[i] + marker_offset, marker, marker_size) &&
++		    (selected < 0 || slot_counter > counter)) {
++			selected = i;
++			counter = slot_counter;
++		}
++	}
++
++	return selected;
++}
++
++static int nvm_write_slot(struct spss_nvm *nvm, unsigned int slot, u8 *data)
++{
++	u32 offset;
++	int ret;
++
++	/* Commit the sector containing the marker, counter and digest last. */
++	for (offset = 0; offset < NVM_SLOT_SIZE; offset += NVM_SECTOR_SIZE) {
++		u64 sector = nvm_sector_offset(nvm, slot, offset) / NVM_SECTOR_SIZE;
++
++		if (sector >= nvm->partition_blocks)
++			return -EINVAL;
++
++		if (!memcmp(nvm->slots[slot] + offset, data + offset, NVM_SECTOR_SIZE))
++			continue;
++
++		ret = qcom_scm_storage_write(nvm->partition_lba + sector,
++					     data + offset, NVM_SECTOR_SIZE);
++		if (ret)
++			return ret;
++	}
++
++	ret = nvm_read_slot(nvm, slot, nvm->slots[slot]);
++	if (ret)
++		return ret;
++
++	if (memcmp(data, nvm->slots[slot], NVM_SLOT_SIZE))
++		return -EIO;
++
++	return 0;
++}
++
++static int nvm_commit(struct spss_nvm *nvm, const u8 *request, u8 *response)
++{
++	const struct spss_nvm_layout *layout = &nvm->layout;
++	u32 i, counter;
++	bool skp = request[0] == 8;
++	const u8 *marker = skp ? request + 0x67 : request + 0x13;
++	u8 *data = nvm->snapshot;
++	u8 bitmap[NVM_MAX_BLOCKS];
++	int active, ret;
++
++	if (request[0x11] != 1 || request[0x12])
++		return -EINVAL;
++
++	for (i = 0; i < 2; i++) {
++		ret = nvm_read_slot(nvm, i, nvm->slots[i]);
++		if (ret)
++			return ret;
++	}
++
++	active = nvm_select_slot(nvm, marker, skp);
++	if (active < 0)
++		return active;
++
++	counter = get_unaligned_le32(nvm->slots[active] + layout->counter_offset);
++	if (counter == U32_MAX)
++		return -EOVERFLOW;
++
++	memcpy(data, nvm->slots[active], NVM_SLOT_SIZE);
++	memcpy(data + layout->digest_offset + SHA256_DIGEST_SIZE,
++	       nvm->slots[active ^ 1] + layout->digest_offset + SHA256_DIGEST_SIZE,
++	       NVM_SLOT_SIZE - layout->digest_offset - SHA256_DIGEST_SIZE);
++	memcpy_fromio(bitmap, nvm->shared + layout->bitmap_offset + 2, layout->blocks);
++	for (i = 0; i < layout->blocks; i++) {
++		if (!bitmap[i])
++			continue;
++
++		memcpy_fromio(data + i * SZ_1K, nvm->shared + i * SZ_1K, SZ_1K);
++		memcpy_fromio(data + layout->data_size + i * 0x30,
++			      nvm->shared + layout->data_size + i * 0x30, 0x30);
++	}
++
++	memcpy_fromio(data + layout->data_size + layout->l2_size,
++		      nvm->shared + layout->data_size + layout->l2_size,
++		      layout->bitmap_offset - layout->data_size - layout->l2_size);
++	memcpy(data + layout->bitmap_offset, bitmap, layout->blocks);
++	put_unaligned_le32(counter + 1, data + layout->counter_offset);
++	sha256(data, layout->digest_offset, data + layout->digest_offset);
++	ret = nvm_write_slot(nvm, active ^ 1, data);
++	if (ret)
++		return ret;
++
++	dev_dbg(&nvm->rpdev->dev, "committed secure NVM backup %u\n", active ^ 1);
++
++	if (skp)
++		memcpy(response + 0x12, data + layout->root_offset - 32, 32);
++
++	return 0;
++}
++
++static int nvm_load(struct spss_nvm *nvm, const u8 *marker, bool skp)
++{
++	const struct spss_nvm_layout *layout = &nvm->layout;
++	unsigned int i;
++	int active, ret;
++
++	for (i = 0; i < 2; i++) {
++		ret = nvm_read_slot(nvm, i, nvm->slots[i]);
++		if (ret)
++			return ret;
++	}
++
++	active = nvm_select_slot(nvm, marker, skp);
++	if (active < 0)
++		return active;
++
++	memcpy_toio(nvm->shared, nvm->slots[active], layout->bitmap_offset);
++	memset_io(nvm->shared + layout->bitmap_offset, 0, 2 + layout->blocks);
++	/* Complete the shared-memory update before replying to SPSS. */
++	wmb();
++	return 0;
++}
++
++static int nvm_dispatch(struct spss_nvm *nvm, const u8 *request, size_t size,
++			u8 *response)
++{
++	u8 operation = request[0];
++	bool skp = operation == 7 || operation == 12;
++	int ret, response_size = 0x12;
++
++	dev_dbg(&nvm->rpdev->dev, "NVM request %u, %zu bytes\n", operation, size);
++
++	if (operation == 13 || operation == 15) {
++		response[0] = 0x6b;
++		return 2;
++	}
++
++	if (operation == 14 || operation == 16) {
++		response[0] = 0x6c;
++		response[1] = NVM_ERROR_INVALID;
++		return 2;
++	}
++
++	/* The firmware owns provisioning of these pre-existing partitions. */
++	if (operation == 0 || operation == 6 || operation == 9 || operation == 11) {
++		response[0] = 0x64;
++		if (size >= 0x12) {
++			memcpy(response + 1, request + 1, 16);
++			response[0x11] = request[0x11];
++		}
++		response[0x2e] = NVM_ERROR_INVALID;
++		return 0x2f;
++	}
++
++	if (operation == 5) {
++		response[0] = 0x69;
++		if (size < 2 || request[1] < 3 || request[1] > 5) {
++			response[0x14] = size < 2 ? NVM_ERROR_INVALID : 10;
++			return 0x15;
++		}
++
++		response[0x13] = nvm->async_done;
++		if (nvm->async_done) {
++			memcpy(response + 1, nvm->async_response, sizeof(nvm->async_response));
++			nvm->async_done = false;
++		}
++		return 0x15;
++	}
++
++	response[0] = operation + 100;
++	if (size < 0x12 || request[0x11] != 1) {
++		response[0x11] = NVM_ERROR_INVALID;
++		return response_size;
++	}
++
++	if (nvm->have_uuid && memcmp(nvm->uuid, request + 1, sizeof(nvm->uuid))) {
++		response[0x11] = NVM_ERROR_INVALID;
++		return response_size;
++	}
++
++	switch (operation) {
++	case 1:
++	case 7:
++	case 10:
++	case 12:
++		response[0] = 0x65;
++		memcpy(response + 1, request + 1, 16);
++		response[0x11] = 1;
++		put_unaligned_le64(nvm->shared_address, response + 0x12);
++		response_size = 0x2f;
++		if (size < 0x82 || ((operation == 10 || operation == 12) &&
++		    (size < 0x96 || get_unaligned_le32(request + 0x82) != nvm->layout.blocks))) {
++			response[0x2e] = NVM_ERROR_INVALID;
++			return response_size;
++		}
++
++		ret = nvm_load(nvm, request + (skp ? 0x12 : 0x32), skp);
++		response[0x2e] = ret ? NVM_ERROR_STORAGE : 0;
++		break;
++	case 2:
++	case 4:
++	case 8:
++		response[0] = 0x66;
++		response_size = 0x32;
++		ret = size == NVM_REQUEST_SIZE ? nvm_commit(nvm, request, response) : -EINVAL;
++		response[0x11] = ret ? NVM_ERROR_STORAGE : 0;
++		if (operation == 4) {
++			memcpy(nvm->async_response, response, sizeof(nvm->async_response));
++			nvm->async_done = true;
++			response[0] = 0x68;
++			response[1] = 0;
++			response_size = 2;
++		}
++		break;
++	case 3:
++		response[0] = 0x67;
++		ret = size >= 0x67 && !request[0x12] ? nvm_load(nvm, request + 0x13, false) : -EINVAL;
++		response[0x11] = ret ? NVM_ERROR_STORAGE : 0;
++		break;
++	default:
++		ret = -EOPNOTSUPP;
++		response[0x11] = NVM_ERROR_INVALID;
++		break;
++	}
++
++	if (ret) {
++		dev_err_ratelimited(&nvm->rpdev->dev, "NVM operation %u failed: %d\n", operation, ret);
++	} else if (!nvm->have_uuid) {
++		memcpy(nvm->uuid, request + 1, sizeof(nvm->uuid));
++		nvm->have_uuid = true;
++	}
++
++	return response_size;
++}
++
++static void nvm_work(struct work_struct *work)
++{
++	struct spss_nvm *nvm = container_of(work, struct spss_nvm, work);
++	struct sk_buff *skb;
++	u8 response[NVM_FRAME_SIZE + 0x32];
++	int size, ret;
++
++	while ((skb = skb_dequeue(&nvm->requests))) {
++		memset(response, 0, sizeof(response));
++		memcpy(response + 4, skb->data + 4, 4);
++		size = nvm_dispatch(nvm, skb->data + NVM_FRAME_SIZE,
++				    skb->len - NVM_FRAME_SIZE, response + NVM_FRAME_SIZE);
++		ret = rpmsg_send(nvm->rpdev->ept, response, size + NVM_FRAME_SIZE);
++		if (ret)
++			dev_err_ratelimited(&nvm->rpdev->dev, "NVM response failed: %d\n", ret);
++		kfree_skb(skb);
++	}
++}
++
++static int nvm_callback(struct rpmsg_device *rpdev, void *data, int length,
++			void *priv, u32 source)
++{
++	struct spss_nvm *nvm = dev_get_drvdata(&rpdev->dev);
++	struct sk_buff *skb;
++
++	if (!nvm)
++		return -EAGAIN;
++
++	if (length <= NVM_FRAME_SIZE || length > NVM_FRAME_SIZE + 0x106 ||
++	    get_unaligned_le32(data))
++		return -EINVAL;
++
++	skb = alloc_skb(length, GFP_ATOMIC);
++	if (!skb)
++		return -ENOMEM;
++
++	skb_put_data(skb, data, length);
++	guard(spinlock_irqsave)(&nvm->requests.lock);
++	if (nvm->stopping || nvm->requests.qlen >= 8) {
++		kfree_skb(skb);
++		return -ESHUTDOWN;
++	}
++
++	__skb_queue_tail(&nvm->requests, skb);
++	queue_work(nvm->workqueue, &nvm->work);
++	return 0;
++}
++
++static void nvm_tpm_release(struct device *dev)
++{
++	kfree(to_auxiliary_dev(dev));
++}
++
++static int nvm_add_tpm(struct spss_nvm *nvm)
++{
++	struct auxiliary_device *tpm;
++	int ret;
++
++	tpm = kzalloc_obj(*tpm);
++	if (!tpm)
++		return -ENOMEM;
++
++	tpm->name = "tpm";
++	tpm->dev.parent = &nvm->rpdev->dev;
++	tpm->dev.release = nvm_tpm_release;
++	ret = auxiliary_device_init(tpm);
++	if (ret) {
++		kfree(tpm);
++		return ret;
++	}
++
++	ret = auxiliary_device_add(tpm);
++	if (ret) {
++		auxiliary_device_uninit(tpm);
++		return ret;
++	}
++
++	nvm->tpm = tpm;
++	return 0;
++}
++
++static int nvm_probe(struct rpmsg_device *rpdev)
++{
++	struct device *dev = &rpdev->dev;
++	struct device_node *node;
++	struct resource resource;
++	struct spss_nvm *nvm;
++	unsigned int i;
++	int ret;
++
++	if (!qcom_scm_is_available())
++		return -EPROBE_DEFER;
++
++	for (i = 0; i < ARRAY_SIZE(nvm_apps); i++) {
++		if (!strcmp(rpdev->id.name, nvm_apps[i].channel))
++			break;
++	}
++	if (i == ARRAY_SIZE(nvm_apps))
++		return -ENODEV;
++
++	nvm = devm_kzalloc(dev, sizeof(*nvm), GFP_KERNEL);
++	if (!nvm)
++		return -ENOMEM;
++
++	nvm->rpdev = rpdev;
++	nvm->index = i;
++	nvm->app = &nvm_apps[i];
++	node = of_parse_phandle(dev->of_node, "memory-region", 0);
++	if (!node)
++		return -EINVAL;
++
++	ret = of_address_to_resource(node, 0, &resource);
++	of_node_put(node);
++	if (ret)
++		return ret;
++
++	if (resource_size(&resource) < nvm->app->shared_offset + NVM_SLOT_SIZE)
++		return -EINVAL;
++
++	resource.start += nvm->app->shared_offset;
++	resource.end = resource.start + NVM_SLOT_SIZE - 1;
++	nvm->shared_address = resource.start;
++	nvm->shared = devm_ioremap_resource(dev, &resource);
++	if (IS_ERR(nvm->shared))
++		return PTR_ERR(nvm->shared);
++
++	ret = nvm_find_partition(nvm);
++	if (ret)
++		return dev_err_probe(dev, ret, "cannot locate secure NVM partition\n");
++
++	for (i = 0; i < 2; i++) {
++		nvm->slots[i] = devm_kmalloc(dev, NVM_SLOT_SIZE, GFP_KERNEL);
++		if (!nvm->slots[i])
++			return -ENOMEM;
++
++		ret = nvm_read_slot(nvm, i, nvm->slots[i]);
++		if (ret)
++			return dev_err_probe(dev, ret, "cannot read secure NVM\n");
++	}
++
++	nvm->layout = nvm_layout(NVM_MAX_BLOCKS);
++	if (!nvm_valid_slot(&nvm->layout, nvm->slots[0]) &&
++	    !nvm_valid_slot(&nvm->layout, nvm->slots[1]))
++		return dev_err_probe(dev, -EBADMSG, "no valid secure NVM backup\n");
++
++	nvm->snapshot = devm_kmalloc(dev, NVM_SLOT_SIZE, GFP_KERNEL);
++	if (!nvm->snapshot)
++		return -ENOMEM;
++
++	skb_queue_head_init(&nvm->requests);
++	INIT_WORK(&nvm->work, nvm_work);
++	nvm->workqueue = alloc_ordered_workqueue("spss_nvm", WQ_MEM_RECLAIM);
++	if (!nvm->workqueue)
++		return -ENOMEM;
++
++	dev_set_drvdata(dev, nvm);
++	scoped_guard(mutex, &nvm_devices_lock)
++		nvm_devices[nvm->index] = dev;
++
++	if (nvm->index == 1) {
++		ret = nvm_add_tpm(nvm);
++		if (ret) {
++			scoped_guard(mutex, &nvm_devices_lock)
++				nvm_devices[nvm->index] = NULL;
++
++			destroy_workqueue(nvm->workqueue);
++			return ret;
++		}
++	}
++
++	return 0;
++}
++
++static void nvm_remove(struct rpmsg_device *rpdev)
++{
++	struct spss_nvm *nvm = dev_get_drvdata(&rpdev->dev);
++
++	if (nvm->tpm) {
++		auxiliary_device_delete(nvm->tpm);
++		auxiliary_device_uninit(nvm->tpm);
++	}
++
++	scoped_guard(mutex, &nvm_devices_lock)
++		nvm_devices[nvm->index] = NULL;
++
++	scoped_guard(spinlock_irqsave, &nvm->requests.lock)
++		nvm->stopping = true;
++
++	destroy_workqueue(nvm->workqueue);
++	skb_queue_purge(&nvm->requests);
++}
++
++static const struct rpmsg_device_id nvm_id_table[] = {
++	{ .name = "sec_nvm_sp_nvm" },
++	{ .name = "sec_nvm_stpm_lite_msft" },
++	{ .name = "sec_nvm_ksp_msft" },
++	{}
++};
++MODULE_DEVICE_TABLE(rpmsg, nvm_id_table);
++
++static const struct of_device_id nvm_of_match[] = {
++	{ .compatible = "qcom,hamoa-spss-nvm" },
++	{}
++};
++MODULE_DEVICE_TABLE(of, nvm_of_match);
++
++static struct rpmsg_driver nvm_driver = {
++	.drv.name = "qcom_spss_nvm",
++	.drv.of_match_table = nvm_of_match,
++	.id_table = nvm_id_table,
++	.probe = nvm_probe,
++	.callback = nvm_callback,
++	.remove = nvm_remove,
++};
++
++static int __init spss_nvm_init(void)
++{
++	int ret;
++
++	ret = register_rpmsg_driver(&tpm_channel_driver);
++	if (ret)
++		return ret;
++
++	ret = register_rpmsg_driver(&nvm_driver);
++	if (ret)
++		unregister_rpmsg_driver(&tpm_channel_driver);
++
++	return ret;
++}
++module_init(spss_nvm_init);
++
++static void __exit spss_nvm_exit(void)
++{
++	unregister_rpmsg_driver(&nvm_driver);
++	unregister_rpmsg_driver(&tpm_channel_driver);
++}
++module_exit(spss_nvm_exit);
++
++MODULE_DESCRIPTION("Qualcomm SPSS secure NVM backing service");
++MODULE_AUTHOR("Antheas Kapenekakis <lkml@antheas.dev>");
++MODULE_LICENSE("GPL");
+diff --git a/include/linux/firmware/qcom/spss.h b/include/linux/firmware/qcom/spss.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..8cd7a5891978ad54e37f8dfc4fbe968f1d284606
+--- /dev/null
++++ b/include/linux/firmware/qcom/spss.h
+@@ -0,0 +1,12 @@
++/* SPDX-License-Identifier: GPL-2.0-only */
++#ifndef __QCOM_SPSS_H
++#define __QCOM_SPSS_H
++
++#include <linux/rpmsg.h>
++
++int qcom_spss_nvm_link(struct device *consumer);
++struct rpmsg_endpoint *qcom_spss_tpm_attach(struct device *consumer,
++					 rpmsg_rx_cb_t callback, void *priv);
++void qcom_spss_tpm_detach(void *priv);
++
++#endif
+-- 
+2.56.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Mon, 16 Nov 2026 22:12:57 +0100
+Subject: tpm: Add Qualcomm SPSS TPM driver
+
+Hand over the boot-time mssecapp interface to the SPSS stpm_lite_msft
+application and expose it through the TPM core. Share a DMA32 command
+buffer, perform ready and idle handshakes for each command, and close and
+reopen the locality around suspend.
+
+Retain shared memory when an uncertain firmware exchange prevents safely
+closing the locality.
+
+Validated on a Samsung Galaxy Book4 Edge 14: sealing and unsealing, TPM NV
+persistence across reboot, frontend reload, and three suspend/resume cycles.
+
+Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
+---
+ MAINTAINERS                      |  10 +
+ drivers/char/tpm/Kconfig         |   9 +
+ drivers/char/tpm/Makefile        |   1 +
+ drivers/char/tpm/tpm_qcom_spss.c | 539 +++++++++++++++++++++++++++++++
+ 4 files changed, 559 insertions(+)
+ create mode 100644 drivers/char/tpm/tpm_qcom_spss.c
+
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 49387fa20e52112484c337f6747e3a066d8e976c..4e853a85a51836347cb8de45797c980ae361a854 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -22651,6 +22651,16 @@ F:	Documentation/networking/device_drivers/cellular/qualcomm/rmnet.rst
+ F:	drivers/net/ethernet/qualcomm/rmnet/
+ F:	include/linux/if_rmnet.h
+ 
++QUALCOMM SPSS TPM AND SECURE STORAGE DRIVERS
++M:	Antheas Kapenekakis <lkml@antheas.dev>
++L:	linux-integrity@vger.kernel.org
++L:	linux-arm-msm@vger.kernel.org
++S:	Maintained
++F:	drivers/char/tpm/tpm_qcom_spss.c
++F:	drivers/firmware/qcom/qcom_spss_nvm.c
++F:	drivers/rpmsg/qcom_glink_spss.c
++F:	include/linux/firmware/qcom/spss.h
++
+ QUALCOMM TEE (QCOMTEE) DRIVER
+ M:	Amirreza Zarrabi <amirreza.zarrabi@oss.qualcomm.com>
+ L:	linux-arm-msm@vger.kernel.org
+diff --git a/drivers/char/tpm/Kconfig b/drivers/char/tpm/Kconfig
+index 5f672f2c01b04c17efaaa80a95bd1a386817645f..1a5ce9c20274441d81e9431da3a50d0e1eecb7c5 100644
+--- a/drivers/char/tpm/Kconfig
++++ b/drivers/char/tpm/Kconfig
+@@ -243,6 +243,15 @@ config TCG_FTPM_TEE
+ 	help
+ 	  This driver proxies for firmware TPM running in TEE.
+ 
++config TCG_QCOM_SPSS
++	tristate "Qualcomm SPSS TPM"
++	depends on QCOM_QSEECOM && RPMSG_QCOM_GLINK_SPSS && HAS_DMA
++	select QCOM_SPSS_NVM
++	help
++	  Access the firmware-started stpm_lite_msft TPM application in the
++	  Qualcomm Secure Processor Subsystem, with persistent secure storage.
++	  The module will be called tpm_qcom_spss.
++
+ config TCG_SVSM
+ 	tristate "SNP SVSM vTPM interface"
+ 	depends on AMD_MEM_ENCRYPT
+diff --git a/drivers/char/tpm/Makefile b/drivers/char/tpm/Makefile
+index 5b5cdc0d32e4e5ecf0803e785913f455d32fa1ff..7373f143a1a1aaa87c8538ce023e122d66fd1ffc 100644
+--- a/drivers/char/tpm/Makefile
++++ b/drivers/char/tpm/Makefile
+@@ -45,5 +45,6 @@ obj-$(CONFIG_TCG_CRB) += tpm_crb.o
+ obj-$(CONFIG_TCG_ARM_CRB_FFA) += tpm_crb_ffa.o
+ obj-$(CONFIG_TCG_VTPM_PROXY) += tpm_vtpm_proxy.o
+ obj-$(CONFIG_TCG_FTPM_TEE) += tpm_ftpm_tee.o
++obj-$(CONFIG_TCG_QCOM_SPSS) += tpm_qcom_spss.o
+ obj-$(CONFIG_TCG_SVSM) += tpm_svsm.o
+ obj-$(CONFIG_TCG_LOONGSON) += tpm_loongson.o
+diff --git a/drivers/char/tpm/tpm_qcom_spss.c b/drivers/char/tpm/tpm_qcom_spss.c
+new file mode 100644
+index 0000000000000000000000000000000000000000..1ac553a9cc62de6b768b5629b7dc2fb64fc7ba7e
+--- /dev/null
++++ b/drivers/char/tpm/tpm_qcom_spss.c
+@@ -0,0 +1,539 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/* TPM 2.0 client for the Qualcomm SPSS stpm_lite_msft application. */
++#include <linux/auxiliary_bus.h>
++#include <linux/cleanup.h>
++#include <linux/completion.h>
++#include <linux/dma-mapping.h>
++#include <linux/firmware/qcom/qcom_scm.h>
++#include <linux/firmware/qcom/qcom_tzmem.h>
++#include <linux/firmware/qcom/spss.h>
++#include <linux/iommu.h>
++#include <linux/iopoll.h>
++#include <linux/module.h>
++#include <linux/mutex.h>
++#include <linux/pm.h>
++#include <linux/random.h>
++#include <linux/rpmsg.h>
++#include <linux/sizes.h>
++#include <linux/tpm.h>
++#include <linux/unaligned.h>
++#include <linux/workqueue.h>
++
++#include <dt-bindings/firmware/qcom,scm.h>
++
++#include "tpm.h"
++
++#define SPSS_TPM_OPEN		0x7001
++#define SPSS_TPM_CLOSE		0x7002
++#define SPSS_TPM_SUBMIT		0x7003
++#define SPSS_TPM_BUFFER_SIZE	(3 * SZ_4K)
++#define SPSS_TPM_TIMEOUT		msecs_to_jiffies(120000)
++#define SPSS_TPM_FRAME_SIZE	8
++
++struct spss_tpm {
++	struct device *dev;
++	struct rpmsg_endpoint *endpoint;
++	struct device *dma_dev;
++	struct tpm_chip *chip;
++	struct work_struct init_work;
++	struct mutex lock;
++	spinlock_t response_lock;
++	struct completion done;
++	void *buffer;
++	dma_addr_t address;
++	u64 vmids;
++	u32 transaction;
++	u16 command;
++	int result;
++	bool pending;
++	bool broken;
++	bool opened;
++	bool registered;
++};
++
++static int spss_tpm_callback(struct rpmsg_device *rpdev, void *data, int length,
++			     void *priv, u32 source)
++{
++	struct spss_tpm *spss = priv;
++	unsigned long flags;
++
++	if (!spss)
++		return -EAGAIN;
++
++	if (length < SPSS_TPM_FRAME_SIZE || get_unaligned_le32(data))
++		return -EINVAL;
++
++	spin_lock_irqsave(&spss->response_lock, flags);
++	if (!spss->pending || get_unaligned_le32(data + 4) != spss->transaction) {
++		spin_unlock_irqrestore(&spss->response_lock, flags);
++		return 0;
++	}
++
++	if (length < SPSS_TPM_FRAME_SIZE + 6 ||
++	    length > SPSS_TPM_FRAME_SIZE + 268 ||
++	    get_unaligned_le16(data + 8) != spss->command)
++		spss->result = -EPROTO;
++	else if (get_unaligned_le32(data + 10)) {
++		dev_err(spss->dev, "SPSS command %#x failed: %#x\n",
++			spss->command, get_unaligned_le32(data + 10));
++		spss->result = -EREMOTEIO;
++	} else {
++		spss->result = 0;
++	}
++
++	spss->pending = false;
++	complete(&spss->done);
++	spin_unlock_irqrestore(&spss->response_lock, flags);
++
++	return 0;
++}
++
++static int spss_tpm_exchange(struct spss_tpm *spss, u16 command,
++			     const u8 *payload, size_t size)
++{
++	u8 frame[SPSS_TPM_FRAME_SIZE + 18] = {};
++	unsigned long flags;
++	unsigned long completed;
++	int ret;
++
++	lockdep_assert_held(&spss->lock);
++	spin_lock_irqsave(&spss->response_lock, flags);
++	if (spss->broken && command != SPSS_TPM_CLOSE) {
++		spin_unlock_irqrestore(&spss->response_lock, flags);
++		return -ENOTCONN;
++	}
++
++	reinit_completion(&spss->done);
++	spss->transaction++;
++	spss->command = command;
++	spss->pending = true;
++	spss->result = -EIO;
++	put_unaligned_le32(spss->transaction, frame + 4);
++	spin_unlock_irqrestore(&spss->response_lock, flags);
++	memcpy(frame + SPSS_TPM_FRAME_SIZE, payload, size);
++
++	ret = rpmsg_send(spss->endpoint, frame, SPSS_TPM_FRAME_SIZE + size);
++	completed = ret ? 0 : wait_for_completion_timeout(&spss->done, SPSS_TPM_TIMEOUT);
++	spin_lock_irqsave(&spss->response_lock, flags);
++	if (!ret)
++		ret = completed ? spss->result : -ETIMEDOUT;
++
++	/* A timed-out command may still execute. Do not reuse the transport. */
++	if (ret && ret != -EREMOTEIO)
++		spss->broken = true;
++	spss->pending = false;
++	spin_unlock_irqrestore(&spss->response_lock, flags);
++
++	return ret;
++}
++
++static int spss_tpm_open(struct spss_tpm *spss)
++{
++	u8 request[18] = {};
++	int ret;
++
++	put_unaligned_le16(SPSS_TPM_OPEN, request);
++	put_unaligned_le32(1, request + 2);
++	put_unaligned_le16(3, request + 6);
++	put_unaligned_le64(spss->address, request + 8);
++	put_unaligned_le16(SPSS_TPM_BUFFER_SIZE, request + 16);
++	ret = spss_tpm_exchange(spss, SPSS_TPM_OPEN, request, sizeof(request));
++	/* A failed exchange can leave firmware using the command buffer. */
++	if (!ret || spss->broken)
++		spss->opened = true;
++
++	return ret;
++}
++
++static int spss_tpm_close(struct spss_tpm *spss)
++{
++	u8 request[6] = {};
++	int ret;
++
++	if (!spss->opened)
++		return 0;
++
++	put_unaligned_le16(SPSS_TPM_CLOSE, request);
++	put_unaligned_le32(1, request + 2);
++	ret = spss_tpm_exchange(spss, SPSS_TPM_CLOSE, request, sizeof(request));
++	if (!ret)
++		spss->opened = false;
++
++	return ret;
++}
++
++static int spss_tpm_request(struct spss_tpm *spss, u32 request);
++
++static int spss_tpm_send(struct tpm_chip *chip, u8 *buffer, size_t capacity,
++			 size_t command_size)
++{
++	struct spss_tpm *spss = dev_get_drvdata(chip->dev.parent);
++	u8 *control = spss->buffer;
++	u8 *response = spss->buffer + 2 * SZ_4K;
++	u8 submit[2];
++	u32 response_size;
++	u32 start;
++	u16 tag;
++	int ret;
++
++	if (command_size < TPM_HEADER_SIZE || command_size > SZ_4K ||
++	    get_unaligned_be32(buffer + 2) != command_size)
++		return -EINVAL;
++
++	guard(mutex)(&spss->lock);
++	if (!spss->opened || spss->broken)
++		return -ENOTCONN;
++
++	ret = spss_tpm_request(spss, 1);
++	if (ret)
++		return ret;
++
++	memcpy(spss->buffer + SZ_4K, buffer, command_size);
++	memset(response, 0, TPM_HEADER_SIZE);
++	put_unaligned_le32(0, control + 8);
++	put_unaligned_le32(1, control + 12);
++	/* Publish the TPM command and start flag before ringing the SPSS doorbell. */
++	dma_wmb();
++	put_unaligned_le16(SPSS_TPM_SUBMIT, submit);
++	dev_dbg(&chip->dev, "submit TPM %#x request=%#x status=%#x start=%#x\n",
++		get_unaligned_be32(buffer + 6), get_unaligned_le32(control),
++		get_unaligned_le32(control + 4), get_unaligned_le32(control + 12));
++	ret = spss_tpm_exchange(spss, SPSS_TPM_SUBMIT, submit, sizeof(submit));
++	if (ret)
++		return ret;
++
++	ret = read_poll_timeout(get_unaligned_le32, start, !start, 1000, 120000000,
++				false, control + 12);
++	if (ret) {
++		spss->broken = true;
++		return ret;
++	}
++
++	/* Observe firmware's response writes after it clears the start flag. */
++	dma_rmb();
++	if (get_unaligned_le32(control + 4) & BIT(0)) {
++		spss->broken = true;
++		return -EIO;
++	}
++
++	response_size = get_unaligned_be32(response + 2);
++	tag = get_unaligned_be16(response);
++	if (response_size < TPM_HEADER_SIZE || response_size > SZ_4K ||
++	    response_size > capacity ||
++	    (tag != TPM2_ST_NO_SESSIONS && tag != TPM2_ST_SESSIONS))
++		return -EPROTO;
++
++	memcpy(buffer, response, response_size);
++	ret = spss_tpm_request(spss, 2);
++	if (ret)
++		dev_err(&chip->dev, "SPSS idle request failed: %d\n", ret);
++
++	return response_size;
++}
++
++static int spss_tpm_request(struct spss_tpm *spss, u32 request)
++{
++	u8 submit[2];
++	u32 pending;
++	int ret;
++
++	lockdep_assert_held(&spss->lock);
++	if (!spss->opened || spss->broken)
++		return -ENOTCONN;
++
++	if (get_unaligned_le32(spss->buffer) || get_unaligned_le32(spss->buffer + 12))
++		return -EBUSY;
++
++	put_unaligned_le32(request, spss->buffer);
++	/* Publish the ready/idle request before notifying the SPSS application. */
++	dma_wmb();
++	put_unaligned_le16(SPSS_TPM_SUBMIT, submit);
++	ret = spss_tpm_exchange(spss, SPSS_TPM_SUBMIT, submit, sizeof(submit));
++	if (ret)
++		return ret;
++
++	ret = read_poll_timeout(get_unaligned_le32, pending, !pending, 1000, 120000000,
++				false, spss->buffer);
++	if (ret) {
++		spss->broken = true;
++		return ret;
++	}
++
++	/* Firmware acknowledges the request by clearing it in shared memory. */
++	dma_rmb();
++	if (request == 1 && get_unaligned_le32(spss->buffer + 4)) {
++		spss->broken = true;
++		return -EIO;
++	}
++
++	return 0;
++}
++
++static const struct tpm_class_ops spss_tpm_ops = {
++	.flags = TPM_OPS_AUTO_STARTUP,
++	.send = spss_tpm_send,
++};
++
++static int spss_tpm_handover(struct device *dev)
++{
++	const struct qcom_tzmem_pool_config config = {
++		.initial_size = SZ_4K,
++		.policy = QCOM_TZMEM_POLICY_STATIC,
++	};
++	struct qcom_tzmem_pool *pool;
++	void *message;
++	u32 app_id;
++	int ret;
++
++	ret = qcom_scm_qseecom_app_get_id("qcom.tz.mssecapp", &app_id);
++	if (ret == -ENOENT)
++		return 0;
++	if (ret)
++		return ret;
++
++	pool = qcom_tzmem_pool_new(&config);
++	if (IS_ERR(pool))
++		return PTR_ERR(pool);
++
++	message = qcom_tzmem_alloc(pool, 128, GFP_KERNEL);
++	if (!message) {
++		qcom_tzmem_pool_free(pool);
++		return -ENOMEM;
++	}
++
++	memset(message, 0, 128);
++	put_unaligned_le32(0x4007, message);
++	ret = qcom_scm_qseecom_app_send(app_id, message, 4, message + 64, 12);
++	dev_dbg(dev, "mssecapp %u version query: %d %*ph\n", app_id, ret, 12, message + 64);
++	/* The boot interface stops answering after it has handed over to SPSS. */
++	if (!ret && !memchr_inv(message + 64, 0, 12)) {
++		qcom_tzmem_free(message);
++		qcom_tzmem_pool_free(pool);
++		return 0;
++	}
++
++	if (!ret && (get_unaligned_le32(message + 64) ||
++	    get_unaligned_le32(message + 68) != 0x4007 ||
++	    get_unaligned_le32(message + 72) != 0x10000))
++		ret = -EPROTO;
++
++	if (!ret) {
++		memset(message, 0, 128);
++		put_unaligned_le32(0x4005, message);
++		ret = qcom_scm_qseecom_app_send(app_id, message, 4, message + 64, 8);
++		if (!ret && (get_unaligned_le32(message + 64) != 0x4005 ||
++		    get_unaligned_le32(message + 68)))
++			ret = -EIO;
++	}
++
++	qcom_tzmem_free(message);
++	qcom_tzmem_pool_free(pool);
++	return ret;
++}
++
++static void spss_tpm_free_buffer(void *data)
++{
++	struct spss_tpm *spss = data;
++	const struct qcom_scm_vmperm permission = {
++		.vmid = QCOM_SCM_VMID_HLOS,
++		.perm = QCOM_SCM_PERM_RWX,
++	};
++	int ret;
++
++	if (spss->opened) {
++		dev_err(spss->dev, "locality is still open, retaining shared buffer\n");
++		return;
++	}
++
++	ret = qcom_scm_assign_mem(spss->address, SPSS_TPM_BUFFER_SIZE,
++				  &spss->vmids, &permission, 1);
++	if (ret) {
++		dev_err(spss->dev, "cannot revoke SPSS access, retaining buffer: %d\n", ret);
++		return;
++	}
++
++	dma_free_coherent(spss->dma_dev, SPSS_TPM_BUFFER_SIZE, spss->buffer, spss->address);
++}
++
++static int spss_tpm_prepare_buffer(struct spss_tpm *spss)
++{
++	const struct qcom_scm_vmperm permissions[] = {
++		{ .vmid = QCOM_SCM_VMID_HLOS, .perm = QCOM_SCM_PERM_RW },
++		{ .vmid = QCOM_SCM_VMID_CP_SPSS_HLOS_SHARED, .perm = QCOM_SCM_PERM_RW },
++	};
++	int ret;
++
++	if (device_iommu_mapped(spss->dma_dev))
++		return -EOPNOTSUPP;
++
++	ret = dma_set_mask_and_coherent(spss->dma_dev, DMA_BIT_MASK(32));
++	if (ret)
++		return ret;
++
++	spss->buffer = dma_alloc_coherent(spss->dma_dev, SPSS_TPM_BUFFER_SIZE,
++					  &spss->address, GFP_KERNEL);
++	if (!spss->buffer)
++		return -ENOMEM;
++
++	spss->vmids = BIT_ULL(QCOM_SCM_VMID_HLOS);
++	ret = qcom_scm_assign_mem(spss->address, SPSS_TPM_BUFFER_SIZE, &spss->vmids,
++				  permissions, ARRAY_SIZE(permissions));
++	if (ret) {
++		dma_free_coherent(spss->dma_dev, SPSS_TPM_BUFFER_SIZE, spss->buffer, spss->address);
++		return ret;
++	}
++
++	put_unaligned_le32(SZ_4K, spss->buffer + 24);
++	put_unaligned_le32(SZ_4K, spss->buffer + 28);
++	put_unaligned_le32(SZ_4K, spss->buffer + 36);
++	put_unaligned_le32(2 * SZ_4K, spss->buffer + 40);
++	dev_dbg(spss->dev, "shared TPM buffer at %pad\n", &spss->address);
++	return devm_add_action_or_reset(spss->dev, spss_tpm_free_buffer, spss);
++}
++
++static void spss_tpm_init_work(struct work_struct *work)
++{
++	struct spss_tpm *spss = container_of(work, struct spss_tpm, init_work);
++	struct device *dev = spss->dev;
++	int ret;
++
++	ret = spss_tpm_handover(dev);
++	if (ret) {
++		dev_err(dev, "TPM firmware handoff failed: %d\n", ret);
++		return;
++	}
++
++	scoped_guard(mutex, &spss->lock)
++		ret = spss_tpm_open(spss);
++
++	if (!ret)
++		ret = tpm_chip_register(spss->chip);
++	if (ret) {
++		dev_err(dev, "TPM initialization failed: %d\n", ret);
++		return;
++	}
++
++	spss->registered = true;
++}
++
++static int spss_tpm_probe(struct auxiliary_device *adev,
++			  const struct auxiliary_device_id *id)
++{
++	struct device *dev = &adev->dev;
++	struct spss_tpm *spss;
++	int ret;
++
++	ret = qcom_spss_nvm_link(dev);
++	if (ret)
++		return ret;
++
++	if (!dev->parent || !dev->parent->parent || !dev->parent->parent->parent)
++		return -ENODEV;
++
++	spss = devm_kzalloc(dev, sizeof(*spss), GFP_KERNEL);
++	if (!spss)
++		return -ENOMEM;
++
++	spss->dev = dev;
++	spss->dma_dev = dev->parent->parent->parent;
++	mutex_init(&spss->lock);
++	spin_lock_init(&spss->response_lock);
++	init_completion(&spss->done);
++	INIT_WORK(&spss->init_work, spss_tpm_init_work);
++	spss->transaction = get_random_u32();
++	dev_set_drvdata(dev, spss);
++	spss->endpoint = qcom_spss_tpm_attach(dev, spss_tpm_callback, spss);
++	if (IS_ERR(spss->endpoint))
++		return PTR_ERR(spss->endpoint);
++
++	ret = devm_add_action_or_reset(dev, qcom_spss_tpm_detach, spss);
++	if (ret)
++		return ret;
++
++	ret = spss_tpm_prepare_buffer(spss);
++	if (ret)
++		return dev_err_probe(dev, ret, "cannot share TPM command buffer\n");
++
++	spss->chip = tpmm_chip_alloc(dev, &spss_tpm_ops);
++	if (IS_ERR(spss->chip))
++		return PTR_ERR(spss->chip);
++
++	dev_set_drvdata(dev, spss);
++	dev_set_drvdata(&spss->chip->dev, spss->chip);
++	spss->chip->flags |= TPM_CHIP_FLAG_TPM2 | TPM_CHIP_FLAG_SYNC |
++			     TPM_CHIP_FLAG_FIRMWARE_POWER_MANAGED;
++	/* GLINK must be free to receive replies while initialization waits. */
++	schedule_work(&spss->init_work);
++	return 0;
++}
++
++static void spss_tpm_remove(struct auxiliary_device *adev)
++{
++	struct spss_tpm *spss = auxiliary_get_drvdata(adev);
++
++	cancel_work_sync(&spss->init_work);
++	if (spss->registered)
++		tpm_chip_unregister(spss->chip);
++
++	guard(mutex)(&spss->lock);
++	if (spss->endpoint) {
++		spss_tpm_close(spss);
++		qcom_spss_tpm_detach(spss);
++	}
++}
++
++static int spss_tpm_suspend(struct device *dev)
++{
++	struct spss_tpm *spss = dev_get_drvdata(dev);
++	int ret;
++
++	flush_work(&spss->init_work);
++	if (!spss->registered)
++		return 0;
++
++	ret = tpm_pm_suspend(&spss->chip->dev);
++	if (ret)
++		return ret;
++
++	guard(mutex)(&spss->lock);
++	return spss_tpm_close(spss);
++}
++
++static int spss_tpm_resume(struct device *dev)
++{
++	struct spss_tpm *spss = dev_get_drvdata(dev);
++	int ret;
++
++	if (!spss->registered)
++		return 0;
++
++	guard(mutex)(&spss->chip->tpm_mutex);
++	scoped_guard(mutex, &spss->lock)
++		ret = spss_tpm_open(spss);
++
++	if (ret)
++		return ret;
++
++	return tpm_pm_resume(&spss->chip->dev);
++}
++
++static DEFINE_SIMPLE_DEV_PM_OPS(spss_tpm_pm_ops, spss_tpm_suspend, spss_tpm_resume);
++
++static const struct auxiliary_device_id spss_tpm_id_table[] = {
++	{ .name = "qcom_spss_nvm.tpm" },
++	{}
++};
++MODULE_DEVICE_TABLE(auxiliary, spss_tpm_id_table);
++
++static struct auxiliary_driver spss_tpm_driver = {
++	.driver.name = "tpm_qcom_spss",
++	.driver.pm = pm_sleep_ptr(&spss_tpm_pm_ops),
++	.id_table = spss_tpm_id_table,
++	.probe = spss_tpm_probe,
++	.remove = spss_tpm_remove,
++};
++module_auxiliary_driver(spss_tpm_driver);
++
++MODULE_DESCRIPTION("Qualcomm SPSS TPM 2.0 driver");
++MODULE_AUTHOR("Antheas Kapenekakis <lkml@antheas.dev>");
++MODULE_LICENSE("GPL");
+-- 
+2.56.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Mon, 16 Nov 2026 22:12:57 +0100
+Subject: arm64: dts: qcom: hamoa: Add SPSS GLINK transport
+
+Describe the SPSS handoff registers and IPCC notification channel. Leave
+the transport disabled for boards to enable explicitly.
+
+Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
+---
+ arch/arm64/boot/dts/qcom/hamoa.dtsi | 17 +++++++++++++++++
+ 1 file changed, 17 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/qcom/hamoa.dtsi b/arch/arm64/boot/dts/qcom/hamoa.dtsi
+index 6e643507d7f79754e4be1ac5313253409d9b5b86..b7709234e76786a36be10b8a2e75d049c27ad8f4 100644
+--- a/arch/arm64/boot/dts/qcom/hamoa.dtsi
++++ b/arch/arm64/boot/dts/qcom/hamoa.dtsi
+@@ -3139,6 +3139,23 @@ mmss_noc: interconnect@1780000 {
+ 			#interconnect-cells = <2>;
+ 		};
+ 
++		spss_glink: spss-glink@1885008 {
++			compatible = "qcom,hamoa-spss-glink";
++			reg = <0 0x01885008 0 0x8>,
++			      <0 0x01885010 0 0x4>;
++			reg-names = "handoff-address", "handoff-size";
++
++			interrupts-extended = <&ipcc IPCC_CLIENT_SPSS
++						 IPCC_MPROC_SIGNAL_GLINK_QMP
++						 IRQ_TYPE_EDGE_RISING>;
++			mboxes = <&ipcc IPCC_CLIENT_SPSS
++				    IPCC_MPROC_SIGNAL_GLINK_QMP>;
++
++			qcom,remote-pid = <8>;
++			label = "spss";
++			status = "disabled";
++		};
++
+ 		pcie3: pcie@1bd0000 {
+ 			device_type = "pci";
+ 			compatible = "qcom,pcie-x1e80100";
+-- 
+2.56.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Mon, 16 Nov 2026 22:12:57 +0100
+Subject: arm64: dts: qcom: Enable SPSS TPM storage on Galaxy Book4 Edge
+
+Enable SPSS GLINK and describe the common, TPM and KSP secure NVM
+channels in the shared Samsung board include. This covers the 14-inch and
+16-inch X1E models and the 15-inch X1P model.
+
+Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
+---
+ .../qcom/x1-samsung-galaxy-book4-edge.dtsi    | 22 +++++++++++++++++++
+ 1 file changed, 22 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/qcom/x1-samsung-galaxy-book4-edge.dtsi b/arch/arm64/boot/dts/qcom/x1-samsung-galaxy-book4-edge.dtsi
+index 27d6f6ff25fe12826f5960434031f0b08c8c247d..212a841bc3b58044a3fa57397f97fc96af2c1a0e 100644
+--- a/arch/arm64/boot/dts/qcom/x1-samsung-galaxy-book4-edge.dtsi
++++ b/arch/arm64/boot/dts/qcom/x1-samsung-galaxy-book4-edge.dtsi
+@@ -785,6 +785,28 @@ &qupv3_2 {
+ 	status = "okay";
+ };
+ 
++&spss_glink {
++	status = "okay";
++
++	sec-nvm {
++		compatible = "qcom,hamoa-spss-nvm";
++		qcom,glink-channels = "sec_nvm_sp_nvm";
++		memory-region = <&spu_secure_shared_memory_mem>;
++	};
++
++	tpm-nvm {
++		compatible = "qcom,hamoa-spss-nvm";
++		qcom,glink-channels = "sec_nvm_stpm_lite_msft";
++		memory-region = <&spu_secure_shared_memory_mem>;
++	};
++
++	ksp-nvm {
++		compatible = "qcom,hamoa-spss-nvm";
++		qcom,glink-channels = "sec_nvm_ksp_msft";
++		memory-region = <&spu_secure_shared_memory_mem>;
++	};
++};
++
+ &swr1 {
+ 	status = "okay";
+ 
+-- 
+2.56.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Tue, 17 Nov 2026 11:50:41 +0100
+Subject: tpm: qcom-spss: Order shared buffer ownership handoffs
+
+Order command-buffer writes before publishing the start flag, and finish
+reading a response before posting a ready or idle request. A barrier after
+publishing the flag only orders the later doorbell; it does not enforce
+these shared-buffer ownership transitions on arm64.
+
+Add control-state diagnostics for RPC and shared-memory timeouts, and
+trace response status and size when dynamic debug is enabled.
+
+Validated five consecutive reboots on a Galaxy Book4 Edge, checking TPM
+self-test, command capabilities, sealed-secret recovery, newly written NV
+data and preservation of existing handles after every reboot. Use the
+saved GPU/UFS modules for these checks to avoid the independent graphics
+lockup.
+
+Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
+---
+ drivers/char/tpm/tpm_qcom_spss.c | 16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
+
+diff --git a/drivers/char/tpm/tpm_qcom_spss.c b/drivers/char/tpm/tpm_qcom_spss.c
+index 1ac553a9cc62de6b768b5629b7dc2fb64fc7ba7e..f2e39d1c7c73f61ea5cd9021b1ea334db5303050 100644
+--- a/drivers/char/tpm/tpm_qcom_spss.c
++++ b/drivers/char/tpm/tpm_qcom_spss.c
+@@ -124,6 +124,12 @@ static int spss_tpm_exchange(struct spss_tpm *spss, u16 command,
+ 	spss->pending = false;
+ 	spin_unlock_irqrestore(&spss->response_lock, flags);
+ 
++	if (ret == -ETIMEDOUT)
++		dev_err(spss->dev, "SPSS command %#x timed out: request=%#x status=%#x start=%#x\n",
++			command, get_unaligned_le32(spss->buffer),
++			get_unaligned_le32(spss->buffer + 4),
++			get_unaligned_le32(spss->buffer + 12));
++
+ 	return ret;
+ }
+ 
+@@ -191,6 +197,8 @@ static int spss_tpm_send(struct tpm_chip *chip, u8 *buffer, size_t capacity,
+ 	memcpy(spss->buffer + SZ_4K, buffer, command_size);
+ 	memset(response, 0, TPM_HEADER_SIZE);
+ 	put_unaligned_le32(0, control + 8);
++	/* Complete the command writes before giving firmware ownership. */
++	dma_wmb();
+ 	put_unaligned_le32(1, control + 12);
+ 	/* Publish the TPM command and start flag before ringing the SPSS doorbell. */
+ 	dma_wmb();
+@@ -206,6 +214,8 @@ static int spss_tpm_send(struct tpm_chip *chip, u8 *buffer, size_t capacity,
+ 				false, control + 12);
+ 	if (ret) {
+ 		spss->broken = true;
++		dev_err(&chip->dev, "TPM command completion timed out: status=%#x\n",
++			get_unaligned_le32(control + 4));
+ 		return ret;
+ 	}
+ 
+@@ -223,6 +233,8 @@ static int spss_tpm_send(struct tpm_chip *chip, u8 *buffer, size_t capacity,
+ 	    (tag != TPM2_ST_NO_SESSIONS && tag != TPM2_ST_SESSIONS))
+ 		return -EPROTO;
+ 
++	dev_dbg(&chip->dev, "TPM response: status=%#x size=%u\n",
++		get_unaligned_be32(response + 6), response_size);
+ 	memcpy(buffer, response, response_size);
+ 	ret = spss_tpm_request(spss, 2);
+ 	if (ret)
+@@ -244,6 +256,8 @@ static int spss_tpm_request(struct spss_tpm *spss, u32 request)
+ 	if (get_unaligned_le32(spss->buffer) || get_unaligned_le32(spss->buffer + 12))
+ 		return -EBUSY;
+ 
++	/* Finish reading the response before firmware can reuse its buffer. */
++	dma_mb();
+ 	put_unaligned_le32(request, spss->buffer);
+ 	/* Publish the ready/idle request before notifying the SPSS application. */
+ 	dma_wmb();
+@@ -256,6 +270,8 @@ static int spss_tpm_request(struct spss_tpm *spss, u32 request)
+ 				false, spss->buffer);
+ 	if (ret) {
+ 		spss->broken = true;
++		dev_err(spss->dev, "SPSS request %#x timed out: status=%#x\n",
++			request, get_unaligned_le32(spss->buffer + 4));
+ 		return ret;
+ 	}
+ 
+-- 
+2.56.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Tue, 17 Nov 2026 14:44:07 +0100
+Subject: tpm: qcom-spss: Close the SPSS session on shutdown
+
+The auxiliary driver only closes the SPSS TPM session on removal or
+suspend, leaving the firmware session open during reboot and poweroff.
+
+Reuse the removal callback for shutdown so initialization work is stopped,
+the TPM chip is unregistered and the SPSS session is closed before the
+parent transport shuts down. Clear the registration flag after unregistering
+the chip to reflect its state after cleanup.
+
+Validated with twelve consecutive Plymouth boots on a Galaxy Book4 Edge
+with the full GPU and storage drivers enabled. TPM setup and PCR phase
+measurements succeeded on each boot.
+
+Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
+---
+ drivers/char/tpm/tpm_qcom_spss.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/char/tpm/tpm_qcom_spss.c b/drivers/char/tpm/tpm_qcom_spss.c
+index f2e39d1c7c73f61ea5cd9021b1ea334db5303050..820cf50cd095f78e28cc934997fa219271952a4c 100644
+--- a/drivers/char/tpm/tpm_qcom_spss.c
++++ b/drivers/char/tpm/tpm_qcom_spss.c
+@@ -488,8 +488,10 @@ static void spss_tpm_remove(struct auxiliary_device *adev)
+ 	struct spss_tpm *spss = auxiliary_get_drvdata(adev);
+ 
+ 	cancel_work_sync(&spss->init_work);
+-	if (spss->registered)
++	if (spss->registered) {
+ 		tpm_chip_unregister(spss->chip);
++		spss->registered = false;
++	}
+ 
+ 	guard(mutex)(&spss->lock);
+ 	if (spss->endpoint) {
+@@ -547,6 +549,7 @@ static struct auxiliary_driver spss_tpm_driver = {
+ 	.id_table = spss_tpm_id_table,
+ 	.probe = spss_tpm_probe,
+ 	.remove = spss_tpm_remove,
++	.shutdown = spss_tpm_remove,
+ };
+ module_auxiliary_driver(spss_tpm_driver);
+ 
+-- 
+2.56.0
+
