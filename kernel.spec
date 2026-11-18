@@ -172,13 +172,13 @@ Summary: The Linux kernel
 %define specrpmversion 7.3.4
 %define specversion 7.3.4
 %define patchversion 7.3
-%define pkgrelease an07
+%define pkgrelease an08
 %define kversion 7
 %define tarfile_release 7.3.4
 # This is needed to do merge window version magic
 %define patchlevel 3
 # This allows pkg_release to have configurable %%{?dist} tag
-%define specrelease an07%{?buildid}%{?dist}
+%define specrelease an08%{?buildid}%{?dist}
 # This defines the kabi tarball version
 %define kabiversion 7.3.4
 
@@ -4946,7 +4946,20 @@ fi\
 #
 #
 %changelog
-* Tue Nov 17 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.3.4-an07]
+* Wed Nov 18 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.3.4-an08]
+- platform/x86/amd: dptc: Add ADVAN X-PLAY support (Antheas Kapenekakis)
+- scsi: ufs: ufs-qcom: Avoid duplicate lane clock enables (Antheas Kapenekakis)
+- redhat: Enable the Qualcomm Crypto Engine core on arm64 (Antheas Kapenekakis)
+- interconnect: qcom: x1e80100: Use peak-only keepalive for SN0 and SN2 (Antheas Kapenekakis)
+- interconnect: qcom: Allow peak-only BCM keepalive votes (Antheas Kapenekakis)
+- drm/msm: Attach a driver to the GMU (Akhil P Oommen)
+- ARM, arm64: defconfig: Enable the Qualcomm Crypto Engine core driver (Bartosz Golaszewski)
+- soc: qcom: add core driver for the Qualcomm Crypto Engine (Bartosz Golaszewski)
+- crypto: qce - convert to auxiliary bus (Bartosz Golaszewski)
+- arm64: dts: qcom: Add Galaxy Book4 Edge 14 standby GPIOs (Antheas Kapenekakis)
+- platform: arm64: samsung-galaxybook-ec: Add display activity hints (Antheas Kapenekakis)
+- dt-bindings: embedded-controller: samsung: Describe standby GPIOs (Antheas Kapenekakis)
+- driver core: hint: Fix device naming and teardown (Antheas Kapenekakis)
 - redhat: enable core GLINK for arm64 SPSS configs (Antheas Kapenekakis)
 - tpm: qcom-spss: Close the SPSS session on shutdown (Antheas Kapenekakis)
 - tpm: qcom-spss: Order shared buffer ownership handoffs (Antheas Kapenekakis)

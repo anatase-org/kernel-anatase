@@ -71659,3 +71659,2187 @@ index f2e39d1c7c73f61ea5cd9021b1ea334db5303050..820cf50cd095f78e28cc934997fa2192
 -- 
 2.56.0
 
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Tue, 17 Nov 2026 19:30:43 +0100
+Subject: driver core: hint: Fix device naming and teardown
+
+Use the caller's name as a string instead of a format containing an
+uninitialized, unused minor number.
+
+Unregister the hint device without holding its mutex. Unregistration
+removes the sysfs files and drains their active callbacks; holding the
+mutex can deadlock those callbacks or unlock freed memory after the
+last device reference is dropped.
+
+Validated by changing hints and unbinding and rebinding the Galaxy Book
+EC driver on Jewel.
+
+Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
+---
+ drivers/base/hint.c | 14 +++-----------
+ 1 file changed, 3 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/base/hint.c b/drivers/base/hint.c
+index 0be4116d68ccdffdd069b15ce37480c687c24e6d..c956b6de338cd512c95a577a4158b87ccccbbe97 100644
+--- a/drivers/base/hint.c
++++ b/drivers/base/hint.c
+@@ -15,7 +15,6 @@
+ struct hint_handler {
+ 	const char *name;
+ 	struct device dev;
+-	int minor;
+ 	struct mutex lock; /* Prevents parallel calls to class device. */
+ 	unsigned long idle_choices[BITS_TO_LONGS(HINT_IDLE_LAST)];
+ 	enum hint_idle_option idle;
+@@ -164,7 +163,7 @@ struct device *hint_register(struct device *dev, const char *name,
+ 			     const struct hint_ops *ops)
+ {
+ 	struct device *adev;
+-	int minor, err;
++	int err;
+ 
+ 	/* Sanity check */
+ 	if (WARN_ON_ONCE(!dev || !name || !ops))
+@@ -191,12 +190,11 @@ struct device *hint_register(struct device *dev, const char *name,
+ 	/* create class interface for handler */
+ 	handler->name = name;
+ 	handler->ops = ops;
+-	handler->minor = minor;
+ 	handler->dev.class = &hint_class;
+ 	handler->dev.parent = dev;
+ 	mutex_init(&handler->lock);
+ 	dev_set_drvdata(&handler->dev, drvdata);
+-	dev_set_name(&handler->dev, name, handler->minor);
++	dev_set_name(&handler->dev, "%s", name);
+ 
+ 	adev = &no_free_ptr(handler)->dev;
+ 	err = device_register(adev);
+@@ -215,16 +213,10 @@ EXPORT_SYMBOL_GPL(hint_register);
+  */
+ void hint_remove(struct device *dev)
+ {
+-	struct hint_handler *handler;
+-
+ 	if (IS_ERR_OR_NULL(dev))
+ 		return;
+ 
+-	handler = to_hint_handler(dev);
+-
+-	guard(mutex)(&handler->lock);
+-
+-	device_unregister(&handler->dev);
++	device_unregister(dev);
+ }
+ EXPORT_SYMBOL_GPL(hint_remove);
+ 
+-- 
+2.56.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Tue, 17 Nov 2026 19:30:47 +0100
+Subject: dt-bindings: embedded-controller: samsung: Describe standby GPIOs
+
+Describe the optional host sleep (MODS) and HPD control (HPDC) outputs
+used by the Galaxy Book4 Edge firmware's display and low-power idle
+notifications. Keep these properties on the primary EC interface.
+
+Validated the binding and Jewel DTB with dt-schema.
+
+Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
+---
+ .../samsung,galaxybook4-edge-ec.yaml               | 14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
+
+diff --git a/Documentation/devicetree/bindings/embedded-controller/samsung,galaxybook4-edge-ec.yaml b/Documentation/devicetree/bindings/embedded-controller/samsung,galaxybook4-edge-ec.yaml
+index 52db5bfccf145b1fb714421967da0d09cda88d79..52687695a78915e534f926773e34c6147c7136ba 100644
+--- a/Documentation/devicetree/bindings/embedded-controller/samsung,galaxybook4-edge-ec.yaml
++++ b/Documentation/devicetree/bindings/embedded-controller/samsung,galaxybook4-edge-ec.yaml
+@@ -46,6 +46,18 @@ properties:
+   interrupts:
+     maxItems: 1
+ 
++  host-sleep-gpios:
++    maxItems: 1
++    description:
++      Host sleep indication to the EC (MODS). Asserted when the OS display
++      is off and deasserted when it is on.
++
++  hpd-control-gpios:
++    maxItems: 1
++    description:
++      HPD control output (HPDC). Asserted before entering low-power idle
++      and left asserted on exit.
++
+ required:
+   - compatible
+   - reg
+@@ -67,6 +79,8 @@ allOf:
+         interrupts: false
+         samsung,event-interface: false
+         power-supplies: false
++        host-sleep-gpios: false
++        hpd-control-gpios: false
+ 
+ additionalProperties: false
+ 
+-- 
+2.56.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Tue, 17 Nov 2026 19:30:53 +0100
+Subject: platform: arm64: samsung-galaxybook-ec: Add display activity hints
+
+Register active and inactive hints so userspace can notify the EC when
+the displays turn on or off. Update bit 1 of EC register 0x89 through
+the existing mailbox protocol, preserving the other bits, then drive
+the optional host sleep GPIO as the firmware does.
+
+Notify display-off and assert the optional HPD control output before
+suspend. Restore the requested display hint on resume so a dark resume
+stays inactive. Serialize hint and PM transitions with the EC mutex and
+pause EC event handling while suspended.
+
+The actions follow the display and low-power idle DSMs in Jewel's ACPI
+firmware and the EC access protocol in its Windows EC driver. The
+separate ADSP standby notification is not implemented here.
+
+Validated with an ARM64 kernel and module build, I2C traces, hint changes,
+EC unbind/rebind, a devices-only PM check, and 20- and 60-second s2idle
+cycles on Jewel. Deep residency still requires the separate resource
+handoff and bandwidth workarounds.
+
+Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
+---
+ drivers/platform/arm64/Kconfig                |   2 +
+ .../platform/arm64/samsung-galaxybook-ec.c    | 133 +++++++++++++++++-
+ 2 files changed, 133 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/platform/arm64/Kconfig b/drivers/platform/arm64/Kconfig
+index eb86031de8fbe17b372d601132f663f5cafb1bdb..68efd4a9fb6ce69d52d40304e7b8fc893c2eee2e 100644
+--- a/drivers/platform/arm64/Kconfig
++++ b/drivers/platform/arm64/Kconfig
+@@ -110,12 +110,14 @@ config EC_SAMSUNG_GALAXYBOOK
+ 	depends on I2C && OF
+ 	depends on POWER_SUPPLY && LEDS_CLASS
+ 	select ACPI_PLATFORM_PROFILE
++	select HINT
+ 	help
+ 	  Say Y here to enable the embedded controller driver for Samsung
+ 	  Galaxy Book4 Edge laptops. The driver reports battery and AC
+ 	  adapter status and controls keyboard backlight brightness through
+ 	  the ENE KB9058 EC mailbox, and handles the keyboard backlight
+ 	  brightness hotkey and fan policy platform profiles.
++	  Device hints report display activity to the EC.
+ 
+ 	  To compile this driver as a module, choose M here: the module
+ 	  will be called samsung-galaxybook-ec.
+diff --git a/drivers/platform/arm64/samsung-galaxybook-ec.c b/drivers/platform/arm64/samsung-galaxybook-ec.c
+index 50292b649a9f06410de7a30f1d833ce8ab47ba53..a486336c0efe7dd487a7ced01edaa43991f70170 100644
+--- a/drivers/platform/arm64/samsung-galaxybook-ec.c
++++ b/drivers/platform/arm64/samsung-galaxybook-ec.c
+@@ -12,6 +12,8 @@
+ #include <linux/cleanup.h>
+ #include <linux/delay.h>
+ #include <linux/errno.h>
++#include <linux/gpio/consumer.h>
++#include <linux/hint.h>
+ #include <linux/i2c.h>
+ #include <linux/interrupt.h>
+ #include <linux/leds.h>
+@@ -26,6 +28,7 @@
+ 
+ #define GALAXYBOOK_EC_FLAGS		0x80
+ #define GALAXYBOOK_EC_BAT_STATUS	0x84
++#define GALAXYBOOK_EC_OS_STATE		0x89
+ #define GALAXYBOOK_EC_REMAINING		0xa0
+ #define GALAXYBOOK_EC_BAT_VOLTAGE	0xa4
+ #define GALAXYBOOK_EC_CAPACITY		0xb0
+@@ -42,6 +45,7 @@
+ #define GALAXYBOOK_EC_BAT_DISCHARGING	BIT(0)
+ #define GALAXYBOOK_EC_BAT_CHARGING	BIT(1)
+ #define GALAXYBOOK_EC_BAT_FULL		BIT(3)
++#define GALAXYBOOK_EC_OS_DISPLAY_ON	BIT(1)
+ 
+ struct galaxybook_battery_data {
+ 	int status;
+@@ -63,6 +67,10 @@ struct samsung_galaxybook_ec {
+ 	struct power_supply *ac;
+ 	struct led_classdev kbd_backlight;
+ 	struct device *profile_dev;
++	struct gpio_desc *host_sleep;
++	struct gpio_desc *hpd_control;
++	enum hint_idle_option idle;
++	bool suspended;
+ 	enum platform_profile_option profile;
+ 	/* Serializes mailbox transactions and cached supply/profile state. */
+ 	struct mutex lock;
+@@ -270,6 +278,72 @@ static int galaxybook_ec_read_byte(struct i2c_client *client, u8 reg, u8 *value)
+ 	return galaxybook_ec_read_mailbox(client, 0xf480, value);
+ }
+ 
++/* Caller holds ec->lock across the EC and GPIO display notifications. */
++static int galaxybook_ec_set_display_state(struct samsung_galaxybook_ec *ec, bool on)
++{
++	u8 data[] = { GALAXYBOOK_EC_OS_STATE, 0 };
++	u8 value;
++	int ret;
++
++	ret = galaxybook_ec_read_byte(ec->client, GALAXYBOOK_EC_OS_STATE, &value);
++	if (ret)
++		return ret;
++
++	data[1] = value & ~GALAXYBOOK_EC_OS_DISPLAY_ON;
++	if (on)
++		data[1] |= GALAXYBOOK_EC_OS_DISPLAY_ON;
++
++	if (data[1] != value) {
++		ret = galaxybook_ec_write_command(ec, 0x89, data, sizeof(data));
++		if (ret)
++			return ret;
++	}
++
++	/* Match PEP0's display notification: LDOS first, then MODS. */
++	gpiod_set_value_cansleep(ec->host_sleep, !on);
++	return 0;
++}
++
++static int galaxybook_idle_probe(void *drvdata, unsigned long *choices)
++{
++	*choices = BIT(HINT_IDLE_ACTIVE) | BIT(HINT_IDLE_INACTIVE);
++	return 0;
++}
++
++static int galaxybook_idle_get(struct device *dev, enum hint_idle_option *idle)
++{
++	struct samsung_galaxybook_ec *ec = dev_get_drvdata(dev);
++
++	guard(mutex)(&ec->lock);
++	*idle = ec->idle;
++	return 0;
++}
++
++static int galaxybook_idle_set(struct device *dev, enum hint_idle_option idle)
++{
++	struct samsung_galaxybook_ec *ec = dev_get_drvdata(dev);
++	int ret;
++
++	if (idle != HINT_IDLE_ACTIVE && idle != HINT_IDLE_INACTIVE)
++		return -EINVAL;
++
++	guard(mutex)(&ec->lock);
++	if (!ec->suspended) {
++		ret = galaxybook_ec_set_display_state(ec, idle == HINT_IDLE_ACTIVE);
++		if (ret)
++			return ret;
++	}
++
++	ec->idle = idle;
++	return 0;
++}
++
++static const struct hint_ops galaxybook_hint_ops = {
++	.idle_probe = galaxybook_idle_probe,
++	.idle_get = galaxybook_idle_get,
++	.idle_set = galaxybook_idle_set,
++};
++
+ static int galaxybook_ec_read_word(struct i2c_client *client, u8 reg,
+ 				   unsigned int offset, int *value)
+ {
+@@ -680,6 +754,7 @@ static int samsung_galaxybook_ec_probe(struct i2c_client *client)
+ 	struct samsung_galaxybook_ec *ec;
+ 	struct device_node *node, *bus;
+ 	struct i2c_adapter *adapter;
++	struct device *hint_dev;
+ 	u32 address;
+ 	int ret;
+ 
+@@ -697,6 +772,16 @@ static int samsung_galaxybook_ec_probe(struct i2c_client *client)
+ 	ec->client = client;
+ 	mutex_init(&ec->lock);
+ 
++	ec->host_sleep = devm_gpiod_get_optional(&client->dev, "host-sleep", GPIOD_OUT_LOW);
++	if (IS_ERR(ec->host_sleep))
++		return dev_err_probe(&client->dev, PTR_ERR(ec->host_sleep),
++				     "failed to acquire host sleep GPIO\n");
++
++	ec->hpd_control = devm_gpiod_get_optional(&client->dev, "hpd-control", GPIOD_ASIS);
++	if (IS_ERR(ec->hpd_control))
++		return dev_err_probe(&client->dev, PTR_ERR(ec->hpd_control),
++				     "failed to acquire HPD control GPIO\n");
++
+ 	ret = galaxybook_battery_refresh(ec, &ec->data);
+ 	if (ret)
+ 		return dev_err_probe(&client->dev, ret, "failed to read EC battery\n");
+@@ -779,19 +864,63 @@ static int samsung_galaxybook_ec_probe(struct i2c_client *client)
+ 	if (ret)
+ 		return ret;
+ 
++	scoped_guard(mutex, &ec->lock)
++		ret = galaxybook_ec_set_display_state(ec, true);
++	if (ret)
++		return dev_err_probe(&client->dev, ret, "failed to notify EC of display state\n");
++
++	hint_dev = devm_hint_register(&client->dev, "samsung-galaxybook", ec,
++				      &galaxybook_hint_ops);
++	if (IS_ERR(hint_dev))
++		return dev_err_probe(&client->dev, PTR_ERR(hint_dev),
++				     "failed to register display hints\n");
++
+ 	galaxybook_external_power_changed(ec->ac);
+ 	return 0;
+ }
+ 
++static int galaxybook_ec_suspend(struct device *dev)
++{
++	struct samsung_galaxybook_ec *ec = dev_get_drvdata(dev);
++	int ret;
++
++	disable_irq(ec->client->irq);
++
++	scoped_guard(mutex, &ec->lock) {
++		ret = galaxybook_ec_set_display_state(ec, false);
++		if (!ret) {
++			/* PEP0 leaves HPDC asserted after low-power idle. */
++			ret = gpiod_direction_output(ec->hpd_control, 1);
++			if (!ret) {
++				ec->suspended = true;
++				return 0;
++			}
++
++			galaxybook_ec_set_display_state(ec, ec->idle == HINT_IDLE_ACTIVE);
++		}
++	}
++
++	enable_irq(ec->client->irq);
++	return ret;
++}
++
+ static int galaxybook_ec_resume(struct device *dev)
+ {
+ 	struct samsung_galaxybook_ec *ec = dev_get_drvdata(dev);
++	int ret;
++
++	scoped_guard(mutex, &ec->lock) {
++		ret = galaxybook_ec_set_display_state(ec, ec->idle == HINT_IDLE_ACTIVE);
++		ec->suspended = false;
++	}
++	enable_irq(ec->client->irq);
+ 
+ 	galaxybook_external_power_changed(ec->ac);
+-	return 0;
++	return ret;
+ }
+ 
+-static DEFINE_SIMPLE_DEV_PM_OPS(galaxybook_ec_pm_ops, NULL, galaxybook_ec_resume);
++static DEFINE_SIMPLE_DEV_PM_OPS(galaxybook_ec_pm_ops,
++			      galaxybook_ec_suspend, galaxybook_ec_resume);
+ 
+ static const struct of_device_id samsung_galaxybook_ec_of_match[] = {
+ 	{ .compatible = "samsung,galaxybook4-edge-ec" },
+-- 
+2.56.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Tue, 17 Nov 2026 19:30:58 +0100
+Subject: arm64: dts: qcom: Add Galaxy Book4 Edge 14 standby GPIOs
+
+Wire the primary EC's host sleep indication to active-low TLMM GPIO44
+and HPD control to active-high GPIO49, matching this board's ACPI
+notifications. Release GPIO44 from the firmware-reserved range while
+keeping GPIO45 through GPIO47 reserved.
+
+Label the common EC node so the board can supply these connections.
+
+Validated the DTB against the EC binding and verified GPIO44 follows
+the active/inactive hint on Jewel, with GPIO49 asserted after suspend.
+
+Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
+---
+ .../boot/dts/qcom/x1-samsung-galaxy-book4-edge.dtsi      | 2 +-
+ .../dts/qcom/x1e80100-samsung-galaxy-book4-edge-14.dts   | 9 +++++++++
+ 2 files changed, 10 insertions(+), 1 deletion(-)
+
+diff --git a/arch/arm64/boot/dts/qcom/x1-samsung-galaxy-book4-edge.dtsi b/arch/arm64/boot/dts/qcom/x1-samsung-galaxy-book4-edge.dtsi
+index 212a841bc3b58044a3fa57397f97fc96af2c1a0e..3a506ffe998f9fce3fa7100a261268af17987315 100644
+--- a/arch/arm64/boot/dts/qcom/x1-samsung-galaxy-book4-edge.dtsi
++++ b/arch/arm64/boot/dts/qcom/x1-samsung-galaxy-book4-edge.dtsi
+@@ -658,7 +658,7 @@ &i2c0 {
+ 	clock-frequency = <400000>;
+ 	status = "okay";
+ 
+-	embedded-controller@64 {
++	ec: embedded-controller@64 {
+ 		compatible = "samsung,galaxybook4-edge-ec";
+ 		reg = <0x64>;
+ 		power-supplies = <&pdic0>, <&pdic1>;
+diff --git a/arch/arm64/boot/dts/qcom/x1e80100-samsung-galaxy-book4-edge-14.dts b/arch/arm64/boot/dts/qcom/x1e80100-samsung-galaxy-book4-edge-14.dts
+index ba674ab273c24f4d9f28e77be5ea70608e6718d8..249060f98ffc73191792e08054654d969c179ddf 100644
+--- a/arch/arm64/boot/dts/qcom/x1e80100-samsung-galaxy-book4-edge-14.dts
++++ b/arch/arm64/boot/dts/qcom/x1e80100-samsung-galaxy-book4-edge-14.dts
+@@ -10,6 +10,11 @@ / {
+ 		     "qcom,x1e80100";
+ };
+ 
++&ec {
++	host-sleep-gpios = <&tlmm 44 GPIO_ACTIVE_LOW>;
++	hpd-control-gpios = <&tlmm 49 GPIO_ACTIVE_HIGH>;
++};
++
+ &i2c13 {
+ 	touchpad@40 {
+ 		compatible = "hid-over-i2c";
+@@ -26,3 +31,7 @@ touchpad@40 {
+ &panel {
+ 	compatible = "samsung,atna40cu07", "samsung,atna33xc20";
+ };
++
++&tlmm {
++	gpio-reserved-ranges = <35 1>, <45 3>;
++};
+-- 
+2.56.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Bartosz Golaszewski <bartosz.golaszewski@oss.qualcomm.com>
+Date: Thu, 12 Nov 2026 15:10:41 +0100
+Subject: crypto: qce - convert to auxiliary bus
+
+Move the crypto implementation to an auxiliary device so that a separate
+core driver can own the DT node and its interconnect runtime PM. Use the
+parent for DMA mappings and keep the crypto device resumed while DMA is
+in flight.
+
+Backport Bartosz Golaszewski's v11 patch to this tree. Retain the existing
+BROKEN restriction on the crypto implementation; the core driver can be
+enabled independently without registering crypto algorithms.
+
+Link: https://lore.kernel.org/all/20261112-qce-fix-self-tests-v11-1-b86a65ee7107@oss.qualcomm.com/
+
+Signed-off-by: Bartosz Golaszewski <bartosz.golaszewski@oss.qualcomm.com>
+Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
+---
+ drivers/crypto/Kconfig        |   2 +
+ drivers/crypto/qce/aead.c     |  12 ++--
+ drivers/crypto/qce/core.c     | 101 ++++++++++++++++------------------
+ drivers/crypto/qce/core.h     |   5 +-
+ drivers/crypto/qce/sha.c      |  12 ++--
+ drivers/crypto/qce/skcipher.c |  12 ++--
+ 6 files changed, 70 insertions(+), 74 deletions(-)
+
+diff --git a/drivers/crypto/Kconfig b/drivers/crypto/Kconfig
+index 0189dfdcbbe11098ead0ea194293422a31d8fe65..51e58eb0fc95bddda42f997b6e4c1ded6aee4e12 100644
+--- a/drivers/crypto/Kconfig
++++ b/drivers/crypto/Kconfig
+@@ -530,6 +530,8 @@ config CRYPTO_DEV_QCE
+ 	tristate "Qualcomm crypto engine accelerator"
+ 	depends on (BROKEN && ARCH_QCOM) || COMPILE_TEST
+ 	depends on HAS_IOMEM
++	depends on PM
++	select AUXILIARY_BUS
+ 	help
+ 	  This driver supports Qualcomm crypto engine accelerator
+ 	  hardware. To compile this driver as a module, choose M here. The
+diff --git a/drivers/crypto/qce/aead.c b/drivers/crypto/qce/aead.c
+index a9642c67f476142aa41cfb0dfdbe5186ffd3837d..97a1ddc8e932139c7c14617b0a5b9f624035b144 100644
+--- a/drivers/crypto/qce/aead.c
++++ b/drivers/crypto/qce/aead.c
+@@ -44,9 +44,9 @@ static void qce_aead_done(void *data)
+ 		dev_dbg(qce->dev, "aead dma termination error (%d)\n",
+ 			error);
+ 	if (diff_dst)
+-		dma_unmap_sg(qce->dev, rctx->src_sg, rctx->src_nents, dir_src);
++		dma_unmap_sg(qce->dma_dev, rctx->src_sg, rctx->src_nents, dir_src);
+ 
+-	dma_unmap_sg(qce->dev, rctx->dst_sg, rctx->dst_nents, dir_dst);
++	dma_unmap_sg(qce->dma_dev, rctx->dst_sg, rctx->dst_nents, dir_dst);
+ 
+ 	if (IS_CCM(rctx->flags)) {
+ 		if (req->assoclen) {
+@@ -442,14 +442,14 @@ qce_aead_async_req_handle(struct crypto_async_request *async_req)
+ 
+ 	if (ret)
+ 		return ret;
+-	dst_nents = dma_map_sg(qce->dev, rctx->dst_sg, rctx->dst_nents, dir_dst);
++	dst_nents = dma_map_sg(qce->dma_dev, rctx->dst_sg, rctx->dst_nents, dir_dst);
+ 	if (!dst_nents) {
+ 		ret = -EIO;
+ 		goto error_free;
+ 	}
+ 
+ 	if (diff_dst) {
+-		src_nents = dma_map_sg(qce->dev, rctx->src_sg, rctx->src_nents, dir_src);
++		src_nents = dma_map_sg(qce->dma_dev, rctx->src_sg, rctx->src_nents, dir_src);
+ 		if (src_nents < 0) {
+ 			ret = src_nents;
+ 			goto error_unmap_dst;
+@@ -478,9 +478,9 @@ qce_aead_async_req_handle(struct crypto_async_request *async_req)
+ 	qce_dma_terminate_all(&qce->dma);
+ error_unmap_src:
+ 	if (diff_dst)
+-		dma_unmap_sg(qce->dev, req->src, rctx->src_nents, dir_src);
++		dma_unmap_sg(qce->dma_dev, req->src, rctx->src_nents, dir_src);
+ error_unmap_dst:
+-	dma_unmap_sg(qce->dev, rctx->dst_sg, rctx->dst_nents, dir_dst);
++	dma_unmap_sg(qce->dma_dev, rctx->dst_sg, rctx->dst_nents, dir_dst);
+ error_free:
+ 	if (IS_CCM(rctx->flags) && rctx->assoclen) {
+ 		sg_free_table(&rctx->src_tbl);
+diff --git a/drivers/crypto/qce/core.c b/drivers/crypto/qce/core.c
+index bf3c1bc3ba7bde5e5d08e06071c67ba77af95695..f5380b140d594b30fd3ec31ffd52a9c01f1b9b38 100644
+--- a/drivers/crypto/qce/core.c
++++ b/drivers/crypto/qce/core.c
+@@ -3,14 +3,15 @@
+  * Copyright (c) 2010-2014, The Linux Foundation. All rights reserved.
+  */
+ 
++#include <linux/auxiliary_bus.h>
+ #include <linux/cleanup.h>
+ #include <linux/clk.h>
+ #include <linux/device.h>
++#include <linux/device-id/auxiliary.h>
+ #include <linux/dma-mapping.h>
+-#include <linux/interconnect.h>
+ #include <linux/interrupt.h>
+ #include <linux/module.h>
+-#include <linux/platform_device.h>
++#include <linux/of_address.h>
+ #include <linux/pm.h>
+ #include <linux/pm_runtime.h>
+ #include <linux/types.h>
+@@ -24,8 +25,6 @@
+ 
+ #define QCE_QUEUE_LENGTH	1
+ 
+-#define QCE_DEFAULT_MEM_BANDWIDTH	393600
+-
+ static const struct qce_algo_ops *qce_ops[] = {
+ #ifdef CONFIG_CRYPTO_DEV_QCE_SKCIPHER
+ 	&skcipher_ops,
+@@ -87,12 +86,7 @@ static int qce_handle_queue(struct qce_device *qce,
+ 			    struct crypto_async_request *req)
+ {
+ 	struct crypto_async_request *async_req, *backlog;
+-	int ret, err;
+-
+-	PM_RUNTIME_ACQUIRE_AUTOSUSPEND(qce->dev, pm);
+-	ret = PM_RUNTIME_ACQUIRE_ERR(&pm);
+-	if (ret)
+-		return ret;
++	int ret = 0, err;
+ 
+ 	scoped_guard(mutex, &qce->lock) {
+ 		if (req)
+@@ -116,8 +110,21 @@ static int qce_handle_queue(struct qce_device *qce,
+ 			crypto_request_complete(backlog, -EINPROGRESS);
+ 	}
+ 
++	/*
++	 * Hold the device resumed across that whole window instead of just
++	 * across this function, or autosuspend could gate the engine clocks
++	 * while the DMA is still in flight.
++	 */
++	err = pm_runtime_resume_and_get(qce->dev);
++	if (err) {
++		qce->result = err;
++		schedule_work(&qce->done_work);
++		return ret;
++	}
++
+ 	err = qce_handle_request(async_req);
+ 	if (err) {
++		pm_runtime_put_autosuspend(qce->dev);
+ 		qce->result = err;
+ 		schedule_work(&qce->done_work);
+ 	}
+@@ -150,6 +157,7 @@ static int qce_async_request_enqueue(struct qce_device *qce,
+ 
+ static void qce_async_request_done(struct qce_device *qce, int ret)
+ {
++	pm_runtime_put_autosuspend(qce->dev);
+ 	qce->result = ret;
+ 	schedule_work(&qce->done_work);
+ }
+@@ -190,10 +198,12 @@ static int qce_check_version(struct qce_device *qce)
+ 	return 0;
+ }
+ 
+-static int qce_crypto_probe(struct platform_device *pdev)
++static int qce_crypto_probe(struct auxiliary_device *auxdev,
++			    const struct auxiliary_device_id *id)
+ {
+-	struct device *dev = &pdev->dev;
++	struct device *dev = &auxdev->dev;
+ 	struct qce_device *qce;
++	struct resource res;
+ 	int ret;
+ 
+ 	qce = devm_kzalloc(dev, sizeof(*qce), GFP_KERNEL);
+@@ -201,13 +211,18 @@ static int qce_crypto_probe(struct platform_device *pdev)
+ 		return -ENOMEM;
+ 
+ 	qce->dev = dev;
+-	platform_set_drvdata(pdev, qce);
++	qce->dma_dev = dev->parent;
++	auxiliary_set_drvdata(auxdev, qce);
++
++	ret = of_address_to_resource(dev->of_node, 0, &res);
++	if (ret)
++		return ret;
+ 
+-	qce->base = devm_platform_ioremap_resource(pdev, 0);
++	qce->base = devm_ioremap_resource(dev, &res);
+ 	if (IS_ERR(qce->base))
+ 		return PTR_ERR(qce->base);
+ 
+-	ret = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(32));
++	ret = dma_set_mask_and_coherent(qce->dma_dev, DMA_BIT_MASK(32));
+ 	if (ret < 0)
+ 		return ret;
+ 
+@@ -223,20 +238,19 @@ static int qce_crypto_probe(struct platform_device *pdev)
+ 	if (IS_ERR(qce->bus))
+ 		return PTR_ERR(qce->bus);
+ 
+-	qce->mem_path = devm_of_icc_get(dev, "memory");
+-	if (IS_ERR(qce->mem_path))
+-		return PTR_ERR(qce->mem_path);
+-
+ 	/*
+-	 * Enable runtime PM after clocks and ICC path are acquired so that
+-	 * the resume callback can enable clocks and apply the ICC bandwidth
+-	 * vote before any hardware access takes place.
++	 * The parent manages the ICC path. Enable runtime PM after acquiring
++	 * the clocks so the resume callback can enable them before hardware
++	 * access takes place.
+ 	 */
+ 	ret = devm_pm_runtime_enable(dev);
+ 	if (ret)
+ 		return ret;
+ 
+-	PM_RUNTIME_ACQUIRE_AUTOSUSPEND(dev, pm);
++	pm_runtime_set_autosuspend_delay(dev, 100);
++	pm_runtime_use_autosuspend(dev);
++
++	PM_RUNTIME_ACQUIRE_IF_ENABLED_AUTOSUSPEND(dev, pm);
+ 	ret = PM_RUNTIME_ACQUIRE_ERR(&pm);
+ 	if (ret)
+ 		return ret;
+@@ -263,31 +277,17 @@ static int qce_crypto_probe(struct platform_device *pdev)
+ 	if (ret)
+ 		return ret;
+ 
+-	/* Configure autosuspend after successful init */
+-	pm_runtime_set_autosuspend_delay(dev, 100);
+-	pm_runtime_use_autosuspend(dev);
+-	pm_runtime_mark_last_busy(dev);
+-
+ 	return 0;
+ }
+ 
+ static int qce_runtime_suspend(struct device *dev)
+ {
+ 	struct qce_device *qce = dev_get_drvdata(dev);
+-	int ret;
+ 
+ 	clk_disable_unprepare(qce->core);
+ 	clk_disable_unprepare(qce->iface);
+ 	clk_disable_unprepare(qce->bus);
+ 
+-	ret = icc_set_bw(qce->mem_path, 0, 0);
+-	if (ret) {
+-		clk_prepare_enable(qce->bus);
+-		clk_prepare_enable(qce->iface);
+-		clk_prepare_enable(qce->core);
+-		return ret;
+-	}
+-
+ 	return 0;
+ }
+ 
+@@ -296,14 +296,9 @@ static int qce_runtime_resume(struct device *dev)
+ 	struct qce_device *qce = dev_get_drvdata(dev);
+ 	int ret;
+ 
+-	ret = icc_set_bw(qce->mem_path, QCE_DEFAULT_MEM_BANDWIDTH,
+-			 QCE_DEFAULT_MEM_BANDWIDTH);
+-	if (ret)
+-		return ret;
+-
+ 	ret = clk_prepare_enable(qce->core);
+ 	if (ret)
+-		goto err_core;
++		return ret;
+ 
+ 	ret = clk_prepare_enable(qce->iface);
+ 	if (ret)
+@@ -319,8 +314,7 @@ static int qce_runtime_resume(struct device *dev)
+ 	clk_disable_unprepare(qce->iface);
+ err_iface:
+ 	clk_disable_unprepare(qce->core);
+-err_core:
+-	icc_set_bw(qce->mem_path, 0, 0);
++
+ 	return ret;
+ }
+ 
+@@ -329,25 +323,22 @@ static const struct dev_pm_ops qce_crypto_pm_ops = {
+ 	SYSTEM_SLEEP_PM_OPS(pm_runtime_force_suspend, pm_runtime_force_resume)
+ };
+ 
+-static const struct of_device_id qce_crypto_of_match[] = {
+-	{ .compatible = "qcom,crypto-v5.1", },
+-	{ .compatible = "qcom,crypto-v5.4", },
+-	{ .compatible = "qcom,qce", },
++static const struct auxiliary_device_id qce_crypto_ids[] = {
++	{ .name = "qce.crypto", },
+ 	{}
+ };
+-MODULE_DEVICE_TABLE(of, qce_crypto_of_match);
++MODULE_DEVICE_TABLE(auxiliary, qce_crypto_ids);
+ 
+-static struct platform_driver qce_crypto_driver = {
++static struct auxiliary_driver qce_crypto_driver = {
+ 	.probe = qce_crypto_probe,
++	.id_table = qce_crypto_ids,
+ 	.driver = {
+-		.name = KBUILD_MODNAME,
+-		.of_match_table = qce_crypto_of_match,
++		.name = "qce-crypto",
+ 		.pm = pm_ptr(&qce_crypto_pm_ops),
+ 	},
+ };
+-module_platform_driver(qce_crypto_driver);
++module_auxiliary_driver(qce_crypto_driver);
+ 
+ MODULE_LICENSE("GPL v2");
+ MODULE_DESCRIPTION("Qualcomm crypto engine driver");
+-MODULE_ALIAS("platform:" KBUILD_MODNAME);
+ MODULE_AUTHOR("The Linux Foundation");
+diff --git a/drivers/crypto/qce/core.h b/drivers/crypto/qce/core.h
+index eb6fa7a8b64a81daf9ad5304a3ae4e5e597a70b8..6eda6e617b811420c0c3cc53988cb15a23abafe2 100644
+--- a/drivers/crypto/qce/core.h
++++ b/drivers/crypto/qce/core.h
+@@ -20,6 +20,9 @@
+  * @result: result of current transform
+  * @base: virtual IO base
+  * @dev: pointer to device structure
++ * @dma_dev: pointer to the device to use for DMA mapping calls; this is the
++ *           auxiliary bus device's parent, which is the one that actually
++ *           went through DMA/IOMMU configuration
+  * @core: core device clock
+  * @iface: interface clock
+  * @bus: bus clock
+@@ -37,8 +40,8 @@ struct qce_device {
+ 	int result;
+ 	void __iomem *base;
+ 	struct device *dev;
++	struct device *dma_dev;
+ 	struct clk *core, *iface, *bus;
+-	struct icc_path *mem_path;
+ 	struct qce_dma_data dma;
+ 	int burst_size;
+ 	unsigned int pipe_pair_id;
+diff --git a/drivers/crypto/qce/sha.c b/drivers/crypto/qce/sha.c
+index eb8a5b0c4173f2422ad2923226fe101124744637..17d2abec5fa5e4751ab02c96e81859d99f350d06 100644
+--- a/drivers/crypto/qce/sha.c
++++ b/drivers/crypto/qce/sha.c
+@@ -47,8 +47,8 @@ static void qce_ahash_done(void *data)
+ 	if (error)
+ 		dev_dbg(qce->dev, "ahash dma termination error (%d)\n", error);
+ 
+-	dma_unmap_sg(qce->dev, req->src, rctx->src_nents, DMA_TO_DEVICE);
+-	dma_unmap_sg(qce->dev, &rctx->result_sg, 1, DMA_FROM_DEVICE);
++	dma_unmap_sg(qce->dma_dev, req->src, rctx->src_nents, DMA_TO_DEVICE);
++	dma_unmap_sg(qce->dma_dev, &rctx->result_sg, 1, DMA_FROM_DEVICE);
+ 
+ 	memcpy(rctx->digest, result->auth_iv, digestsize);
+ 	if (req->result && rctx->last_blk)
+@@ -93,13 +93,13 @@ static int qce_ahash_async_req_handle(struct crypto_async_request *async_req)
+ 		return rctx->src_nents;
+ 	}
+ 
+-	ret = dma_map_sg(qce->dev, req->src, rctx->src_nents, DMA_TO_DEVICE);
++	ret = dma_map_sg(qce->dma_dev, req->src, rctx->src_nents, DMA_TO_DEVICE);
+ 	if (!ret)
+ 		return -EIO;
+ 
+ 	sg_init_one(&rctx->result_sg, qce->dma.result_buf, QCE_RESULT_BUF_SZ);
+ 
+-	ret = dma_map_sg(qce->dev, &rctx->result_sg, 1, DMA_FROM_DEVICE);
++	ret = dma_map_sg(qce->dma_dev, &rctx->result_sg, 1, DMA_FROM_DEVICE);
+ 	if (!ret) {
+ 		ret = -EIO;
+ 		goto error_unmap_src;
+@@ -121,9 +121,9 @@ static int qce_ahash_async_req_handle(struct crypto_async_request *async_req)
+ error_terminate:
+ 	qce_dma_terminate_all(&qce->dma);
+ error_unmap_dst:
+-	dma_unmap_sg(qce->dev, &rctx->result_sg, 1, DMA_FROM_DEVICE);
++	dma_unmap_sg(qce->dma_dev, &rctx->result_sg, 1, DMA_FROM_DEVICE);
+ error_unmap_src:
+-	dma_unmap_sg(qce->dev, req->src, rctx->src_nents, DMA_TO_DEVICE);
++	dma_unmap_sg(qce->dma_dev, req->src, rctx->src_nents, DMA_TO_DEVICE);
+ 	return ret;
+ }
+ 
+diff --git a/drivers/crypto/qce/skcipher.c b/drivers/crypto/qce/skcipher.c
+index 4931b064f10e3755caf1a6332798a7ea7c2a8aaa..5c2645d5673bd4527d4c1492020256291106d011 100644
+--- a/drivers/crypto/qce/skcipher.c
++++ b/drivers/crypto/qce/skcipher.c
+@@ -47,8 +47,8 @@ static void qce_skcipher_done(void *data)
+ 			error);
+ 
+ 	if (diff_dst)
+-		dma_unmap_sg(qce->dev, rctx->src_sg, rctx->src_nents, dir_src);
+-	dma_unmap_sg(qce->dev, rctx->dst_sg, rctx->dst_nents, dir_dst);
++		dma_unmap_sg(qce->dma_dev, rctx->src_sg, rctx->src_nents, dir_src);
++	dma_unmap_sg(qce->dma_dev, rctx->dst_sg, rctx->dst_nents, dir_dst);
+ 
+ 	sg_free_table(&rctx->dst_tbl);
+ 
+@@ -123,14 +123,14 @@ qce_skcipher_async_req_handle(struct crypto_async_request *async_req)
+ 	sg_mark_end(sg);
+ 	rctx->dst_sg = rctx->dst_tbl.sgl;
+ 
+-	dst_nents = dma_map_sg(qce->dev, rctx->dst_sg, rctx->dst_nents, dir_dst);
++	dst_nents = dma_map_sg(qce->dma_dev, rctx->dst_sg, rctx->dst_nents, dir_dst);
+ 	if (!dst_nents) {
+ 		ret = -EIO;
+ 		goto error_free;
+ 	}
+ 
+ 	if (diff_dst) {
+-		src_nents = dma_map_sg(qce->dev, req->src, rctx->src_nents, dir_src);
++		src_nents = dma_map_sg(qce->dma_dev, req->src, rctx->src_nents, dir_src);
+ 		if (!src_nents) {
+ 			ret = -EIO;
+ 			goto error_unmap_dst;
+@@ -159,9 +159,9 @@ qce_skcipher_async_req_handle(struct crypto_async_request *async_req)
+ 	qce_dma_terminate_all(&qce->dma);
+ error_unmap_src:
+ 	if (diff_dst)
+-		dma_unmap_sg(qce->dev, req->src, rctx->src_nents, dir_src);
++		dma_unmap_sg(qce->dma_dev, req->src, rctx->src_nents, dir_src);
+ error_unmap_dst:
+-	dma_unmap_sg(qce->dev, rctx->dst_sg, rctx->dst_nents, dir_dst);
++	dma_unmap_sg(qce->dma_dev, rctx->dst_sg, rctx->dst_nents, dir_dst);
+ error_free:
+ 	sg_free_table(&rctx->dst_tbl);
+ 	return ret;
+-- 
+2.56.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Bartosz Golaszewski <bartosz.golaszewski@oss.qualcomm.com>
+Date: Thu, 12 Nov 2026 15:10:42 +0100
+Subject: soc: qcom: add core driver for the Qualcomm Crypto Engine
+
+Bind the QCE DT node, manage its interconnect votes through runtime PM,
+and create the auxiliary crypto device. This allows interconnect boot
+votes to be released even with the crypto offloader disabled.
+
+Backport Bartosz Golaszewski's v11 patch. Adapt auxiliary-device creation
+to the NULL-on-error helper in this tree and include the core source in
+the existing maintainer entry.
+
+Link: https://lore.kernel.org/all/20261112-qce-fix-self-tests-v11-2-b86a65ee7107@oss.qualcomm.com/
+
+Signed-off-by: Bartosz Golaszewski <bartosz.golaszewski@oss.qualcomm.com>
+Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
+---
+ MAINTAINERS                 |  1 +
+ drivers/soc/qcom/Kconfig    | 11 +++++
+ drivers/soc/qcom/Makefile   |  1 +
+ drivers/soc/qcom/qce-core.c | 92 +++++++++++++++++++++++++++++++++++++
+ 4 files changed, 105 insertions(+)
+ create mode 100644 drivers/soc/qcom/qce-core.c
+
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 4e853a85a51836347cb8de45797c980ae361a854..415c6203476a9840e5b242244c219ca6f2684f4a 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -22455,6 +22455,7 @@ L:	linux-arm-msm@vger.kernel.org
+ S:	Supported
+ F:	Documentation/devicetree/bindings/crypto/qcom-qce.yaml
+ F:	drivers/crypto/qce/
++F:	drivers/soc/qcom/qce-core.c
+ 
+ QUALCOMM EMAC GIGABIT ETHERNET DRIVER
+ M:	Timur Tabi <timur@kernel.org>
+diff --git a/drivers/soc/qcom/Kconfig b/drivers/soc/qcom/Kconfig
+index 2b524154d9fb331199fb162e43b0acfc03eced6b..859835a3dd1d98d1e4099f708d75f36ca89d3f3e 100644
+--- a/drivers/soc/qcom/Kconfig
++++ b/drivers/soc/qcom/Kconfig
+@@ -122,6 +122,17 @@ config QCOM_PMIC_GLINK
+ 	  Say yes here to support USB-C and battery status on modern Qualcomm
+ 	  platforms.
+ 
++config QCOM_CRYPTO_CORE
++	tristate "Qualcomm Crypto Engine core driver"
++	depends on PM
++	select AUXILIARY_BUS
++	help
++	  Core driver for the Qualcomm Crypto Engine. Say yes here to enable
++	  the top-level driver that binds to the devicetree node representing
++	  the QCE, registers the sub-devices implementing actual QCE
++	  functionalities and sets up runtime PM allowing the interconnects to
++	  scale down.
++
+ config QCOM_RAMP_CTRL
+ 	tristate "Qualcomm Ramp Controller driver"
+ 	help
+diff --git a/drivers/soc/qcom/Makefile b/drivers/soc/qcom/Makefile
+index 798643be3590cc8303854658fd483b7807d2230f..33dfef07e7db2c0488b14c78f098afebf689d013 100644
+--- a/drivers/soc/qcom/Makefile
++++ b/drivers/soc/qcom/Makefile
+@@ -14,6 +14,7 @@ obj-$(CONFIG_QCOM_PMIC_GLINK)	+= pmic_glink.o
+ obj-$(CONFIG_QCOM_PMIC_GLINK)	+= pmic_glink_altmode.o
+ obj-$(CONFIG_QCOM_PMIC_PDCHARGER_ULOG)	+= pmic_pdcharger_ulog.o
+ CFLAGS_pmic_pdcharger_ulog.o	:=  -I$(src)
++obj-$(CONFIG_QCOM_CRYPTO_CORE)	+= qce-core.o
+ obj-$(CONFIG_QCOM_QMI_HELPERS)	+= qmi_helpers.o
+ qmi_helpers-y	+= qmi_encdec.o qmi_interface.o
+ obj-$(CONFIG_QCOM_RAMP_CTRL)	+= ramp_controller.o
+diff --git a/drivers/soc/qcom/qce-core.c b/drivers/soc/qcom/qce-core.c
+new file mode 100644
+index 0000000000000000000000000000000000000000..1f249a22e8366e8dac3cb9847f5f85e7f2144225
+--- /dev/null
++++ b/drivers/soc/qcom/qce-core.c
+@@ -0,0 +1,92 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * Copyright (c) 2026 Qualcomm Technologies, Inc. and/or its subsidiaries
++ */
++
++#include <linux/auxiliary_bus.h>
++#include <linux/device.h>
++#include <linux/device-id/of.h>
++#include <linux/err.h>
++#include <linux/interconnect.h>
++#include <linux/module.h>
++#include <linux/platform_device.h>
++#include <linux/pm_runtime.h>
++
++#define QCE_DEFAULT_MEM_BANDWIDTH 393600
++
++static const char *const qce_core_aux_devs[] = { "crypto", NULL };
++
++static int qce_core_probe(struct platform_device *pdev)
++{
++	struct auxiliary_device *auxdev;
++	struct device *dev = &pdev->dev;
++	struct icc_path *mem_path;
++	const char *const *subdev;
++	int ret;
++
++	mem_path = devm_of_icc_get(&pdev->dev, "memory");
++	if (IS_ERR(mem_path))
++		return PTR_ERR(mem_path);
++
++	dev_set_drvdata(dev, mem_path);
++
++	ret = devm_pm_runtime_enable(dev);
++	if (ret)
++		return ret;
++
++	PM_RUNTIME_ACQUIRE(dev, pm);
++	ret = PM_RUNTIME_ACQUIRE_ERR(&pm);
++	if (ret)
++		return ret;
++
++	for (subdev = qce_core_aux_devs; *subdev; subdev++) {
++		auxdev = __devm_auxiliary_device_create(dev, "qce", *subdev, NULL, 0);
++		if (!auxdev)
++			return -ENOMEM;
++	}
++
++	return 0;
++}
++
++static int qce_core_runtime_suspend(struct device *dev)
++{
++	struct icc_path *mem_path = dev_get_drvdata(dev);
++
++	return icc_set_bw(mem_path, 0, 0);
++}
++
++static int qce_core_runtime_resume(struct device *dev)
++{
++	struct icc_path *mem_path = dev_get_drvdata(dev);
++
++	return icc_set_bw(mem_path, QCE_DEFAULT_MEM_BANDWIDTH,
++			  QCE_DEFAULT_MEM_BANDWIDTH);
++}
++
++static const struct dev_pm_ops qce_core_pm_ops = {
++	RUNTIME_PM_OPS(qce_core_runtime_suspend, qce_core_runtime_resume, NULL)
++	SYSTEM_SLEEP_PM_OPS(pm_runtime_force_suspend, pm_runtime_force_resume)
++};
++
++static const struct of_device_id qce_core_of_match[] = {
++	{ .compatible = "qcom,crypto-v5.1" },
++	{ .compatible = "qcom,crypto-v5.4" },
++	{ .compatible = "qcom,qce" },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, qce_core_of_match);
++
++static struct platform_driver qce_core_driver = {
++	.probe = qce_core_probe,
++	.driver = {
++		.name = KBUILD_MODNAME,
++		.of_match_table = qce_core_of_match,
++		.pm = pm_ptr(&qce_core_pm_ops),
++	},
++};
++module_platform_driver(qce_core_driver);
++
++MODULE_LICENSE("GPL");
++MODULE_DESCRIPTION("Qualcomm crypto engine core driver");
++MODULE_ALIAS("platform:" KBUILD_MODNAME);
++MODULE_AUTHOR("Bartosz Golaszewski <bartosz.golaszewski@oss.qualcomm.com>");
+-- 
+2.56.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Bartosz Golaszewski <bartosz.golaszewski@oss.qualcomm.com>
+Date: Thu, 12 Nov 2026 15:10:42 +0100
+Subject: ARM, arm64: defconfig: Enable the Qualcomm Crypto Engine core driver
+
+Enable the QCE core module so that its DT device can bind and release
+interconnect boot votes. Keep the crypto implementation disabled.
+
+Backport the defconfig changes from Bartosz Golaszewski's v11 QCE split
+series. These configurations already omit the disabled crypto driver,
+so add the core selection without replacing a crypto selection.
+
+Link: https://lore.kernel.org/all/20261112-qce-fix-self-tests-v11-0-b86a65ee7107@oss.qualcomm.com/
+
+Signed-off-by: Bartosz Golaszewski <bartosz.golaszewski@oss.qualcomm.com>
+Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
+---
+ arch/arm/configs/multi_v7_defconfig | 1 +
+ arch/arm64/configs/defconfig        | 1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/arch/arm/configs/multi_v7_defconfig b/arch/arm/configs/multi_v7_defconfig
+index f9b8dbf9318c9d4947e56ef0159311634bf0c1ee..16299b6734f02aa499772254ac2f22baa6c3a880 100644
+--- a/arch/arm/configs/multi_v7_defconfig
++++ b/arch/arm/configs/multi_v7_defconfig
+@@ -1144,6 +1144,7 @@ CONFIG_QCOM_COMMAND_DB=m
+ CONFIG_QCOM_GSBI=y
+ CONFIG_QCOM_OCMEM=m
+ CONFIG_QCOM_RMTFS_MEM=m
++CONFIG_QCOM_CRYPTO_CORE=m
+ CONFIG_QCOM_RPMH=m
+ CONFIG_QCOM_SMEM=y
+ CONFIG_QCOM_SMD_RPM=y
+diff --git a/arch/arm64/configs/defconfig b/arch/arm64/configs/defconfig
+index 6ec8d3a69c98e0da38465010d11166bb0e058f4a..1739a4bfda345835c11d20b15fde808605b66299 100644
+--- a/arch/arm64/configs/defconfig
++++ b/arch/arm64/configs/defconfig
+@@ -1656,6 +1656,7 @@ CONFIG_QCOM_GENI_SE=y
+ CONFIG_QCOM_LLCC=m
+ CONFIG_QCOM_OCMEM=m
+ CONFIG_QCOM_PMIC_GLINK=m
++CONFIG_QCOM_CRYPTO_CORE=m
+ CONFIG_QCOM_RMTFS_MEM=m
+ CONFIG_QCOM_RPMH=y
+ CONFIG_QCOM_SMEM=y
+-- 
+2.56.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Akhil P Oommen <akhilpo@oss.qualcomm.com>
+Date: Fri, 30 Oct 2026 22:39:27 +0530
+Subject: drm/msm: Attach a driver to the GMU
+
+Register the GMU as a platform driver and a component of the DRM
+master so GCC and GPUCC can complete their resource handoffs.
+
+Backport the GMU binding change and its required DRM private-data and
+standalone-component prerequisites from Akhil P Oommen's v2 series.
+Keep this branch's existing Imageon and separate_gpu_kms selection in
+place of the newer automatic GPU/KMS selection helpers. Initialize the
+GMU mutex in the common bind path and reject unavailable GMU nodes.
+
+Link: https://lore.kernel.org/all/20261030-gmu-sync-state-fix-v2-0-89d3082d97af@oss.qualcomm.com/
+Link: https://lore.kernel.org/all/20261030-gmu-sync-state-fix-v2-6-89d3082d97af@oss.qualcomm.com/
+
+Signed-off-by: Akhil P Oommen <akhilpo@oss.qualcomm.com>
+Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
+---
+ drivers/gpu/drm/msm/adreno/a6xx_gmu.c      | 130 ++++++++++++++-------
+ drivers/gpu/drm/msm/adreno/a6xx_gpu.c      |  22 +---
+ drivers/gpu/drm/msm/adreno/a6xx_gpu.h      |   3 -
+ drivers/gpu/drm/msm/adreno/adreno_device.c |  36 +++---
+ drivers/gpu/drm/msm/adreno/adreno_gpu.h    |   2 +
+ drivers/gpu/drm/msm/disp/dpu1/dpu_kms.c    |   6 +-
+ drivers/gpu/drm/msm/disp/mdp5/mdp5_kms.c   |   6 +-
+ drivers/gpu/drm/msm/dp/dp_display.c        |   4 +-
+ drivers/gpu/drm/msm/dsi/dsi.c              |   4 +-
+ drivers/gpu/drm/msm/hdmi/hdmi.c            |   4 +-
+ drivers/gpu/drm/msm/msm_drv.c              |  95 +++++++++++----
+ drivers/gpu/drm/msm/msm_drv.h              |  10 +-
+ drivers/gpu/drm/msm/msm_gpu.c              |   3 -
+ drivers/gpu/drm/msm/msm_gpu.h              |   1 +
+ drivers/gpu/drm/msm/msm_gpu_devfreq.c      |   5 +
+ drivers/gpu/drm/msm/msm_kms.c              |  17 ++-
+ 16 files changed, 212 insertions(+), 136 deletions(-)
+
+diff --git a/drivers/gpu/drm/msm/adreno/a6xx_gmu.c b/drivers/gpu/drm/msm/adreno/a6xx_gmu.c
+index 6d49c51df1a2793ed4615e36bc2af8b5482cda80..97a58cd50ff71a6aae8b085a68cd738b62b1845a 100644
+--- a/drivers/gpu/drm/msm/adreno/a6xx_gmu.c
++++ b/drivers/gpu/drm/msm/adreno/a6xx_gmu.c
+@@ -5,7 +5,7 @@
+ #include <linux/clk.h>
+ #include <linux/firmware/qcom/qcom_scm.h>
+ #include <linux/interconnect.h>
+-#include <linux/of_platform.h>
++#include <linux/of.h>
+ #include <linux/platform_device.h>
+ #include <linux/pm_domain.h>
+ #include <linux/pm_opp.h>
+@@ -2113,20 +2113,17 @@ void a6xx_gmu_sysprof_setup(struct msm_gpu *gpu, bool force_on)
+ 	pm_runtime_put(&gpu->pdev->dev);
+ }
+ 
+-void a6xx_gmu_remove(struct a6xx_gpu *a6xx_gpu)
++static void a6xx_gmu_destroy(struct a6xx_gpu *a6xx_gpu)
+ {
+ 	struct adreno_gpu *adreno_gpu = &a6xx_gpu->base;
+ 	struct a6xx_gmu *gmu = &a6xx_gpu->gmu;
+ 
+-	mutex_lock(&gmu->lock);
+-	if (!gmu->initialized) {
+-		mutex_unlock(&gmu->lock);
+-		return;
+-	}
+-
+-	gmu->initialized = false;
++	scoped_guard(mutex, &gmu->lock) {
++		if (!gmu->initialized)
++			return;
+ 
+-	mutex_unlock(&gmu->lock);
++		gmu->initialized = false;
++	}
+ 
+ 	pm_runtime_force_suspend(gmu->dev);
+ 
+@@ -2155,9 +2152,6 @@ void a6xx_gmu_remove(struct a6xx_gpu *a6xx_gpu)
+ 		free_irq(gmu->gmu_irq, gmu);
+ 		free_irq(gmu->hfi_irq, gmu);
+ 	}
+-
+-	/* Drop reference taken in of_find_device_by_node */
+-	put_device(gmu->dev);
+ }
+ 
+ static int cxpd_notifier_cb(struct notifier_block *nb,
+@@ -2193,9 +2187,9 @@ static void __iomem *a6xx_gmu_get_mmio(struct platform_device *pdev, resource_si
+ 	return ret;
+ }
+ 
+-int a6xx_gmu_wrapper_init(struct a6xx_gpu *a6xx_gpu, struct device_node *node)
++static int a6xx_gmu_wrapper_pdev_bind(struct a6xx_gpu *a6xx_gpu, struct device *dev)
+ {
+-	struct platform_device *pdev = of_find_device_by_node(node);
++	struct platform_device *pdev = to_platform_device(dev);
+ 	struct adreno_gpu *adreno_gpu = &a6xx_gpu->base;
+ 	struct msm_gpu *gpu = &adreno_gpu->base;
+ 	struct a6xx_gmu *gmu = &a6xx_gpu->gmu;
+@@ -2203,14 +2197,7 @@ int a6xx_gmu_wrapper_init(struct a6xx_gpu *a6xx_gpu, struct device_node *node)
+ 	struct resource *res;
+ 	int ret;
+ 
+-	if (!pdev)
+-		return -ENODEV;
+-
+-	gmu->dev = &pdev->dev;
+-
+-	ret = of_dma_configure(gmu->dev, node, true);
+-	if (ret)
+-		return ret;
++	gmu->dev = dev;
+ 
+ 	pm_runtime_enable(gmu->dev);
+ 
+@@ -2220,7 +2207,7 @@ int a6xx_gmu_wrapper_init(struct a6xx_gpu *a6xx_gpu, struct device_node *node)
+ 	/* RGMU requires clocks */
+ 	ret = devm_clk_bulk_get_all(gmu->dev, &gmu->clocks);
+ 	if (ret < 0)
+-		goto err_clk;
++		return ret;
+ 
+ 	gmu->nr_clocks = ret;
+ 
+@@ -2246,7 +2233,8 @@ int a6xx_gmu_wrapper_init(struct a6xx_gpu *a6xx_gpu, struct device_node *node)
+ 		goto err_mmio;
+ 	}
+ 
+-	if (!device_link_add(gmu->dev, gmu->cxpd, DL_FLAG_PM_RUNTIME)) {
++	if (!device_link_add(gmu->dev, gmu->cxpd,
++			     DL_FLAG_PM_RUNTIME | DL_FLAG_STATELESS)) {
+ 		ret = -ENODEV;
+ 		goto detach_cxpd;
+ 	}
+@@ -2272,16 +2260,12 @@ int a6xx_gmu_wrapper_init(struct a6xx_gpu *a6xx_gpu, struct device_node *node)
+ err_mmio:
+ 	iounmap(gmu->mmio);
+ 
+-err_clk:
+-	/* Drop reference taken in of_find_device_by_node */
+-	put_device(gmu->dev);
+-
+ 	return ret;
+ }
+ 
+-int a6xx_gmu_init(struct a6xx_gpu *a6xx_gpu, struct device_node *node)
++static int a6xx_gmu_pdev_bind(struct a6xx_gpu *a6xx_gpu, struct device *dev)
+ {
+-	struct platform_device *pdev = of_find_device_by_node(node);
++	struct platform_device *pdev = to_platform_device(dev);
+ 	struct adreno_gpu *adreno_gpu = &a6xx_gpu->base;
+ 	struct msm_gpu *gpu = &adreno_gpu->base;
+ 	struct a6xx_gmu *gmu = &a6xx_gpu->gmu;
+@@ -2290,14 +2274,7 @@ int a6xx_gmu_init(struct a6xx_gpu *a6xx_gpu, struct device_node *node)
+ 	struct resource *res;
+ 	int ret;
+ 
+-	if (!pdev)
+-		return -ENODEV;
+-
+-	gmu->dev = &pdev->dev;
+-
+-	ret = of_dma_configure(gmu->dev, node, true);
+-	if (ret)
+-		return ret;
++	gmu->dev = dev;
+ 
+ 	/* Set GMU idle level */
+ 	gmu->idle_level = (adreno_gpu->info->quirks & ADRENO_QUIRK_IFPC) ?
+@@ -2308,11 +2285,11 @@ int a6xx_gmu_init(struct a6xx_gpu *a6xx_gpu, struct device_node *node)
+ 	/* Get the list of clocks */
+ 	ret = a6xx_gmu_clocks_probe(gmu);
+ 	if (ret)
+-		goto err_put_device;
++		return ret;
+ 
+ 	ret = a6xx_gmu_memory_probe(adreno_gpu->base.dev, gmu);
+ 	if (ret)
+-		goto err_put_device;
++		return ret;
+ 
+ 
+ 	/* A660 now requires handling "prealloc requests" in GMU firmware
+@@ -2432,7 +2409,8 @@ int a6xx_gmu_init(struct a6xx_gpu *a6xx_gpu, struct device_node *node)
+ 		goto err_mmio;
+ 	}
+ 
+-	link = device_link_add(gmu->dev, gmu->cxpd, DL_FLAG_PM_RUNTIME);
++	link = device_link_add(gmu->dev, gmu->cxpd,
++			       DL_FLAG_PM_RUNTIME | DL_FLAG_STATELESS);
+ 	if (!link) {
+ 		ret = -ENODEV;
+ 		goto detach_cxpd;
+@@ -2491,9 +2469,71 @@ int a6xx_gmu_init(struct a6xx_gpu *a6xx_gpu, struct device_node *node)
+ 
+ err_memory:
+ 	a6xx_gmu_memory_free(gmu);
+-err_put_device:
+-	/* Drop reference taken in of_find_device_by_node */
+-	put_device(gmu->dev);
+ 
+ 	return ret;
+ }
++
++static int a6xx_gmu_bind(struct device *dev, struct device *master, void *data)
++{
++	int (*bind)(struct a6xx_gpu *gpu, struct device *dev) = of_device_get_match_data(dev);
++	struct msm_drm_private *priv = msm_drm_get_priv(master);
++	struct msm_gpu *gpu = dev_to_gpu(&priv->gpu_pdev->dev);
++
++	if (WARN_ON(!gpu))
++		return -ENODEV;
++
++	struct a6xx_gpu *a6xx_gpu = to_a6xx_gpu(to_adreno_gpu(gpu));
++
++	mutex_init(&a6xx_gpu->gmu.lock);
++	return bind(a6xx_gpu, dev);
++}
++
++static void a6xx_gmu_unbind(struct device *dev, struct device *master, void *data)
++{
++	struct msm_drm_private *priv = msm_drm_get_priv(master);
++	struct msm_gpu *gpu = dev_to_gpu(&priv->gpu_pdev->dev);
++
++	a6xx_gmu_destroy(to_a6xx_gpu(to_adreno_gpu(gpu)));
++}
++
++static const struct component_ops a6xx_gmu_bind_ops = {
++	.bind   = a6xx_gmu_bind,
++	.unbind = a6xx_gmu_unbind,
++};
++
++static int a6xx_gmu_probe(struct platform_device *pdev)
++{
++	return component_add(&pdev->dev, &a6xx_gmu_bind_ops);
++}
++
++static void a6xx_gmu_remove(struct platform_device *pdev)
++{
++	component_del(&pdev->dev, &a6xx_gmu_bind_ops);
++}
++
++static const struct of_device_id a6xx_gmu_dt_match[] = {
++	{ .compatible = "qcom,adreno-gmu", .data = a6xx_gmu_pdev_bind },
++	{ .compatible = "qcom,adreno-rgmu", .data = a6xx_gmu_wrapper_pdev_bind },
++	{ .compatible = "qcom,adreno-gmu-wrapper", .data = a6xx_gmu_wrapper_pdev_bind },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, a6xx_gmu_dt_match);
++
++static struct platform_driver adreno_gmu_driver = {
++	.probe = a6xx_gmu_probe,
++	.remove = a6xx_gmu_remove,
++	.driver = {
++		.name = "adreno_gmu",
++		.of_match_table = a6xx_gmu_dt_match,
++	},
++};
++
++void __init adreno_gmu_register(void)
++{
++	platform_driver_register(&adreno_gmu_driver);
++}
++
++void __exit adreno_gmu_unregister(void)
++{
++	platform_driver_unregister(&adreno_gmu_driver);
++}
+diff --git a/drivers/gpu/drm/msm/adreno/a6xx_gpu.c b/drivers/gpu/drm/msm/adreno/a6xx_gpu.c
+index 081e79ea465285e81cc2b33bfc2bec10e50fb392..47edcd002052a99cd414e1fd3326915b454dadc9 100644
+--- a/drivers/gpu/drm/msm/adreno/a6xx_gpu.c
++++ b/drivers/gpu/drm/msm/adreno/a6xx_gpu.c
+@@ -2323,8 +2323,6 @@ static void a6xx_destroy(struct msm_gpu *gpu)
+ 
+ 	a6xx_llc_slices_destroy(a6xx_gpu);
+ 
+-	a6xx_gmu_remove(a6xx_gpu);
+-
+ 	adreno_gpu_cleanup(adreno_gpu);
+ 
+ 	kfree(a6xx_gpu);
+@@ -2701,7 +2699,6 @@ static struct msm_gpu *a6xx_gpu_init(struct drm_device *dev)
+ 		gpu->num_perfcntr_groups = a8xx_num_perfcntr_groups;
+ 	}
+ 
+-	mutex_init(&a6xx_gpu->gmu.lock);
+ 	spin_lock_init(&a6xx_gpu->aperture_lock);
+ 
+ 	adreno_gpu->registers = NULL;
+@@ -2709,10 +2706,12 @@ static struct msm_gpu *a6xx_gpu_init(struct drm_device *dev)
+ 	/* Check if there is a GMU phandle and set it up */
+ 	struct device_node *node __free(device_node) =
+ 		of_parse_phandle(pdev->dev.of_node, "qcom,gmu", 0);
+-	/* FIXME: How do we gracefully handle this? */
+-	BUG_ON(!node);
+-
+-	adreno_gpu->gmu_is_wrapper = of_device_is_compatible(node, "qcom,adreno-gmu-wrapper");
++	if (!of_device_is_available(node)) {
++		kfree(a6xx_gpu);
++		return ERR_PTR(-ENODEV);
++	}
++	adreno_gpu->gmu_is_wrapper = of_device_is_compatible(node,
++							     "qcom,adreno-gmu-wrapper");
+ 
+ 	adreno_gpu->base.hw_apriv =
+ 		!!(info->quirks & ADRENO_QUIRK_HAS_HW_APRIV);
+@@ -2765,15 +2764,6 @@ static struct msm_gpu *a6xx_gpu_init(struct drm_device *dev)
+ 	if (adreno_is_a618(adreno_gpu) || adreno_is_7c3(adreno_gpu))
+ 		priv->gpu_clamp_to_idle = true;
+ 
+-	if (adreno_has_gmu_wrapper(adreno_gpu) || adreno_has_rgmu(adreno_gpu))
+-		ret = a6xx_gmu_wrapper_init(a6xx_gpu, node);
+-	else
+-		ret = a6xx_gmu_init(a6xx_gpu, node);
+-	if (ret) {
+-		a6xx_destroy(&(a6xx_gpu->base.base));
+-		return ERR_PTR(ret);
+-	}
+-
+ 	adreno_gpu->uche_trap_base = 0x1fffffffff000ull;
+ 
+ 	msm_mmu_set_fault_handler(to_msm_vm(gpu->vm)->mmu, gpu,
+diff --git a/drivers/gpu/drm/msm/adreno/a6xx_gpu.h b/drivers/gpu/drm/msm/adreno/a6xx_gpu.h
+index b50c57f427b44d78ba2e1b781aca9acebb406475..cb53de26a79b2fb05cc7b8515df246a379e74ffd 100644
+--- a/drivers/gpu/drm/msm/adreno/a6xx_gpu.h
++++ b/drivers/gpu/drm/msm/adreno/a6xx_gpu.h
+@@ -278,9 +278,6 @@ bool a6xx_gmu_isidle(struct a6xx_gmu *gmu);
+ int a6xx_gmu_set_oob(struct a6xx_gmu *gmu, enum a6xx_gmu_oob_state state);
+ void a6xx_gmu_clear_oob(struct a6xx_gmu *gmu, enum a6xx_gmu_oob_state state);
+ 
+-int a6xx_gmu_init(struct a6xx_gpu *a6xx_gpu, struct device_node *node);
+-int a6xx_gmu_wrapper_init(struct a6xx_gpu *a6xx_gpu, struct device_node *node);
+-void a6xx_gmu_remove(struct a6xx_gpu *a6xx_gpu);
+ void a6xx_gmu_sysprof_setup(struct msm_gpu *gpu, bool force_on);
+ 
+ void a6xx_preempt_init(struct msm_gpu *gpu);
+diff --git a/drivers/gpu/drm/msm/adreno/adreno_device.c b/drivers/gpu/drm/msm/adreno/adreno_device.c
+index 05c77fe27e62082c6aaf56af4fe0dff152032281..7a9e06428f3014bf8ff838aa7e30ab984c296ee3 100644
+--- a/drivers/gpu/drm/msm/adreno/adreno_device.c
++++ b/drivers/gpu/drm/msm/adreno/adreno_device.c
+@@ -209,10 +209,10 @@ bool adreno_has_gpu(struct device_node *node)
+ 
+ static int adreno_bind(struct device *dev, struct device *master, void *data)
+ {
++	struct msm_drm_private *priv = msm_drm_get_priv(master);
+ 	static struct adreno_platform_config config = {};
+-	const struct adreno_info *info;
+-	struct msm_drm_private *priv = dev_get_drvdata(master);
+ 	struct drm_device *drm = priv->dev;
++	const struct adreno_info *info;
+ 	struct msm_gpu *gpu;
+ 	int ret;
+ 
+@@ -250,11 +250,10 @@ static int adreno_bind(struct device *dev, struct device *master, void *data)
+ 	return 0;
+ }
+ 
+-static int adreno_system_suspend(struct device *dev);
+ static void adreno_unbind(struct device *dev, struct device *master,
+ 		void *data)
+ {
+-	struct msm_drm_private *priv = dev_get_drvdata(master);
++	struct msm_drm_private *priv = msm_drm_get_priv(master);
+ 	struct msm_gpu *gpu = dev_to_gpu(dev);
+ 
+ 	if (pm_runtime_enabled(dev))
+@@ -271,21 +270,26 @@ static const struct component_ops a3xx_ops = {
+ 
+ static int adreno_probe(struct platform_device *pdev)
+ {
+-	if (of_device_is_compatible(pdev->dev.of_node, "amd,imageon") ||
+-	    msm_gpu_no_components())
+-		return msm_gpu_probe(pdev, &a3xx_ops);
++	int ret;
+ 
+-	return component_add(&pdev->dev, &a3xx_ops);
++	if (msm_gpu_use_separate_drm_dev(pdev)) {
++		ret = msm_gpu_probe(pdev);
++		if (ret)
++			return ret;
++	}
++
++	ret = component_add(&pdev->dev, &a3xx_ops);
++	if (ret && msm_gpu_use_separate_drm_dev(pdev))
++		msm_gpu_remove(pdev);
++
++	return ret;
+ }
+ 
+ static void adreno_remove(struct platform_device *pdev)
+ {
+-	struct msm_drm_private *priv = platform_get_drvdata(pdev);
+-
+-	if (priv->kms_init)
+-		component_del(&pdev->dev, &a3xx_ops);
+-	else
+-		msm_gpu_remove(pdev, &a3xx_ops);
++	component_del(&pdev->dev, &a3xx_ops);
++	if (msm_gpu_use_separate_drm_dev(pdev))
++		msm_gpu_remove(pdev);
+ }
+ 
+ static void adreno_shutdown(struct platform_device *pdev)
+@@ -362,7 +366,7 @@ static void resume_scheduler(struct msm_gpu *gpu)
+ 	}
+ }
+ 
+-static int adreno_system_suspend(struct device *dev)
++int adreno_system_suspend(struct device *dev)
+ {
+ 	struct msm_gpu *gpu = dev_to_gpu(dev);
+ 	int remaining, ret;
+@@ -422,6 +426,7 @@ void __init adreno_register(void)
+ 		return;
+ 
+ 	platform_driver_register(&adreno_driver);
++	adreno_gmu_register();
+ }
+ 
+ void __exit adreno_unregister(void)
+@@ -429,5 +434,6 @@ void __exit adreno_unregister(void)
+ 	if (skip_gpu)
+ 		return;
+ 
++	adreno_gmu_unregister();
+ 	platform_driver_unregister(&adreno_driver);
+ }
+diff --git a/drivers/gpu/drm/msm/adreno/adreno_gpu.h b/drivers/gpu/drm/msm/adreno/adreno_gpu.h
+index 114a40f79ef3ad647bff2c7ab3bb4db4504a474e..0992ad3432db4cf578f07feb663f6c28a432365a 100644
+--- a/drivers/gpu/drm/msm/adreno/adreno_gpu.h
++++ b/drivers/gpu/drm/msm/adreno/adreno_gpu.h
+@@ -647,6 +647,8 @@ int adreno_gpu_state_get(struct msm_gpu *gpu, struct msm_gpu_state *state);
+ int adreno_gpu_state_put(struct msm_gpu_state *state);
+ void adreno_show_object(struct drm_printer *p, void **ptr, int len,
+ 		bool *encoded);
++void adreno_gmu_register(void);
++void adreno_gmu_unregister(void);
+ 
+ /*
+  * Common helper function to initialize the default address space for arm-smmu
+diff --git a/drivers/gpu/drm/msm/disp/dpu1/dpu_kms.c b/drivers/gpu/drm/msm/disp/dpu1/dpu_kms.c
+index da3556eb6ecc25a53440787dd35ab79f7e887545..c044d3c9737a666848e592a6b209706dd54657b9 100644
+--- a/drivers/gpu/drm/msm/disp/dpu1/dpu_kms.c
++++ b/drivers/gpu/drm/msm/disp/dpu1/dpu_kms.c
+@@ -1434,8 +1434,7 @@ static void dpu_dev_remove(struct platform_device *pdev)
+ static int __maybe_unused dpu_runtime_suspend(struct device *dev)
+ {
+ 	int i;
+-	struct platform_device *pdev = to_platform_device(dev);
+-	struct msm_drm_private *priv = platform_get_drvdata(pdev);
++	struct msm_drm_private *priv = msm_drm_get_priv(dev);
+ 	struct dpu_kms *dpu_kms = to_dpu_kms(priv->kms);
+ 
+ 	clk_bulk_disable_unprepare(dpu_kms->num_clocks, dpu_kms->clocks);
+@@ -1449,8 +1448,7 @@ static int __maybe_unused dpu_runtime_suspend(struct device *dev)
+ static int __maybe_unused dpu_runtime_resume(struct device *dev)
+ {
+ 	int rc = -1;
+-	struct platform_device *pdev = to_platform_device(dev);
+-	struct msm_drm_private *priv = platform_get_drvdata(pdev);
++	struct msm_drm_private *priv = msm_drm_get_priv(dev);
+ 	struct dpu_kms *dpu_kms = to_dpu_kms(priv->kms);
+ 	struct drm_encoder *encoder;
+ 	struct drm_device *ddev;
+diff --git a/drivers/gpu/drm/msm/disp/mdp5/mdp5_kms.c b/drivers/gpu/drm/msm/disp/mdp5/mdp5_kms.c
+index 3934cd060b2766785d191885215e2bf101d18136..40b4415c0fba1fa73130b40c5b4dd4c47ea1e59c 100644
+--- a/drivers/gpu/drm/msm/disp/mdp5/mdp5_kms.c
++++ b/drivers/gpu/drm/msm/disp/mdp5/mdp5_kms.c
+@@ -869,8 +869,7 @@ static void mdp5_dev_remove(struct platform_device *pdev)
+ 
+ static __maybe_unused int mdp5_runtime_suspend(struct device *dev)
+ {
+-	struct platform_device *pdev = to_platform_device(dev);
+-	struct msm_drm_private *priv = platform_get_drvdata(pdev);
++	struct msm_drm_private *priv = msm_drm_get_priv(dev);
+ 	struct mdp5_kms *mdp5_kms = to_mdp5_kms(to_mdp_kms(priv->kms));
+ 
+ 	DBG("");
+@@ -880,8 +879,7 @@ static __maybe_unused int mdp5_runtime_suspend(struct device *dev)
+ 
+ static __maybe_unused int mdp5_runtime_resume(struct device *dev)
+ {
+-	struct platform_device *pdev = to_platform_device(dev);
+-	struct msm_drm_private *priv = platform_get_drvdata(pdev);
++	struct msm_drm_private *priv = msm_drm_get_priv(dev);
+ 	struct mdp5_kms *mdp5_kms = to_mdp5_kms(to_mdp_kms(priv->kms));
+ 
+ 	DBG("");
+diff --git a/drivers/gpu/drm/msm/dp/dp_display.c b/drivers/gpu/drm/msm/dp/dp_display.c
+index 91dd6d28209666767396c27ae5ffc908f868d4be..82ef681e823c751891b006a70056d9ee42e00b4b 100644
+--- a/drivers/gpu/drm/msm/dp/dp_display.c
++++ b/drivers/gpu/drm/msm/dp/dp_display.c
+@@ -207,7 +207,7 @@ static int msm_dp_display_bind(struct device *dev, struct device *master,
+ {
+ 	int rc = 0;
+ 	struct msm_dp_display_private *dp = dev_get_dp_display_private(dev);
+-	struct msm_drm_private *priv = dev_get_drvdata(master);
++	struct msm_drm_private *priv = msm_drm_get_priv(master);
+ 	struct drm_device *drm = priv->dev;
+ 
+ 	dp->msm_dp_display.drm_dev = drm;
+@@ -230,7 +230,7 @@ static void msm_dp_display_unbind(struct device *dev, struct device *master,
+ 			      void *data)
+ {
+ 	struct msm_dp_display_private *dp = dev_get_dp_display_private(dev);
+-	struct msm_drm_private *priv = dev_get_drvdata(master);
++	struct msm_drm_private *priv = msm_drm_get_priv(master);
+ 
+ 	of_dp_aux_depopulate_bus(dp->aux);
+ 
+diff --git a/drivers/gpu/drm/msm/dsi/dsi.c b/drivers/gpu/drm/msm/dsi/dsi.c
+index 3c9f01ed62713313b2cfe8147415bc8733247cb7..978e3392fa670aeab67bf5531df947860da3e0ad 100644
+--- a/drivers/gpu/drm/msm/dsi/dsi.c
++++ b/drivers/gpu/drm/msm/dsi/dsi.c
+@@ -117,7 +117,7 @@ static struct msm_dsi *dsi_init(struct platform_device *pdev)
+ 
+ static int dsi_bind(struct device *dev, struct device *master, void *data)
+ {
+-	struct msm_drm_private *priv = dev_get_drvdata(master);
++	struct msm_drm_private *priv = msm_drm_get_priv(master);
+ 	struct msm_dsi *msm_dsi = dev_get_drvdata(dev);
+ 
+ 	/*
+@@ -144,7 +144,7 @@ static int dsi_bind(struct device *dev, struct device *master, void *data)
+ static void dsi_unbind(struct device *dev, struct device *master,
+ 		void *data)
+ {
+-	struct msm_drm_private *priv = dev_get_drvdata(master);
++	struct msm_drm_private *priv = msm_drm_get_priv(master);
+ 	struct msm_dsi *msm_dsi = dev_get_drvdata(dev);
+ 
+ 	msm_dsi_tx_buf_free(msm_dsi->host);
+diff --git a/drivers/gpu/drm/msm/hdmi/hdmi.c b/drivers/gpu/drm/msm/hdmi/hdmi.c
+index 4740060846335b42b31b15f0869092c4f8444b09..2ca7693773b269d54494dff6b190959c75542304 100644
+--- a/drivers/gpu/drm/msm/hdmi/hdmi.c
++++ b/drivers/gpu/drm/msm/hdmi/hdmi.c
+@@ -236,7 +236,7 @@ static const struct hdmi_platform_config hdmi_tx_8974_config = {
+ 
+ static int msm_hdmi_bind(struct device *dev, struct device *master, void *data)
+ {
+-	struct msm_drm_private *priv = dev_get_drvdata(master);
++	struct msm_drm_private *priv = msm_drm_get_priv(master);
+ 	struct hdmi *hdmi = dev_get_drvdata(dev);
+ 	int err;
+ 
+@@ -251,7 +251,7 @@ static int msm_hdmi_bind(struct device *dev, struct device *master, void *data)
+ static void msm_hdmi_unbind(struct device *dev, struct device *master,
+ 		void *data)
+ {
+-	struct msm_drm_private *priv = dev_get_drvdata(master);
++	struct msm_drm_private *priv = msm_drm_get_priv(master);
+ 
+ 	if (priv->kms->hdmi) {
+ 		msm_hdmi_destroy(priv->kms->hdmi);
+diff --git a/drivers/gpu/drm/msm/msm_drv.c b/drivers/gpu/drm/msm/msm_drv.c
+index f3d2eaa04f142dae7767a169e35f41cb398bcddd..fb18042eeefea2be22d7bd8d25a507a94dbac230 100644
+--- a/drivers/gpu/drm/msm/msm_drv.c
++++ b/drivers/gpu/drm/msm/msm_drv.c
+@@ -5,6 +5,7 @@
+  * Author: Rob Clark <robdclark@gmail.com>
+  */
+ 
++#include <linux/cleanup.h>
+ #include <linux/dma-mapping.h>
+ #include <linux/fault-inject.h>
+ #include <linux/debugfs.h>
+@@ -61,15 +62,27 @@ module_param(separate_gpu_kms, bool, 0400);
+ DECLARE_FAULT_ATTR(fail_gem_alloc);
+ DECLARE_FAULT_ATTR(fail_gem_iova);
+ 
+-bool msm_gpu_no_components(void)
++bool msm_gpu_use_separate_drm_dev(struct platform_device *pdev)
+ {
+-	return separate_gpu_kms;
++	if (!pdev)
++		return separate_gpu_kms;
++
++	return of_device_is_compatible(pdev->dev.of_node, "amd,imageon") || separate_gpu_kms;
++}
++
++static void msm_drm_priv_release(struct device *dev, void *res)
++{
++	/* The devres core frees the allocation after this callback. */
++}
++
++struct msm_drm_private *msm_drm_get_priv(struct device *dev)
++{
++	return devres_find(dev, msm_drm_priv_release, NULL, NULL);
+ }
+ 
+ static int msm_drm_uninit(struct device *dev, const struct component_ops *gpu_ops)
+ {
+-	struct platform_device *pdev = to_platform_device(dev);
+-	struct msm_drm_private *priv = platform_get_drvdata(pdev);
++	struct msm_drm_private *priv = msm_drm_get_priv(dev);
+ 	struct drm_device *ddev = priv->dev;
+ 
+ 	/*
+@@ -92,6 +105,14 @@ static int msm_drm_uninit(struct device *dev, const struct component_ops *gpu_op
+ 	if (priv->kms)
+ 		msm_drm_kms_uninit(dev);
+ 
++	if (priv->gpu_pdev) {
++		struct device *gpu_dev = &priv->gpu_pdev->dev;
++
++		if (pm_runtime_enabled(gpu_dev))
++			WARN_ON_ONCE(adreno_system_suspend(gpu_dev));
++		msm_devfreq_cleanup(dev_to_gpu(gpu_dev));
++	}
++
+ 	if (gpu_ops)
+ 		gpu_ops->unbind(dev, dev, NULL);
+ 	else
+@@ -106,7 +127,7 @@ static int msm_drm_uninit(struct device *dev, const struct component_ops *gpu_op
+ static int msm_drm_init(struct device *dev, const struct drm_driver *drv,
+ 			const struct component_ops *gpu_ops)
+ {
+-	struct msm_drm_private *priv = dev_get_drvdata(dev);
++	struct msm_drm_private *priv = msm_drm_get_priv(dev);
+ 	struct drm_device *ddev;
+ 	int ret;
+ 
+@@ -157,6 +178,10 @@ static int msm_drm_init(struct device *dev, const struct drm_driver *drv,
+ 	if (ret)
+ 		goto err_put_dev;
+ 
++	/* Devfreq callbacks require the GPU and GMU to be initialized. */
++	if (priv->gpu_pdev)
++		msm_devfreq_init(dev_to_gpu(&priv->gpu_pdev->dev));
++
+ 	ret = msm_gem_shrinker_init(ddev);
+ 	if (ret)
+ 		goto err_msm_uninit;
+@@ -1020,19 +1045,20 @@ static const struct of_device_id msm_gpu_match[] = {
+ 	{ },
+ };
+ 
+-static int add_gpu_components(struct device *dev,
++static int add_gpu_components(struct device *dev, struct device_node *gpu_np,
+ 			      struct component_match **matchptr)
+ {
+-	struct device_node *np;
++	struct device_node *np __free(device_node) = gpu_np ?
++		of_node_get(gpu_np) : of_find_matching_node(NULL, msm_gpu_match);
+ 
+-	np = of_find_matching_node(NULL, msm_gpu_match);
+-	if (!np)
++	if (!np || !of_device_is_available(np) || !adreno_has_gpu(np))
+ 		return 0;
+ 
+-	if (of_device_is_available(np) && adreno_has_gpu(np))
+-		drm_of_component_match_add(dev, matchptr, component_compare_of, np);
++	drm_of_component_match_add(dev, matchptr, component_compare_of, np);
+ 
+-	of_node_put(np);
++	struct device_node *gmu_np __free(device_node) = of_parse_phandle(np, "qcom,gmu", 0);
++	if (of_device_is_available(gmu_np))
++		drm_of_component_match_add(dev, matchptr, component_compare_of, gmu_np);
+ 
+ 	return 0;
+ }
+@@ -1040,7 +1066,7 @@ static int add_gpu_components(struct device *dev,
+ static int msm_drm_bind(struct device *dev)
+ {
+ 	return msm_drm_init(dev,
+-			    msm_gpu_no_components() ?
++			    msm_gpu_use_separate_drm_dev(NULL) ?
+ 				    &msm_kms_driver :
+ 				    &msm_driver,
+ 			    NULL);
+@@ -1064,13 +1090,14 @@ int msm_drv_probe(struct device *master_dev,
+ 	struct component_match *match = NULL;
+ 	int ret;
+ 
+-	priv = devm_kzalloc(master_dev, sizeof(*priv), GFP_KERNEL);
++	priv = devres_alloc(msm_drm_priv_release, sizeof(*priv), GFP_KERNEL);
+ 	if (!priv)
+ 		return -ENOMEM;
+ 
+ 	priv->kms = kms;
+ 	priv->kms_init = kms_init;
+-	dev_set_drvdata(master_dev, priv);
++	/* Register before component binding so priv survives unbind/rebind. */
++	devres_add(master_dev, priv);
+ 
+ 	/* Add mdp components if we have KMS. */
+ 	if (kms_init) {
+@@ -1079,8 +1106,8 @@ int msm_drv_probe(struct device *master_dev,
+ 			return ret;
+ 	}
+ 
+-	if (!msm_gpu_no_components()) {
+-		ret = add_gpu_components(master_dev, &match);
++	if (!msm_gpu_use_separate_drm_dev(NULL)) {
++		ret = add_gpu_components(master_dev, NULL, &match);
+ 		if (ret)
+ 			return ret;
+ 	}
+@@ -1099,17 +1126,32 @@ int msm_drv_probe(struct device *master_dev,
+ 	return 0;
+ }
+ 
+-int msm_gpu_probe(struct platform_device *pdev,
+-		  const struct component_ops *ops)
++static int msm_gpu_drm_bind(struct device *dev)
++{
++	return msm_drm_init(dev, &msm_gpu_driver, NULL);
++}
++
++static void msm_gpu_drm_unbind(struct device *dev)
++{
++	msm_drm_uninit(dev, NULL);
++}
++
++static const struct component_master_ops msm_gpu_drm_ops = {
++	.bind = msm_gpu_drm_bind,
++	.unbind = msm_gpu_drm_unbind,
++};
++
++int msm_gpu_probe(struct platform_device *pdev)
+ {
+ 	struct msm_drm_private *priv;
++	struct component_match *match = NULL;
+ 	int ret;
+ 
+-	priv = devm_kzalloc(&pdev->dev, sizeof(*priv), GFP_KERNEL);
++	priv = devres_alloc(msm_drm_priv_release, sizeof(*priv), GFP_KERNEL);
+ 	if (!priv)
+ 		return -ENOMEM;
+ 
+-	platform_set_drvdata(pdev, priv);
++	devres_add(&pdev->dev, priv);
+ 
+ 	/* on all devices that I am aware of, iommu's which can map
+ 	 * any address the cpu can see are used:
+@@ -1118,13 +1160,16 @@ int msm_gpu_probe(struct platform_device *pdev,
+ 	if (ret)
+ 		return ret;
+ 
+-	return msm_drm_init(&pdev->dev, &msm_gpu_driver, ops);
++	ret = add_gpu_components(&pdev->dev, pdev->dev.of_node, &match);
++	if (ret)
++		return ret;
++
++	return component_master_add_with_match(&pdev->dev, &msm_gpu_drm_ops, match);
+ }
+ 
+-void msm_gpu_remove(struct platform_device *pdev,
+-		    const struct component_ops *ops)
++void msm_gpu_remove(struct platform_device *pdev)
+ {
+-	msm_drm_uninit(&pdev->dev, ops);
++	component_master_del(&pdev->dev, &msm_gpu_drm_ops);
+ }
+ 
+ static int __init msm_drm_register(void)
+diff --git a/drivers/gpu/drm/msm/msm_drv.h b/drivers/gpu/drm/msm/msm_drv.h
+index eb4bbae8557b6fa23bfb866d2a90502565b7fca0..653ee21f0a03e5d3d2f6afaf6f5c3c2501088d98 100644
+--- a/drivers/gpu/drm/msm/msm_drv.h
++++ b/drivers/gpu/drm/msm/msm_drv.h
+@@ -520,13 +520,13 @@ static inline unsigned long timeout_to_jiffies(const ktime_t *timeout)
+ 
+ extern const struct component_master_ops msm_drm_ops;
+ 
++struct msm_drm_private *msm_drm_get_priv(struct device *dev);
++
+ int msm_kms_pm_prepare(struct device *dev);
+ void msm_kms_pm_complete(struct device *dev);
+ 
+-int msm_gpu_probe(struct platform_device *pdev,
+-		  const struct component_ops *ops);
+-void msm_gpu_remove(struct platform_device *pdev,
+-		    const struct component_ops *ops);
++int msm_gpu_probe(struct platform_device *pdev);
++void msm_gpu_remove(struct platform_device *pdev);
+ int msm_drv_probe(struct device *dev,
+ 	int (*kms_init)(struct drm_device *dev),
+ 	struct msm_kms *kms);
+@@ -534,6 +534,6 @@ void msm_kms_shutdown(struct platform_device *pdev);
+ 
+ bool msm_disp_drv_should_bind(struct device *dev, bool dpu_driver);
+ 
+-bool msm_gpu_no_components(void);
++bool msm_gpu_use_separate_drm_dev(struct platform_device *pdev);
+ 
+ #endif /* __MSM_DRV_H__ */
+diff --git a/drivers/gpu/drm/msm/msm_gpu.c b/drivers/gpu/drm/msm/msm_gpu.c
+index 0c2c356362518808d2ca3d54d3b5ae58c2498f28..1b558777e2410d763e06602ead02dab296996aba 100644
+--- a/drivers/gpu/drm/msm/msm_gpu.c
++++ b/drivers/gpu/drm/msm/msm_gpu.c
+@@ -968,8 +968,6 @@ int msm_gpu_init(struct drm_device *drm, struct platform_device *pdev,
+ 
+ 	platform_set_drvdata(pdev, &gpu->adreno_smmu);
+ 
+-	msm_devfreq_init(gpu);
+-
+ 	gpu->vm = gpu->funcs->create_vm(gpu, pdev);
+ 	if (IS_ERR(gpu->vm)) {
+ 		ret = PTR_ERR(gpu->vm);
+@@ -1062,7 +1060,6 @@ void msm_gpu_cleanup(struct msm_gpu *gpu)
+ 		kthread_destroy_worker(gpu->worker);
+ 	}
+ 
+-	msm_devfreq_cleanup(gpu);
+ 	msm_perfcntr_cleanup(gpu);
+ 
+ 	platform_set_drvdata(gpu->pdev, NULL);
+diff --git a/drivers/gpu/drm/msm/msm_gpu.h b/drivers/gpu/drm/msm/msm_gpu.h
+index d27d54bdb7a71b1f821f01e267e30bdf305a6c66..d76aa17044eccd2facb3c153ea2411bc8b3d322a 100644
+--- a/drivers/gpu/drm/msm/msm_gpu.h
++++ b/drivers/gpu/drm/msm/msm_gpu.h
+@@ -756,6 +756,7 @@ msm_gpu_create_private_vm(struct msm_gpu *gpu, struct task_struct *task,
+ void msm_gpu_cleanup(struct msm_gpu *gpu);
+ 
+ struct msm_gpu *adreno_load_gpu(struct drm_device *dev);
++int adreno_system_suspend(struct device *dev);
+ bool adreno_has_gpu(struct device_node *node);
+ void __init adreno_register(void);
+ void __exit adreno_unregister(void);
+diff --git a/drivers/gpu/drm/msm/msm_gpu_devfreq.c b/drivers/gpu/drm/msm/msm_gpu_devfreq.c
+index 2e1d5c3432728cde15d91f69da22bb915588fe86..025e608f45b428d17ab1a250da75d368e0eb0d66 100644
+--- a/drivers/gpu/drm/msm/msm_gpu_devfreq.c
++++ b/drivers/gpu/drm/msm/msm_gpu_devfreq.c
+@@ -221,8 +221,13 @@ void msm_devfreq_cleanup(struct msm_gpu *gpu)
+ 	if (!has_devfreq(gpu))
+ 		return;
+ 
++	cancel_idle_work(df);
++	cancel_boost_work(df);
++
+ 	devfreq_cooling_unregister(gpu->cooling);
+ 	dev_pm_qos_remove_request(&df->boost_freq);
++	devm_devfreq_remove_device(&gpu->pdev->dev, df->devfreq);
++	df->devfreq = NULL;
+ }
+ 
+ void msm_devfreq_resume(struct msm_gpu *gpu)
+diff --git a/drivers/gpu/drm/msm/msm_kms.c b/drivers/gpu/drm/msm/msm_kms.c
+index e5d0ea62944847074c39eac9580914b55455a02e..3597dc2765799f6a6285da0aa96b9bc1e42257e8 100644
+--- a/drivers/gpu/drm/msm/msm_kms.c
++++ b/drivers/gpu/drm/msm/msm_kms.c
+@@ -218,8 +218,7 @@ struct drm_gpuvm *msm_kms_init_vm(struct drm_device *dev, struct device *mdss_de
+ 
+ void msm_drm_kms_unregister(struct device *dev)
+ {
+-	struct platform_device *pdev = to_platform_device(dev);
+-	struct msm_drm_private *priv = platform_get_drvdata(pdev);
++	struct msm_drm_private *priv = msm_drm_get_priv(dev);
+ 	struct drm_device *ddev = priv->dev;
+ 
+ 	drm_atomic_helper_shutdown(ddev);
+@@ -227,8 +226,7 @@ void msm_drm_kms_unregister(struct device *dev)
+ 
+ void msm_drm_kms_uninit(struct device *dev)
+ {
+-	struct platform_device *pdev = to_platform_device(dev);
+-	struct msm_drm_private *priv = platform_get_drvdata(pdev);
++	struct msm_drm_private *priv = msm_drm_get_priv(dev);
+ 	struct drm_device *ddev = priv->dev;
+ 	struct msm_kms *kms = priv->kms;
+ 	int i;
+@@ -262,7 +260,7 @@ void msm_drm_kms_uninit(struct device *dev)
+ 
+ int msm_drm_kms_init(struct device *dev, const struct drm_driver *drv)
+ {
+-	struct msm_drm_private *priv = dev_get_drvdata(dev);
++	struct msm_drm_private *priv = msm_drm_get_priv(dev);
+ 	struct drm_device *ddev = priv->dev;
+ 	struct msm_kms *kms = priv->kms;
+ 	struct drm_crtc *crtc;
+@@ -341,7 +339,7 @@ int msm_drm_kms_init(struct device *dev, const struct drm_driver *drv)
+ 
+ int msm_kms_pm_prepare(struct device *dev)
+ {
+-	struct msm_drm_private *priv = dev_get_drvdata(dev);
++	struct msm_drm_private *priv = msm_drm_get_priv(dev);
+ 	struct drm_device *ddev = priv ? priv->dev : NULL;
+ 
+ 	if (!priv || !priv->kms)
+@@ -352,7 +350,7 @@ int msm_kms_pm_prepare(struct device *dev)
+ 
+ void msm_kms_pm_complete(struct device *dev)
+ {
+-	struct msm_drm_private *priv = dev_get_drvdata(dev);
++	struct msm_drm_private *priv = msm_drm_get_priv(dev);
+ 	struct drm_device *ddev = priv ? priv->dev : NULL;
+ 
+ 	if (!priv || !priv->kms)
+@@ -363,7 +361,7 @@ void msm_kms_pm_complete(struct device *dev)
+ 
+ void msm_kms_shutdown(struct platform_device *pdev)
+ {
+-	struct msm_drm_private *priv = platform_get_drvdata(pdev);
++	struct msm_drm_private *priv = msm_drm_get_priv(&pdev->dev);
+ 	struct drm_device *drm = priv ? priv->dev : NULL;
+ 
+ 	/*
+@@ -379,8 +377,7 @@ void msm_kms_shutdown(struct platform_device *pdev)
+ 
+ void msm_drm_kms_post_init(struct device *dev)
+ {
+-	struct platform_device *pdev = to_platform_device(dev);
+-	struct msm_drm_private *priv = platform_get_drvdata(pdev);
++	struct msm_drm_private *priv = msm_drm_get_priv(dev);
+ 	struct drm_device *ddev = priv->dev;
+ 
+ 	drm_kms_helper_poll_init(ddev);
+-- 
+2.56.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Tue, 17 Nov 2026 20:48:36 +0100
+Subject: interconnect: qcom: Allow peak-only BCM keepalive votes
+
+BCM keepalive assigns a minimum value to both average and peak bandwidth
+in the active and wake sets. Add an option for BCMs that need only a
+minimum peak vote while leaving their average vote unchanged.
+
+Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
+---
+ drivers/interconnect/qcom/bcm-voter.c | 6 ++++--
+ drivers/interconnect/qcom/icc-rpmh.h  | 2 ++
+ 2 files changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/interconnect/qcom/bcm-voter.c b/drivers/interconnect/qcom/bcm-voter.c
+index a2d437a05a11fa7325f944865c81a3ac7dbb203e..934417cb2df308ce5c961d7946dfe84928973348 100644
+--- a/drivers/interconnect/qcom/bcm-voter.c
++++ b/drivers/interconnect/qcom/bcm-voter.c
+@@ -117,8 +117,10 @@ static void bcm_aggregate(struct qcom_icc_bcm *bcm)
+ 
+ 	if (bcm->keepalive && bcm->vote_x[QCOM_ICC_BUCKET_AMC] == 0 &&
+ 	    bcm->vote_y[QCOM_ICC_BUCKET_AMC] == 0) {
+-		bcm->vote_x[QCOM_ICC_BUCKET_AMC] = 1;
+-		bcm->vote_x[QCOM_ICC_BUCKET_WAKE] = 1;
++		if (!bcm->keepalive_peak_only) {
++			bcm->vote_x[QCOM_ICC_BUCKET_AMC] = 1;
++			bcm->vote_x[QCOM_ICC_BUCKET_WAKE] = 1;
++		}
+ 		bcm->vote_y[QCOM_ICC_BUCKET_AMC] = 1;
+ 		bcm->vote_y[QCOM_ICC_BUCKET_WAKE] = 1;
+ 	}
+diff --git a/drivers/interconnect/qcom/icc-rpmh.h b/drivers/interconnect/qcom/icc-rpmh.h
+index 09d8791402dc4bd67fd092268eb1458bcd8c6c8f..13eed9ad4eadf513d7d7627ba26b57079f6674eb 100644
+--- a/drivers/interconnect/qcom/icc-rpmh.h
++++ b/drivers/interconnect/qcom/icc-rpmh.h
+@@ -118,6 +118,7 @@ struct qcom_icc_node {
+  * @enable_mask: optional mask to send as vote instead of vote_x/vote_y
+  * @dirty: flag used to indicate whether the bcm needs to be committed
+  * @keepalive: flag used to indicate whether a keepalive is required
++ * @keepalive_peak_only: leave average bandwidth unchanged for keepalive votes
+  * @aux_data: auxiliary data used when calculating threshold values and
+  * communicating with RPMh
+  * @list: used to link to other bcms when compiling lists for commit
+@@ -135,6 +136,7 @@ struct qcom_icc_bcm {
+ 	u32 enable_mask;
+ 	bool dirty;
+ 	bool keepalive;
++	bool keepalive_peak_only;
+ 	struct bcm_db aux_data;
+ 	struct list_head list;
+ 	struct list_head ws_list;
+-- 
+2.56.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Tue, 17 Nov 2026 20:48:36 +0100
+Subject: interconnect: qcom: x1e80100: Use peak-only keepalive for SN0 and SN2
+
+After the boot votes are released on Galaxy Book4 Edge, a minimal
+active/wake request between the Aggre1 master and the GEM NoC slave
+allows AOSD, CXSD and DDR residency. A larger UFS-to-memory request also
+works but changes unrelated fabric votes.
+
+Use peak-only keepalive on SN0 and SN2 to reproduce the minimal RPMh
+commands through the provider. Both BCMs can still drop their sleep
+votes. Jewel reached about 99.8% deep residency in a short s2idle test
+and resumed via the lid switch.
+
+Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
+---
+ drivers/interconnect/qcom/x1e80100.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/interconnect/qcom/x1e80100.c b/drivers/interconnect/qcom/x1e80100.c
+index 2ba2823c7860e98bfbc2e018e8cb2e6f26be9911..6cd5ce18511f3897aff3a6f653f983a38a46f28d 100644
+--- a/drivers/interconnect/qcom/x1e80100.c
++++ b/drivers/interconnect/qcom/x1e80100.c
+@@ -1433,12 +1433,15 @@ static struct qcom_icc_bcm bcm_sh1 = {
+ static struct qcom_icc_bcm bcm_sn0 = {
+ 	.name = "SN0",
+ 	.keepalive = true,
++	.keepalive_peak_only = true,
+ 	.num_nodes = 1,
+ 	.nodes = { &qns_gemnoc_sf },
+ };
+ 
+ static struct qcom_icc_bcm bcm_sn2 = {
+ 	.name = "SN2",
++	.keepalive = true,
++	.keepalive_peak_only = true,
+ 	.num_nodes = 1,
+ 	.nodes = { &qnm_aggre1_noc },
+ };
+-- 
+2.56.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Tue, 17 Nov 2026 21:10:30 +0100
+Subject: scsi: ufs: ufs-qcom: Avoid duplicate lane clock enables
+
+The Hibern8 clock setup and host resume paths can both enable the
+lane clocks. Each call takes another reference, but the disable path
+runs only once before clearing is_lane_clks_enabled. The extra
+references keep the lane clocks running across suspend.
+
+Skip the enable when the lane clocks are already enabled, mirroring
+the existing guard in the disable path.
+
+Fixes: c1553fc105df ("scsi: ufs: ufs-qcom: Disable lane clocks during phy hibern8")
+Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
+---
+ drivers/ufs/host/ufs-qcom.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/ufs/host/ufs-qcom.c b/drivers/ufs/host/ufs-qcom.c
+index 9bda76403c55e6c0c195a491eb4a37ed030b6028..363ee386b77cf4d425ffb945ec2151e2e45b624c 100644
+--- a/drivers/ufs/host/ufs-qcom.c
++++ b/drivers/ufs/host/ufs-qcom.c
+@@ -356,6 +356,9 @@ static int ufs_qcom_enable_lane_clks(struct ufs_qcom_host *host)
+ {
+ 	int err;
+ 
++	if (host->is_lane_clks_enabled)
++		return 0;
++
+ 	err = clk_bulk_prepare_enable(host->num_clks, host->clks);
+ 	if (err)
+ 		return err;
+-- 
+2.56.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Wed, 18 Nov 2026 23:42:29 +0100
+Subject: platform/x86/amd: dptc: Add ADVAN X-PLAY support
+
+---
+ drivers/platform/x86/amd/dptc.c | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/drivers/platform/x86/amd/dptc.c b/drivers/platform/x86/amd/dptc.c
+index 0b79ffdfb03fc4ba4275fc37bb75f52a3353a329..6b2be623713abc5c6ff1ef4b3e19ca4b6dfa7d26 100644
+--- a/drivers/platform/x86/amd/dptc.c
++++ b/drivers/platform/x86/amd/dptc.c
+@@ -233,6 +233,15 @@ static const char * const dptc_soc_table[] = {
+ };
+ 
+ static const struct dmi_system_id dptc_dmi_table[] = {
++	/* ADVAN */
++	{
++		.ident = "ADVAN X-PLAY",
++		.matches = {
++			DMI_EXACT_MATCH(DMI_SYS_VENDOR, "ADVAN"),
++			DMI_EXACT_MATCH(DMI_BOARD_NAME, "ARP31B-070P2-XCL"),
++		},
++		.driver_data = (void *)&limits_28w,
++	},
+ 	/* Minisforum */
+ 	{
+ 		.ident = "Minisforum V3",
+-- 
+2.56.0
+
