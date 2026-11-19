@@ -73843,3 +73843,44 @@ index 0b79ffdfb03fc4ba4275fc37bb75f52a3353a329..6b2be623713abc5c6ff1ef4b3e19ca4b
 -- 
 2.56.0
 
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Thu, 19 Nov 2026 20:22:20 +0100
+Subject: platform/x86/amd: dptc: Add ONEXPLAYER F1 OLED support
+
+The ONEXPLAYER F1 OLED is missing from the DPTC DMI table, leaving
+it without TDP controls even though its Ryzen 7 8840U is already
+supported.
+
+Match its board name and use the existing 30W OneXPlayer limits
+and platform profiles.
+
+Link: https://github.com/anatase-org/anatase/issues/50
+Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
+---
+ drivers/platform/x86/amd/dptc.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/drivers/platform/x86/amd/dptc.c b/drivers/platform/x86/amd/dptc.c
+index 6b2be623713abc5c6ff1ef4b3e19ca4b6dfa7d26..252ca203fc53c19fcab5e879d00d1a6a17afda33 100644
+--- a/drivers/platform/x86/amd/dptc.c
++++ b/drivers/platform/x86/amd/dptc.c
+@@ -402,6 +402,14 @@ static const struct dmi_system_id dptc_dmi_table[] = {
+ 		.driver_data = (void *)&limits_30w,
+ 	},
+ 	/* OneXPlayer (Intel variants filtered by SoC table) */
++	{
++		.ident = "ONEXPLAYER F1 OLED",
++		.matches = {
++			DMI_MATCH(DMI_BOARD_VENDOR, "ONE-NETBOOK"),
++			DMI_EXACT_MATCH(DMI_BOARD_NAME, "ONEXPLAYER F1 OLED"),
++		},
++		.driver_data = (void *)&limits_30w,
++	},
+ 	{
+ 		.ident = "ONEXPLAYER F1L",
+ 		.matches = {
+-- 
+2.56.0
+
