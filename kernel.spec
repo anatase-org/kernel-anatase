@@ -172,13 +172,13 @@ Summary: The Linux kernel
 %define specrpmversion 7.3.4
 %define specversion 7.3.4
 %define patchversion 7.3
-%define pkgrelease an09
+%define pkgrelease an10
 %define kversion 7
 %define tarfile_release 7.3.4
 # This is needed to do merge window version magic
 %define patchlevel 3
 # This allows pkg_release to have configurable %%{?dist} tag
-%define specrelease an09%{?buildid}%{?dist}
+%define specrelease an10%{?buildid}%{?dist}
 # This defines the kabi tarball version
 %define kabiversion 7.3.4
 
@@ -4946,7 +4946,9 @@ fi\
 #
 #
 %changelog
-* Thu Nov 19 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.3.4-an09]
+* Sat Nov 21 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.3.4-an10]
+- platform/x86/amd: dptc: Match all ONEXPLAYER F1 EVA variants (Antheas Kapenekakis)
+- drm: panel-orientation-quirks: Match all ONEXPLAYER F1 EVA variants (Antheas Kapenekakis)
 - platform/x86/amd: dptc: Add ONEXPLAYER F1 OLED support (Antheas Kapenekakis)
 - platform/x86/amd: dptc: Add ADVAN X-PLAY support (Antheas Kapenekakis)
 - scsi: ufs: ufs-qcom: Avoid duplicate lane clock enables (Antheas Kapenekakis)

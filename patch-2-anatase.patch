@@ -73884,3 +73884,65 @@ index 6b2be623713abc5c6ff1ef4b3e19ca4b6dfa7d26..252ca203fc53c19fcab5e879d00d1a6a
 -- 
 2.56.0
 
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Sat, 21 Nov 2026 13:30:37 +0100
+Subject: drm: panel-orientation-quirks: Match all ONEXPLAYER F1 EVA variants
+
+Use a substring match for ONEXPLAYER F1 EVA so EVA-01 receives the same 1080x1920 left-side-up panel orientation as EVA-02.
+---
+ drivers/gpu/drm/drm_panel_orientation_quirks.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/drm_panel_orientation_quirks.c b/drivers/gpu/drm/drm_panel_orientation_quirks.c
+index 66d73b993c79ad433ce98fe447885409538f6c1b..5583bb5dc341cb19d0f6c0d9e1350397e80e016a 100644
+--- a/drivers/gpu/drm/drm_panel_orientation_quirks.c
++++ b/drivers/gpu/drm/drm_panel_orientation_quirks.c
+@@ -600,10 +600,10 @@ static const struct dmi_system_id orientation_data[] = {
+ 		  DMI_EXACT_MATCH(DMI_PRODUCT_NAME, "ONEXPLAYER F1Pro"),
+ 		},
+ 		.driver_data = (void *)&lcd1080x1920_leftside_up,
+-	}, {	/* OneXPlayer OneXFly F1 Pro (OLED) LE Red variant */
++	}, {	/* OneXPlayer OneXFly F1 EVA variants */
+ 		.matches = {
+ 		  DMI_EXACT_MATCH(DMI_SYS_VENDOR, "ONE-NETBOOK"),
+-		  DMI_EXACT_MATCH(DMI_PRODUCT_NAME, "ONEXPLAYER F1 EVA-02"),
++		  DMI_MATCH(DMI_PRODUCT_NAME, "ONEXPLAYER F1 EVA"),
+ 		},
+ 		.driver_data = (void *)&lcd1080x1920_leftside_up,
+ 	}, {	/* OneXPlayer OneXFly F1 Pro (OLED) Hawk Point */
+-- 
+2.56.0
+
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Sat, 21 Nov 2026 13:30:37 +0100
+Subject: platform/x86/amd: dptc: Match all ONEXPLAYER F1 EVA variants
+
+Broaden the existing EVA-02 board match to ONEXPLAYER F1 EVA so EVA-01 uses the same 30 W limits.
+---
+ drivers/platform/x86/amd/dptc.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/platform/x86/amd/dptc.c b/drivers/platform/x86/amd/dptc.c
+index 252ca203fc53c19fcab5e879d00d1a6a17afda33..2079b90560f52a6b56b43e0c74f80ccf941c4b72 100644
+--- a/drivers/platform/x86/amd/dptc.c
++++ b/drivers/platform/x86/amd/dptc.c
+@@ -427,10 +427,10 @@ static const struct dmi_system_id dptc_dmi_table[] = {
+ 		.driver_data = (void *)&limits_30w,
+ 	},
+ 	{
+-		.ident = "ONEXPLAYER F1 EVA-02",
++		.ident = "ONEXPLAYER F1 EVA",
+ 		.matches = {
+ 			DMI_MATCH(DMI_BOARD_VENDOR, "ONE-NETBOOK"),
+-			DMI_EXACT_MATCH(DMI_BOARD_NAME, "ONEXPLAYER F1 EVA-02"),
++			DMI_MATCH(DMI_BOARD_NAME, "ONEXPLAYER F1 EVA"),
+ 		},
+ 		.driver_data = (void *)&limits_30w,
+ 	},
+-- 
+2.56.0
+
