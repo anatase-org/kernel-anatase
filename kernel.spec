@@ -172,13 +172,13 @@ Summary: The Linux kernel
 %define specrpmversion 7.3.4
 %define specversion 7.3.4
 %define patchversion 7.3
-%define pkgrelease an10
+%define pkgrelease an11
 %define kversion 7
 %define tarfile_release 7.3.4
 # This is needed to do merge window version magic
 %define patchlevel 3
 # This allows pkg_release to have configurable %%{?dist} tag
-%define specrelease an10%{?buildid}%{?dist}
+%define specrelease an11%{?buildid}%{?dist}
 # This defines the kabi tarball version
 %define kabiversion 7.3.4
 
@@ -987,7 +987,7 @@ Source1: Makefile.rhelver
 Source2: %{name}.changelog
 
 %define evdi_version 1.15.0
-%define nvidia_version 620.70.06-an01
+%define nvidia_version 620.73.04-an01
 %define nvidia_version_rel 1
 %define nvidia_epoch 3
 %if %{with_nvidia}
@@ -4946,7 +4946,8 @@ fi\
 #
 #
 %changelog
-* Sat Nov 21 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.3.4-an10]
+* Mon Nov 23 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.3.4-an11]
+- update nvidia (Antheas Kapenekakis)
 - platform/x86/amd: dptc: Match all ONEXPLAYER F1 EVA variants (Antheas Kapenekakis)
 - drm: panel-orientation-quirks: Match all ONEXPLAYER F1 EVA variants (Antheas Kapenekakis)
 - platform/x86/amd: dptc: Add ONEXPLAYER F1 OLED support (Antheas Kapenekakis)
