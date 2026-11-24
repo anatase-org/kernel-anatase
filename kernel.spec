@@ -172,13 +172,13 @@ Summary: The Linux kernel
 %define specrpmversion 7.3.4
 %define specversion 7.3.4
 %define patchversion 7.3
-%define pkgrelease an11
+%define pkgrelease an12
 %define kversion 7
 %define tarfile_release 7.3.4
 # This is needed to do merge window version magic
 %define patchlevel 3
 # This allows pkg_release to have configurable %%{?dist} tag
-%define specrelease an11%{?buildid}%{?dist}
+%define specrelease an12%{?buildid}%{?dist}
 # This defines the kabi tarball version
 %define kabiversion 7.3.4
 
@@ -4946,7 +4946,8 @@ fi\
 #
 #
 %changelog
-* Mon Nov 23 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.3.4-an11]
+* Tue Nov 24 2026 Antheas Kapenekakis <lkml@antheas.dev> [7.3.4-an12]
+- PCI: Disable GPP7 wakeup by default on ADVAN X-PLAY (Antheas Kapenekakis)
 - update nvidia (Antheas Kapenekakis)
 - platform/x86/amd: dptc: Match all ONEXPLAYER F1 EVA variants (Antheas Kapenekakis)
 - drm: panel-orientation-quirks: Match all ONEXPLAYER F1 EVA variants (Antheas Kapenekakis)

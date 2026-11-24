@@ -73946,3 +73946,54 @@ index 252ca203fc53c19fcab5e879d00d1a6a17afda33..2079b90560f52a6b56b43e0c74f80ccf
 -- 
 2.56.0
 
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <lkml@antheas.dev>
+Date: Tue, 24 Nov 2026 13:04:22 +0100
+Subject: PCI: Disable GPP7 wakeup by default on ADVAN X-PLAY
+
+The ADVAN X-PLAY can resume unexpectedly from s2idle with an empty
+microSD slot. Disabling wakeup for GPP7, the PCIe root port for the
+GL9755 reader, prevents the reported wakeup. Firmware declares ACPI
+GPE 0x02 as the port's wake event.
+
+Match the X-PLAY by DMI and disable wakeup by default on the root port
+at 0000:00:02.3. Keep the port's wakeup capability available through
+power/wakeup.
+
+Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
+---
+ drivers/pci/quirks.c | 20 ++++++++++++++++++++
+ 1 file changed, 20 insertions(+)
+
+diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c
+index 98889e0bb8111534f2569ccd790da77a0cf1b20d..cc24c9f805f6c15e4eb17cdd0857a38c04ff4f04 100644
+--- a/drivers/pci/quirks.c
++++ b/drivers/pci/quirks.c
+@@ -6604,3 +6604,23 @@ static void pci_mask_replay_timer_timeout(struct pci_dev *pdev)
+ DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_GLI, 0x9750, pci_mask_replay_timer_timeout);
+ DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_GLI, 0x9755, pci_mask_replay_timer_timeout);
+ #endif
++
++/*
++ * On the ADVAN X-PLAY, the microSD root port (GPP7) can cause spurious
++ * s2idle wakeups even with an empty slot. Disable its wakeup by default.
++ */
++static void quirk_advan_xplay_disable_gpp7_wakeup(struct pci_dev *pdev)
++{
++	if (!device_may_wakeup(&pdev->dev) || pci_domain_nr(pdev->bus) ||
++	    pdev->bus->number || pdev->devfn != PCI_DEVFN(2, 3))
++		return;
++
++	if (!dmi_match(DMI_SYS_VENDOR, "ADVAN") ||
++	    !dmi_match(DMI_BOARD_NAME, "ARP31B-070P2-XCL"))
++		return;
++
++	device_set_wakeup_enable(&pdev->dev, false);
++	pci_info(pdev, "Disabling wakeup by default on ADVAN X-PLAY\n");
++}
++DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_AMD, 0x14ee,
++			quirk_advan_xplay_disable_gpp7_wakeup);
+-- 
+2.56.0
+
